@@ -23,7 +23,8 @@ namespace AWSIM.TrafficSimulation
             //SpawnOnLane("TrafficLane.448", 10);
 
             npcs = new List<NPCVehicle>();
-            Scenario1();
+            //Scenario1();
+            Scenario2();
         }
 
         //Update is called once per frame
@@ -89,6 +90,22 @@ namespace AWSIM.TrafficSimulation
             npcVehicleSimulator.Register(vehicle, routes, waypointIndex);
         }
 
+        private NPCVehicle PoseObstacle(string trafficLaneName, float distance)
+        {
+            TrafficLane lane = GameObject.Find(trafficLaneName).GetComponent<TrafficLane>();
+            Vector3 position = NPCSimUtils.CalculatePosition(lane, distance, out int waypointIndex);
+            Vector3 fwd = waypointIndex == 0 ?
+                lane.Waypoints[1] - lane.Waypoints[0] :
+                lane.Waypoints[waypointIndex] - lane.Waypoints[waypointIndex - 1];
+            GameObject npc = Instantiate(npcTaxi,
+                position,
+                Quaternion.LookRotation(fwd));
+            npc.name = "NPC-Taxi";
+            var vehicle = npc.GetComponent<NPCVehicle>();
+            vehicle.VehicleID = SpawnIdGenerator.Generate();
+            return vehicle;
+        }
+
         // a scenario
         private void Scenario1()
         {
@@ -127,6 +144,12 @@ namespace AWSIM.TrafficSimulation
 
             npcVehicleSimulator.Register(npc, routes, waypointIndex, desiredSpeed, goal);
             npcs.Add(npc);
+        }
+		
+		// another scenario
+        private void Scenario2()
+        {
+            NPCVehicle npc = PoseObstacle("TrafficLane.263", 3);
         }
     }
 }
