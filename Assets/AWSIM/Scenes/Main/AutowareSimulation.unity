@@ -167,6 +167,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 203643521}
     m_Modifications:
+    - target: {fileID: 445656315769820269, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: randomTrafficSims.Array.data[0].enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5984117683371609910, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: egoVehicleTransform
       value: 
@@ -7443,6 +7447,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   autowareEgoCar: {fileID: 692674443}
   npcTaxi: {fileID: 714549001370495616, guid: d0094c5a0e9fb6148873c658dbc61a89, type: 3}
+  vehicleLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
 --- !u!1 &2109140313
 GameObject:
   m_ObjectHideFlags: 0

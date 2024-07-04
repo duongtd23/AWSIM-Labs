@@ -993,6 +993,13 @@ namespace AWSIM.TrafficSimulation
             IReadOnlyList<NPCVehicleInternalState> states,
             Transform egoTransform)
         {
+            Profiler.BeginSample("Cognition.CheckApproachingGoal");
+            new GoalCheckJob
+            {
+                States = states
+            }.Execute();
+            Profiler.EndSample();
+
             Profiler.BeginSample("Cognition.CheckNextWaypoint");
 
             new NextWaypointCheckJob
@@ -1186,6 +1193,27 @@ namespace AWSIM.TrafficSimulation
                         if (hasHit)
                             break;
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if approaching goal
+        /// </summary>
+        private struct GoalCheckJob
+        {
+            // In/Out
+            public IReadOnlyList<NPCVehicleInternalState> States;
+
+            public void Execute()
+            {
+                foreach (var state in States)
+                {
+                    if (state.GoalArrived || state.Goal.Key == null || state.Goal.Key != state.CurrentFollowingLane.name)
+                        continue;
+                    float distanceHasGone = state.DistanceHasGoneOnLane();
+                    if (Mathf.Abs(distanceHasGone - state.Goal.Value) <= 1f)
+                        state.GoalArrived = true;
                 }
             }
         }

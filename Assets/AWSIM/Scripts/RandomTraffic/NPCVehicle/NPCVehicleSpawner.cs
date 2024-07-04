@@ -22,6 +22,16 @@ namespace AWSIM.TrafficSimulation
                 ? Position - lane.Waypoints[waypointIndex - 1]
                 : lane.Waypoints[waypointIndex + 1] - Position;
         }
+
+        public NPCVehicleSpawnPoint(TrafficLane lane, Vector3 position, int waypointIndex)
+        {
+            Lane = lane;
+            WaypointIndex = waypointIndex;
+            Position = position;
+            Forward = waypointIndex == lane.Waypoints.Length - 1
+                ? position - lane.Waypoints[waypointIndex - 1]
+                : lane.Waypoints[waypointIndex + 1] - position;
+        }
     }
 
     /// <summary>
