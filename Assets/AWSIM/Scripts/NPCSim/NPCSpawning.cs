@@ -21,8 +21,9 @@ namespace AWSIM.TrafficSimulation
 
             //SpawnOnLane("TrafficLane.448", 10);
 
-            Scenario1();
+            //Scenario1();
             //Scenario2();
+            Scenario3();
         }
 
         //Update is called once per frame
@@ -141,15 +142,55 @@ namespace AWSIM.TrafficSimulation
             var goal = new KeyValuePair<string, float>("TrafficLane.265", 60f);
 
             npcVehicleSimulator.Register(npc, routes, waypointIndex, desiredSpeed, goal);
-
-            // an obstacle
-            NPCVehicle npc2 = PoseObstacle("TrafficLane.263", 25f);
         }
 
         // another scenario
         private void Scenario2()
         {
             NPCVehicle npc = PoseObstacle("TrafficLane.263", 20f);
+        }
+
+        // another scenario
+        private void Scenario3()
+        {
+            // initial setup
+            NPCVehicleConfig vehicleConfig = NPCVehicleConfig.Default();
+            vehicleConfig.Acceleration = 7f;
+            vehicleConfig.Deceleration = 8f;
+            npcVehicleSimulator = new NPCVehicleSimulator(vehicleConfig, vehicleLayerMask, groundLayerMask, 10, autowareEgoCar);
+            npcVehicleSpawner = new NPCVehicleSpawner(this.gameObject,
+                new GameObject[] { npcTaxi }, new TrafficLane[] { });
+
+            // finding lanes
+            TrafficLane trafficLane_239 = GameObject.Find("TrafficLane.239").GetComponent<TrafficLane>();
+            TrafficLane trafficLane_448 = GameObject.Find("TrafficLane.448").GetComponent<TrafficLane>();
+            TrafficLane trafficLane_265 = GameObject.Find("TrafficLane.265").GetComponent<TrafficLane>();
+            TrafficLane trafficLane_268 = GameObject.Find("TrafficLane.268").GetComponent<TrafficLane>();
+            // desired speeds, defined for each lane
+            var desiredSpeed = new Dictionary<string, float>()
+            {
+                { trafficLane_448.name, 20f },
+                { trafficLane_265.name, 7f },
+            };
+
+            // set initial position on lane 239, 15m from the begining of the lane
+            Vector3 position = NPCSimUtils.CalculatePosition(trafficLane_239, 15f, out int waypointIndex);
+            NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(trafficLane_239, position, waypointIndex);
+
+            // spawn NPC
+            var npc = npcVehicleSpawner.Spawn(npcTaxi, SpawnIdGenerator.Generate(), spawnPoint);
+
+            // set route, i.e., from lane 239 go straight to lane 448, and then change to lane 265
+            var routes = new List<TrafficLane> { trafficLane_239, trafficLane_448, trafficLane_265, trafficLane_268 };
+
+            // set goal
+            // stop on lane 265, 40m far from the starting point of the lane
+            var goal = new KeyValuePair<string, float>("TrafficLane.268", 20f);
+
+            npcVehicleSimulator.Register(npc, routes, waypointIndex, desiredSpeed, goal);
+
+            // an obstacle
+            NPCVehicle npc2 = PoseObstacle("TrafficLane.263", 15f);
         }
     }
 }
