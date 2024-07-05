@@ -110,6 +110,16 @@ namespace AWSIM.TrafficSimulation
             vehicle.VehicleID = vehicleID;
             return vehicle;
         }
+        public NPCVehicle Spawn(GameObject prefab, uint vehicleID, NPCVehicleSpawnPoint npcVehicleSpawnPoint, Quaternion quaternion)
+        {
+            var obj = Object.Instantiate(prefab, npcVehicleSpawnPoint.Position, quaternion);
+            obj.name = obj.name + "_" + vehicleID.ToString();
+            obj.transform.forward = npcVehicleSpawnPoint.Forward;
+            obj.transform.parent = NPCVehicleParentsObj.transform;
+            var vehicle = obj.GetComponent<NPCVehicle>();
+            vehicle.VehicleID = vehicleID;
+            return vehicle;
+        }
 
         /// <summary>
         /// Destroy <paramref name="vehicle"/>

@@ -124,10 +124,8 @@ namespace AWSIM.TrafficSimulation
                     return startPoint + (temp * distance);
                 }
             }
-            waypointIndex = -1;
-            Debug.LogError("Cannot find the position far away " + distance +
+            throw new UnityException("[NPCSim] Cannot find the position far away " + distance +
                 " from the starting point of lane " + lane.name);
-            return Vector3.zero;
         }
 
         /// <summary>

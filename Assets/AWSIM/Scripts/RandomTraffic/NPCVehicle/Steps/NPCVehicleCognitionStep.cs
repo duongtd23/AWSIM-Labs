@@ -1209,10 +1209,10 @@ namespace AWSIM.TrafficSimulation
             {
                 foreach (var state in States)
                 {
-                    if (state.GoalArrived || state.Goal.Key == null || state.Goal.Key != state.CurrentFollowingLane.name)
+                    if (state.GoalArrived || state.Goal == null || state.Goal.LaneName != state.CurrentFollowingLane.name)
                         continue;
                     float distanceHasGone = state.DistanceHasGoneOnLane();
-                    if (Mathf.Abs(distanceHasGone - state.Goal.Value) <= 1f)
+                    if (Mathf.Abs(distanceHasGone - state.Goal.Position) <= 0.5f)
                         state.GoalArrived = true;
                 }
             }

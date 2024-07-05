@@ -162,7 +162,7 @@ namespace AWSIM.TrafficSimulation
         }
 
         public void Register(NPCVehicle vehicle, List<TrafficLane> route, int waypointIndex,
-            Dictionary<string,float> desiredSpeed, KeyValuePair<string,float> goal)
+            Dictionary<string,float> desiredSpeed, LanePosition goal)
         {
             vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, desiredSpeed, goal, waypointIndex));
         }

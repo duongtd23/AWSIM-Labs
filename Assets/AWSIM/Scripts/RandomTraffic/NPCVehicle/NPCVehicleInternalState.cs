@@ -230,7 +230,6 @@ namespace AWSIM.TrafficSimulation
                     z = vehicle.Bounds.min.z
                 },
                 Width = vehicle.Bounds.size.x,
-                goal = new KeyValuePair<string, float>(),
                 desiredSpeed = new Dictionary<string, float>()
         };
             state.FollowingLanes.Add(lane);
@@ -274,12 +273,12 @@ namespace AWSIM.TrafficSimulation
         }
 
         // goal, defined as a pair of lane name and distance (from the starting point)
-        private KeyValuePair<string, float> goal;
-        public KeyValuePair<string, float> Goal => goal;
+        private LanePosition goal;
+        public LanePosition Goal => goal;
         public bool GoalArrived { get; set; }
 
         public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
-            Dictionary<string, float> desiredSpeed, KeyValuePair<string, float> goal, int waypointIndex = 0)
+            Dictionary<string, float> desiredSpeed, LanePosition goal, int waypointIndex = 0)
         {
             var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
             state.desiredSpeed = desiredSpeed;
