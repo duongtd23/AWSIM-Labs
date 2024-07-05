@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -51,12 +52,6 @@ namespace AWSIM.TrafficSimulation
             return lanes[re];
         }
 
-        // find traffic lane by name
-        public static TrafficLane FindTrafficLane(string trafficLaneName)
-        {
-            return GameObject.Find(trafficLaneName).GetComponent<TrafficLane>();
-        }
-
         /// <summary>
         /// return the position and direction on lane <param name="trafficLaneName">,
         /// and far away <param name="distance"> from the start position of <param name="trafficLaneName">
@@ -67,13 +62,7 @@ namespace AWSIM.TrafficSimulation
         /// <returns></returns>
         public static Vector3 PoseOnLane(string trafficLaneName, float distance, out Quaternion direction)
         {
-            TrafficLane lane = GameObject.Find(trafficLaneName).GetComponent<TrafficLane>();
-            if (lane == null)
-            {
-                Debug.LogError("Cannot find lane with name " + trafficLaneName);
-                direction = Quaternion.identity;
-                return Vector3.zero;
-            }
+            TrafficLane lane = ParseLanes(trafficLaneName);
             float remainDistance = distance;
             for (int j = 0; j < lane.Waypoints.Length - 1; j++)
             {
@@ -142,5 +131,19 @@ namespace AWSIM.TrafficSimulation
             return Vector3.Distance(point1, point2);
         }
 
+        public static TrafficLane ParseLanes(string laneName)
+        {
+            GameObject obj = GameObject.Find(laneName);
+            if (obj == null)
+                throw new UnityException("[NPCSim] Cannot find traffic line with name: " + laneName);
+            return obj.GetComponent<TrafficLane>();
+        }
+        public static List<TrafficLane> ParseLanes(List<string> laneNames)
+        {
+            var lanes = new List<TrafficLane>();
+            foreach (string laneName in laneNames)
+                lanes.Add(ParseLanes(laneName));
+            return lanes;
+        }
     }
 }

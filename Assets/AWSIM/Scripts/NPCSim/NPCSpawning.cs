@@ -38,7 +38,7 @@ namespace AWSIM.TrafficSimulation
                 throw new UnityException("[NPCSim] Cannot find rigidbody of the ego vehicle");
 
             InitialSetup();
-            Scenario5();
+            Scenario6();
         }
 
         // initial setup
@@ -84,14 +84,14 @@ namespace AWSIM.TrafficSimulation
                 if (delay.UntilEgoMove && autowareEgoTimer >= delay.DelayAmount)
                 {
                     List<string> route = entry.Value.Item2;
-                    var routeLanes = parseLanes(route);
+                    var routeLanes = NPCSimUtils.ParseLanes(route);
                     npcVehicleSimulator.Register(npc, routeLanes, entry.Value.Item3, entry.Value.Item4, entry.Value.Item5);
                     removeAfter.Add(npc);
                 }
                 else if (!delay.UntilEgoMove && Time.fixedTime >= delay.DelayAmount)
                 {
                     List<string> route = entry.Value.Item2;
-                    var routeLanes = parseLanes(route);
+                    var routeLanes = NPCSimUtils.ParseLanes(route);
                     npcVehicleSimulator.Register(npc, routeLanes, entry.Value.Item3, entry.Value.Item4, entry.Value.Item5);
                     removeAfter.Add(npc);
                 }
@@ -138,26 +138,11 @@ namespace AWSIM.TrafficSimulation
             return vehicle;
         }
 
-        private TrafficLane parseLanes(string laneName)
-        {
-            GameObject obj = GameObject.Find(laneName);
-            if (obj == null)
-                throw new UnityException("[NPCSim] Cannot find traffic line with name: " + laneName);
-            return obj.GetComponent<TrafficLane>();
-        }
-        private List<TrafficLane> parseLanes(List<string> laneNames)
-        {
-            var lanes = new List<TrafficLane>();
-            foreach (string laneName in laneNames)
-                lanes.Add(parseLanes(laneName));
-            return lanes;
-        }
-
         // spawn an NPC
         private NPCVehicle SpawnNPC(GameObject vehiclePrefab, LanePosition spawnPosition, out int waypointIndex)
         {
             // calculate position
-            TrafficLane spawnLane = parseLanes(spawnPosition.LaneName);
+            TrafficLane spawnLane = NPCSimUtils.ParseLanes(spawnPosition.LaneName);
             Vector3 position = NPCSimUtils.CalculatePosition(spawnLane, spawnPosition.Position, out waypointIndex);
             NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, position, waypointIndex);
 
@@ -175,7 +160,7 @@ namespace AWSIM.TrafficSimulation
             NPCVehicle npc = SpawnNPC(vehiclePrefab, spawnPosition, out int waypointIndex);
 
             // set route and goal
-            var routeLanes = parseLanes(route);
+            var routeLanes = NPCSimUtils.ParseLanes(route);
             npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, desiredSpeeds, goal);
             return npc;
         }
@@ -238,7 +223,8 @@ namespace AWSIM.TrafficSimulation
             };
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            // TODO: make it possible to stop at the end of a lane
+            // Note that you can set the 2nd param to very big number (e.g., float.MaxValue),
+            //  in that case, the vehicle will stop at the end of the goal lane
             var goal = new LanePosition("TrafficLane.265", 60f);
 
             SpawnNPC(npcTaxi, spawnPosition, route, desiredSpeeds, goal);
@@ -325,6 +311,27 @@ namespace AWSIM.TrafficSimulation
             var goal = new LanePosition("TrafficLane.265", 60f);
 
             SpawnNPCWithDelay(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.Delay(5f));
+        }
+
+        // spawn an NPC and make it move at 1 second after the Ego moves
+        private void Scenario6()
+        {
+            // set initial position
+            LanePosition spawnPosition = new LanePosition("TrafficLane.240", 7f);
+
+            // define route
+            List<string> route = new List<string>()
+            {
+                "TrafficLane.240",
+                "TrafficLane.422",
+            };
+            // desired speeds, defined for each lane
+            var desiredSpeeds = new Dictionary<string, float>() { };
+            // set goal
+            // stop on lane 265, 40m far from the starting point of the lane
+            var goal = new LanePosition("TrafficLane.240", 30f);
+
+            SpawnNPCAndDelayMovement(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoMove(1f));
         }
     }
 

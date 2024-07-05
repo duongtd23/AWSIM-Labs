@@ -1212,7 +1212,7 @@ namespace AWSIM.TrafficSimulation
                     if (state.GoalArrived || state.Goal == null || state.Goal.LaneName != state.CurrentFollowingLane.name)
                         continue;
                     float distanceHasGone = state.DistanceHasGoneOnLane();
-                    if (Mathf.Abs(distanceHasGone - state.Goal.Position) <= 0.5f)
+                    if (distanceHasGone >= state.Goal.Position)
                         state.GoalArrived = true;
                 }
             }

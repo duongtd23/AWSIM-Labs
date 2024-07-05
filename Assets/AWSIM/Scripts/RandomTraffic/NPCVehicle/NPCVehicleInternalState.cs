@@ -282,7 +282,11 @@ namespace AWSIM.TrafficSimulation
         {
             var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
             state.desiredSpeed = desiredSpeed;
+
+            TrafficLane lane = NPCSimUtils.ParseLanes(goal.LaneName);
+            goal.Position = Mathf.Min(goal.Position, lane.TotalLength());
             state.goal = goal;
+
             return state;
         }
     }
