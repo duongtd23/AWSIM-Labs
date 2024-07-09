@@ -20,8 +20,10 @@ namespace AWSIM.TrafficSimulation
         [SerializeField, Tooltip("Ground layer for raytracing the collision distances.")]
         private LayerMask groundLayerMask;
 
-        // this time starts ticking when Ego vehicle start moving
-        private float autowareEgoTimer = 0;
+        // the moment when Ego vehicle starts moving
+        private float egoStartMovingTime = -1;
+        // the moment when Ego vehicle gets plan trajectory
+        private float egoGotTrajectoryTime = -1;
 
         // this flag becomes true when the ego vehicle got a plan trajectory
         private bool egoGotTrajectory = false;
@@ -32,7 +34,8 @@ namespace AWSIM.TrafficSimulation
         // Start is called before the first frame update
         void Start()
         {
-            autowareEgoTimer = 0;
+            egoStartMovingTime = -1;
+            egoGotTrajectoryTime = -1;
             egoGotTrajectory = false;
             if (autowareEgoCar == null)
                 throw new UnityException("[NPCSim] Cannot detect the ego vehicle");
@@ -65,20 +68,18 @@ namespace AWSIM.TrafficSimulation
                 {
                     Debug.Log("[NPCSim] Got /planning/scenario_planning/trajectory message: " + msg);
                     egoGotTrajectory = true;
+                    egoGotTrajectoryTime = Time.fixedTime;
                 });
         }
 
         //Update is called once per frame
         void FixedUpdate()
         {
-            // tick the autoware timer if it already started
-            if (autowareEgoTimer > 0)
-                autowareEgoTimer += Time.fixedDeltaTime;
-            else
-                // otherwise, check if Ego moved to start the timer
-                // TODO: use proper implementation instead of egoRigidbody.velocity
-                if (NPCSimUtils.DistanceIgnoreYAxis(egoRigidbody.velocity, Vector3.zero) > 0.2f)
-                    autowareEgoTimer += Time.fixedDeltaTime;
+            // check if Ego moved
+            // TODO: use proper implementation instead of egoRigidbody.velocity
+            if (egoStartMovingTime <= 0 &&
+                NPCSimUtils.DistanceIgnoreYAxis(egoRigidbody.velocity, Vector3.zero) > 0.2f)
+                egoStartMovingTime = Time.fixedTime;
 
             npcVehicleSimulator.StepOnce(Time.fixedDeltaTime);
             UpdateDelayingNPCs();
@@ -92,9 +93,9 @@ namespace AWSIM.TrafficSimulation
                 NPCVehicle npc = entry.Key;
                 NPCSpawnDelay delay = entry.Value.Item1;
                 
-                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && autowareEgoTimer >= delay.DelayAmount) ||
+                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
                     (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory))
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory && Time.fixedTime - egoGotTrajectoryTime >= delay.DelayAmount))
                 {
                     List<string> route = entry.Value.Item2;
                     var routeLanes = NPCSimUtils.ParseLanes(route);
@@ -109,9 +110,9 @@ namespace AWSIM.TrafficSimulation
             foreach(var entry in delayingSpawnNPCs)
             {
                 NPCSpawnDelay delay = entry.Delay;
-                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && autowareEgoTimer >= delay.DelayAmount) ||
+                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
                     (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory))
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory && Time.fixedTime - egoGotTrajectoryTime >= delay.DelayAmount))
                 {
                     SpawnNPC(entry.VehiclePrefab, entry.SpawnPosition, entry.Route, entry.DesiredSpeeds, entry.Goal);
                     removeAfter2.Add(entry);
