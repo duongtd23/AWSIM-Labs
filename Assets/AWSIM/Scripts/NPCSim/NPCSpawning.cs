@@ -23,10 +23,10 @@ namespace AWSIM.TrafficSimulation
         // the moment when Ego vehicle starts moving
         private float egoStartMovingTime = -1;
         // the moment when Ego vehicle gets plan trajectory
-        private float egoGotTrajectoryTime = -1;
+        private float egoEngagedTime = -1;
 
         // this flag becomes true when the ego vehicle got a plan trajectory
-        private bool egoGotTrajectory = false;
+        private bool egoEngaged = false;
 
         private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>> delayingMoveNPCs;
         private List<DelayingNPCVehicle> delayingSpawnNPCs;
@@ -35,8 +35,8 @@ namespace AWSIM.TrafficSimulation
         void Start()
         {
             egoStartMovingTime = -1;
-            egoGotTrajectoryTime = -1;
-            egoGotTrajectory = false;
+            egoEngagedTime = -1;
+            egoEngaged = false;
             if (autowareEgoCar == null)
                 throw new UnityException("[NPCSim] Cannot detect the ego vehicle");
 
@@ -63,12 +63,14 @@ namespace AWSIM.TrafficSimulation
             delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>>();
             delayingSpawnNPCs = new List<DelayingNPCVehicle>();
 
-            SimulatorROS2Node.CreateSubscription <autoware_planning_msgs.msg.Trajectory> (
-                "/planning/scenario_planning/trajectory", msg =>
+            SimulatorROS2Node.CreateSubscription <autoware_vehicle_msgs.msg.Engage> (
+                "/autoware/engage", msg =>
                 {
-                    Debug.Log("[NPCSim] Got /planning/scenario_planning/trajectory message: " + msg);
-                    egoGotTrajectory = true;
-                    egoGotTrajectoryTime = Time.fixedTime;
+                    if (msg.Engage_)
+                    {
+                        Debug.Log("[NPCSim] Got /autoware/engage message: " + msg);
+                        egoEngaged = true;
+                    }
                 });
         }
 
@@ -80,6 +82,9 @@ namespace AWSIM.TrafficSimulation
             if (egoStartMovingTime <= 0 &&
                 NPCSimUtils.DistanceIgnoreYAxis(egoRigidbody.velocity, Vector3.zero) > 0.2f)
                 egoStartMovingTime = Time.fixedTime;
+            // check if Ego got trajectory
+            if (egoEngagedTime <= 0 && egoEngaged)
+                egoEngagedTime = Time.fixedTime;
 
             npcVehicleSimulator.StepOnce(Time.fixedDeltaTime);
             UpdateDelayingNPCs();
@@ -95,7 +100,7 @@ namespace AWSIM.TrafficSimulation
                 
                 if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
                     (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory && Time.fixedTime - egoGotTrajectoryTime >= delay.DelayAmount))
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
                     List<string> route = entry.Value.Item2;
                     var routeLanes = NPCSimUtils.ParseLanes(route);
@@ -112,7 +117,7 @@ namespace AWSIM.TrafficSimulation
                 NPCSpawnDelay delay = entry.Delay;
                 if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
                     (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory && Time.fixedTime - egoGotTrajectoryTime >= delay.DelayAmount))
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
                     SpawnNPC(entry.VehiclePrefab, entry.SpawnPosition, entry.Route, entry.DesiredSpeeds, entry.Goal);
                     removeAfter2.Add(entry);
@@ -361,7 +366,7 @@ namespace AWSIM.TrafficSimulation
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LanePosition("TrafficLane.265", 60f);
 
-            SpawnNPCAndDelayMovement(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoGotTrajectory(0f));
+            SpawnNPCAndDelayMovement(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoEngaged(0f));
         }
     }
 

@@ -6,7 +6,7 @@ namespace AWSIM.TrafficSimulation
     public enum NPCDelayType
     {
         FROM_BEGINNING,           //default
-        UNTIL_EGO_GOT_TRAJECTORY,
+        UNTIL_EGO_ENGAGE,
         UNTIL_EGO_MOVE
     }
     public class NPCSpawnDelay
@@ -24,24 +24,24 @@ namespace AWSIM.TrafficSimulation
                 DelayType = NPCDelayType.FROM_BEGINNING,
             };
         }
-        // Delay until the Ego vehicle got trajectory (in seconds).
+        // Delay until the Ego vehicle got engaged (in seconds).
         // E.g., if the passed param (`delay`) is 2,
-        // it will be delayed 2 seconds after the Ego vehicle got trajectory.
+        // it will be delayed 2 seconds after the Ego vehicle engaged.
         // If `delay` is 0, the action concerned will be triggered at the same time
-        // when the Ego got planning trajectory.
-        public static NPCSpawnDelay DelayUntilEgoGotTrajectory(float delay)
+        // when the Ego engaged.
+        public static NPCSpawnDelay DelayUntilEgoEngaged(float delay)
         {
             return new NPCSpawnDelay()
             {
                 DelayAmount = delay,
-                DelayType = NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY,
+                DelayType = NPCDelayType.UNTIL_EGO_ENGAGE,
             };
         }
         // Delay until the Ego vehicle moves (in seconds)
         // E.g., if the passed param (`delay`) is 2,
         // it will be delayed 2 seconds after the Ego vehicle moves.
         // Don't set `delay` value to 0 as it may cause the NPC and the Ego never move.
-        // In such a case, use DelayUntilEgoGotTrajectory instead
+        // In such a case, use DelayUntilEgoEngaged instead
         public static NPCSpawnDelay DelayUntilEgoMove(float delay)
         {
             return new NPCSpawnDelay()
