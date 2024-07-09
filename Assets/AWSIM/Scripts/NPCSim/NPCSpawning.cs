@@ -23,6 +23,9 @@ namespace AWSIM.TrafficSimulation
         // this time starts ticking when Ego vehicle start moving
         private float autowareEgoTimer = 0;
 
+        // this flag becomes true when the ego vehicle got a plan trajectory
+        private bool egoGotTrajectory = false;
+
         private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>> delayingMoveNPCs;
         private List<DelayingNPCVehicle> delayingSpawnNPCs;
 
@@ -30,6 +33,7 @@ namespace AWSIM.TrafficSimulation
         void Start()
         {
             autowareEgoTimer = 0;
+            egoGotTrajectory = false;
             if (autowareEgoCar == null)
                 throw new UnityException("[NPCSim] Cannot detect the ego vehicle");
 
@@ -38,7 +42,7 @@ namespace AWSIM.TrafficSimulation
                 throw new UnityException("[NPCSim] Cannot find rigidbody of the ego vehicle");
 
             InitialSetup();
-            Scenario6();
+            Scenario7();
         }
 
         // initial setup
@@ -55,6 +59,13 @@ namespace AWSIM.TrafficSimulation
 
             delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>>();
             delayingSpawnNPCs = new List<DelayingNPCVehicle>();
+
+            SimulatorROS2Node.CreateSubscription <autoware_planning_msgs.msg.Trajectory> (
+                "/planning/scenario_planning/trajectory", msg =>
+                {
+                    Debug.Log("[NPCSim] Got /planning/scenario_planning/trajectory message: " + msg);
+                    egoGotTrajectory = true;
+                });
         }
 
         //Update is called once per frame
@@ -81,14 +92,9 @@ namespace AWSIM.TrafficSimulation
                 NPCVehicle npc = entry.Key;
                 NPCSpawnDelay delay = entry.Value.Item1;
                 
-                if (delay.UntilEgoMove && autowareEgoTimer >= delay.DelayAmount)
-                {
-                    List<string> route = entry.Value.Item2;
-                    var routeLanes = NPCSimUtils.ParseLanes(route);
-                    npcVehicleSimulator.Register(npc, routeLanes, entry.Value.Item3, entry.Value.Item4, entry.Value.Item5);
-                    removeAfter.Add(npc);
-                }
-                else if (!delay.UntilEgoMove && Time.fixedTime >= delay.DelayAmount)
+                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && autowareEgoTimer >= delay.DelayAmount) ||
+                    (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory))
                 {
                     List<string> route = entry.Value.Item2;
                     var routeLanes = NPCSimUtils.ParseLanes(route);
@@ -103,12 +109,9 @@ namespace AWSIM.TrafficSimulation
             foreach(var entry in delayingSpawnNPCs)
             {
                 NPCSpawnDelay delay = entry.Delay;
-                if (delay.UntilEgoMove && autowareEgoTimer >= delay.DelayAmount)
-                {
-                    SpawnNPC(entry.VehiclePrefab, entry.SpawnPosition, entry.Route, entry.DesiredSpeeds, entry.Goal);
-                    removeAfter2.Add(entry);
-                }
-                else if (!delay.UntilEgoMove && Time.fixedTime >= delay.DelayAmount)
+                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && autowareEgoTimer >= delay.DelayAmount) ||
+                    (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
+                    (delay.DelayType == NPCDelayType.UNTIL_EGO_GOT_TRAJECTORY && egoGotTrajectory))
                 {
                     SpawnNPC(entry.VehiclePrefab, entry.SpawnPosition, entry.Route, entry.DesiredSpeeds, entry.Goal);
                     removeAfter2.Add(entry);
@@ -332,6 +335,32 @@ namespace AWSIM.TrafficSimulation
             var goal = new LanePosition("TrafficLane.240", 30f);
 
             SpawnNPCAndDelayMovement(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoMove(1f));
+        }
+
+        // spawn an NPC, delay its movement, and make it move when the Ego gets plan trajectory
+        private void Scenario7()
+        {
+            // set initial position on lane 239, 15m from the begining of the lane
+            LanePosition spawnPosition = new LanePosition("TrafficLane.239", 15f);
+
+            // define route, i.e., from lane 239 go straight to lane 448, and then change to lane 265
+            List<string> route = new List<string>()
+            {
+                "TrafficLane.239",
+                "TrafficLane.448",
+                "TrafficLane.265"
+            };
+            // desired speeds, defined for each lane
+            var desiredSpeeds = new Dictionary<string, float>()
+            {
+                { "TrafficLane.448", 20f },
+                { "TrafficLane.265", 7f },
+            };
+            // set goal
+            // stop on lane 265, 40m far from the starting point of the lane
+            var goal = new LanePosition("TrafficLane.265", 60f);
+
+            SpawnNPCAndDelayMovement(npcTaxi, spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoGotTrajectory(0f));
         }
     }
 
