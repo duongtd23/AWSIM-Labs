@@ -63,15 +63,21 @@ namespace AWSIM.TrafficSimulation
             delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>>();
             delayingSpawnNPCs = new List<DelayingNPCVehicle>();
 
-            SimulatorROS2Node.CreateSubscription <autoware_vehicle_msgs.msg.Engage> (
-                "/autoware/engage", msg =>
-                {
-                    if (msg.Engage_)
+            try
+            {
+                SimulatorROS2Node.CreateSubscription<autoware_vehicle_msgs.msg.Engage>(
+                    "/autoware/engage", msg =>
                     {
-                        Debug.Log("[NPCSim] Got /autoware/engage message: " + msg);
-                        egoEngaged = true;
-                    }
-                });
+                        if (msg.Engage_)
+                        {
+                            Debug.Log("[NPCSim] Got /autoware/engage message: " + msg);
+                            egoEngaged = true;
+                        }
+                    });
+            } catch (NullReferenceException e)
+            {
+                Debug.LogError("[NPCSim] Cannot create ROS subscriber /autoware/engage. Make sure Autoware has been started. Exception detail: " + e);
+            }
         }
 
         //Update is called once per frame
@@ -287,8 +293,7 @@ namespace AWSIM.TrafficSimulation
                 "TrafficLane.240",
                 "TrafficLane.422",
             };
-            // desired speeds, defined for each lane
-            var desiredSpeeds = new Dictionary<string, float>(){};
+            var desiredSpeeds = new Dictionary<string, float>();
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LanePosition("TrafficLane.240", 30f);
@@ -356,12 +361,8 @@ namespace AWSIM.TrafficSimulation
                 "TrafficLane.448",
                 "TrafficLane.265"
             };
-            // desired speeds, defined for each lane
-            var desiredSpeeds = new Dictionary<string, float>()
-            {
-                { "TrafficLane.448", 20f },
-                { "TrafficLane.265", 7f },
-            };
+            // undefined desired speeds (i.e., NPC will obey the speed limit of each lane)
+            var desiredSpeeds = new Dictionary<string, float>();
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LanePosition("TrafficLane.265", 60f);
