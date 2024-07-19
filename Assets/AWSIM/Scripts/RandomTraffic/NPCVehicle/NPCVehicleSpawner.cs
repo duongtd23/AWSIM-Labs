@@ -22,6 +22,16 @@ namespace AWSIM.TrafficSimulation
                 ? Position - lane.Waypoints[waypointIndex - 1]
                 : lane.Waypoints[waypointIndex + 1] - Position;
         }
+
+        public NPCVehicleSpawnPoint(TrafficLane lane, Vector3 position, int waypointIndex)
+        {
+            Lane = lane;
+            WaypointIndex = waypointIndex;
+            Position = position;
+            Forward = waypointIndex == lane.Waypoints.Length - 1
+                ? position - lane.Waypoints[waypointIndex - 1]
+                : lane.Waypoints[waypointIndex + 1] - position;
+        }
     }
 
     /// <summary>
@@ -93,6 +103,17 @@ namespace AWSIM.TrafficSimulation
         public NPCVehicle Spawn(GameObject prefab, uint vehicleID, NPCVehicleSpawnPoint npcVehicleSpawnPoint)
         {
             var obj = Object.Instantiate(prefab, npcVehicleSpawnPoint.Position, Quaternion.identity);
+            obj.name = obj.name + "_" + vehicleID.ToString();
+            obj.transform.forward = npcVehicleSpawnPoint.Forward;
+            obj.transform.parent = NPCVehicleParentsObj.transform;
+            var vehicle = obj.GetComponent<NPCVehicle>();
+            vehicle.VehicleID = vehicleID;
+            return vehicle;
+        }
+
+        public NPCVehicle Spawn(GameObject prefab, uint vehicleID, NPCVehicleSpawnPoint npcVehicleSpawnPoint, Quaternion quaternion)
+        {
+            var obj = Object.Instantiate(prefab, npcVehicleSpawnPoint.Position, quaternion);
             obj.name = obj.name + "_" + vehicleID.ToString();
             obj.transform.forward = npcVehicleSpawnPoint.Forward;
             obj.transform.parent = NPCVehicleParentsObj.transform;

@@ -229,7 +229,8 @@ namespace AWSIM.TrafficSimulation
                     y = 0f,
                     z = vehicle.Bounds.min.z
                 },
-                Width = vehicle.Bounds.size.x
+                Width = vehicle.Bounds.size.x,
+                desiredSpeed = new Dictionary<string, float>()
             };
             state.FollowingLanes.Add(lane);
             return state;
@@ -239,6 +240,53 @@ namespace AWSIM.TrafficSimulation
         {
             var state = NPCVehicleInternalState.Create(vehicle, route.First(), waypointIndex);
             state.Route = route;
+            return state;
+        }
+
+        // desired speeds, defined as a map from lane names to speeds
+        private Dictionary<string, float> desiredSpeed;
+
+        // return the desired speed for a given lane
+        public float TargetSpeed(TrafficLane lane)
+        {
+            if (desiredSpeed.ContainsKey(lane.name))
+                return desiredSpeed[lane.name];
+            return lane.SpeedLimit;
+        }
+
+        /// <summary>
+        /// calculate the distance has gone on the current lane
+        /// </summary>
+        /// <returns></returns>
+        public float DistanceHasGoneOnLane()
+        {
+            Vector3 position = FrontCenterPosition;
+            position.y = 0f;
+            float distanceGone = 0;
+            for (int i = 0; i < WaypointIndex - 1; i++)
+            {
+                distanceGone += AutowareAnalysisUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[i], CurrentFollowingLane.Waypoints[i + 1]);
+            }
+            int lastWaypointIndex = WaypointIndex - 1 >= 0 ? WaypointIndex - 1 : 0;
+            distanceGone += AutowareAnalysisUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[lastWaypointIndex], position);
+            return distanceGone;
+        }
+
+        // goal, defined as a pair of lane name and distance (from the starting point)
+        private LanePosition goal;
+        public LanePosition Goal => goal;
+        public bool GoalArrived { get; set; }
+
+        public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
+            Dictionary<string, float> desiredSpeed, LanePosition goal, int waypointIndex = 0)
+        {
+            var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
+            state.desiredSpeed = desiredSpeed;
+
+            TrafficLane lane = AutowareAnalysisUtils.ParseLanes(goal.LaneName);
+            goal.Position = Mathf.Min(goal.Position, lane.TotalLength());
+            state.goal = goal;
+
             return state;
         }
     }

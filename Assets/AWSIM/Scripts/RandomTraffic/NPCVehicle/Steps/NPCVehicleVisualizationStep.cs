@@ -20,7 +20,7 @@ namespace AWSIM.TrafficSimulation
 
         private static void ApplyPose(NPCVehicleInternalState state)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             var vehicle = state.Vehicle;
@@ -30,7 +30,7 @@ namespace AWSIM.TrafficSimulation
 
         private static void ApplyTurnSignalState(NPCVehicleInternalState state)
         {
-            if (state.ShouldDespawn || state.FollowingLanes.Count <= 1)
+            if (state.ShouldDespawn || state.FollowingLanes.Count <= 1 || state.GoalArrived)
                 return;
 
             var vehicle = state.Vehicle;

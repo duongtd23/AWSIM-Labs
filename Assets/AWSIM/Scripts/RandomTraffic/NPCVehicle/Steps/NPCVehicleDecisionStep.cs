@@ -36,7 +36,7 @@ namespace AWSIM.TrafficSimulation
         /// <param name="state"></param>
         private static void UpdateTargetPoint(NPCVehicleInternalState state)
         {
-            if (state.ShouldDespawn || state.CurrentFollowingLane == null)
+            if (state.ShouldDespawn || state.CurrentFollowingLane == null || state.GoalArrived)
                 return;
 
             state.TargetPoint = state.CurrentFollowingLane.Waypoints[state.WaypointIndex];
@@ -53,7 +53,7 @@ namespace AWSIM.TrafficSimulation
         // /// </summary>
         private static void UpdateSpeedMode(NPCVehicleInternalState state, NPCVehicleConfig config)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
             {
                 return;
             }
@@ -66,7 +66,9 @@ namespace AWSIM.TrafficSimulation
             var distanceToStopPointByFrontVehicle = onlyGreaterThan(state.DistanceToFrontVehicle - MinFrontVehicleDistance, -MinFrontVehicleDistance);
             var distanceToStopPointByTrafficLight = CalculateTrafficLightDistance(state, suddenStopDistance);
             var distanceToStopPointByRightOfWay = CalculateYieldingDistance(state);
-            var distanceToStopPoint = Mathf.Min(distanceToStopPointByFrontVehicle, distanceToStopPointByTrafficLight, distanceToStopPointByRightOfWay);
+            var distanceToStopPointByGoal = CalculateGoalDistance(state);
+            var distanceToStopPoint = Mathf.Min(distanceToStopPointByFrontVehicle, distanceToStopPointByTrafficLight, distanceToStopPointByRightOfWay,
+                distanceToStopPointByGoal);
 
             state.IsStoppedByFrontVehicle = false;
             if (distanceToStopPointByFrontVehicle <= stopDistance)
@@ -154,6 +156,20 @@ namespace AWSIM.TrafficSimulation
                 Gizmos.DrawFrustum(Vector3.zero, 30f, 1f, 0f, 1f);
                 Gizmos.matrix = Matrix4x4.identity;
             }
+        }
+
+        /// <summary>
+        /// calculate the distance to goal
+        /// </summary>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        private static float CalculateGoalDistance(NPCVehicleInternalState state)
+        {
+            var distanceToGoal = float.MaxValue;
+            if (state.Goal != null && state.Goal.LaneName == state.CurrentFollowingLane.name)
+                distanceToGoal = state.Goal.Position -
+                    state.DistanceHasGoneOnLane();
+            return distanceToGoal;
         }
     }
 }

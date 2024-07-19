@@ -32,7 +32,7 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private void UpdateSpeed(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             float targetSpeed;
@@ -40,11 +40,11 @@ namespace AWSIM.TrafficSimulation
             switch (state.SpeedMode)
             {
                 case NPCVehicleSpeedMode.NORMAL:
-                    targetSpeed = state.CurrentFollowingLane.SpeedLimit;
+                    targetSpeed = state.TargetSpeed(state.CurrentFollowingLane);
                     acceleration = config.Acceleration;
                     break;
                 case NPCVehicleSpeedMode.SLOW:
-                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.CurrentFollowingLane.SpeedLimit);
+                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.TargetSpeed(state.CurrentFollowingLane));
                     acceleration = config.Deceleration;
                     break;
                 case NPCVehicleSpeedMode.SUDDEN_STOP:
@@ -88,7 +88,7 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private static void UpdatePose(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             state.Yaw += state.YawSpeed * deltaTime;

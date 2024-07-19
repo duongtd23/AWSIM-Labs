@@ -96,5 +96,13 @@ namespace AWSIM.TrafficSimulation
             trafficLane.speedLimit = speedLimit;
             return trafficLane;
         }
+
+        public float TotalLength()
+        {
+            float totalLen = 0;
+            for (int i = 0; i < waypoints.Length-1; i++)
+                totalLen += AutowareAnalysisUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return totalLen;
+        }
     }
 }
