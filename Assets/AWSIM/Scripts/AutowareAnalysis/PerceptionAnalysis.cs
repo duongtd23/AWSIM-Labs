@@ -8,7 +8,7 @@ namespace AWSIM
 {
     public class PerceptionAnalysis : MonoBehaviour
     {
-        private NPCVehicle npc;
+        private NPCVehicle dummy;
         public Camera sensorCamera;
 
         // Start is called before the first frame update
@@ -24,16 +24,16 @@ namespace AWSIM
                             var roi = msg.Feature_objects[i].Feature.Roi;
                             Rect boundingBox = new Rect(
                                 (float)roi.X_offset,
-                                (float)roi.Y_offset,
+                                (float)sensorCamera.pixelHeight - roi.Y_offset - roi.Height,
                                 (float)roi.Width,
                                 (float)roi.Height);
-                            Debug.Log("[AWAnalyzer] Detected object " + msg.Feature_objects[i].Object.Classification + boundingBox);
+                            Debug.Log("[AWAnalysis] Detected object " + msg.Feature_objects[i].Object.Classification + boundingBox);
                         }
                     });
             }
             catch (NullReferenceException e)
             {
-                Debug.LogError("[AWAnalyzer] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
+                Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
                     "Make sure Autoware has been started. Exception detail: " + e);
             }
         }
@@ -41,20 +41,72 @@ namespace AWSIM
         // Update is called once per frame
         void FixedUpdate()
         {
-            if (npc == null && CustomNPCSpawningManager.Manager() != null)
+            if (dummy == null && CustomNPCSpawningManager.Manager() != null)
                 ToySpawn();
-            if (npc != null)
+            if (dummy != null)
             {
-                AWSIMBoundingBox();
-                //Test2();
+                //AutowareAnalysisUtils.Screenshot(sensorCamera, "screenshot.png");
+                AWSIMBoundingBox(dummy);
             }
         }
         void ToySpawn()
         {
             LanePosition spawnPosition = new LanePosition("TrafficLane.240", 15f);
-            npc = CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, out int waypointIndex);
+            dummy = CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, out int waypointIndex);
         }
-        private Rect AWSIMBoundingBox()
+
+        /// <summary>
+        /// return the bounding box of `npc`.
+        /// The returned Rect is tight (more precise than the one returned by AWSIMBoundingBox2)
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <returns></returns>
+        private Rect AWSIMBoundingBox(NPCVehicle npc)
+        {
+            MeshCollider bodyCollider = AutowareAnalysisUtils.GetNPCMeshCollider(npc);
+            Vector3 localPosition = bodyCollider.transform.parent.localPosition;
+
+            Mesh mesh = bodyCollider.sharedMesh;
+            //DrawMesh(npc, mesh, localPosition);
+            Vector3[] localVertices = mesh.vertices;
+
+            var worldVertices = new List<Vector3>();
+            for (int i = 0; i < localVertices.Length; i++)
+                worldVertices.Add(npc.transform.TransformPoint(
+                    localVertices[i] + localPosition));
+
+            var screenVertices = new Vector3[worldVertices.Count];
+            for (int i = 0; i < worldVertices.Count; i++)
+                screenVertices[i] = sensorCamera.WorldToScreenPoint(worldVertices[i]);
+
+            float min_x = screenVertices[0].x;
+            float min_y = screenVertices[0].y;
+            float max_x = screenVertices[0].x;
+            float max_y = screenVertices[0].y;
+
+            for (int i = 1; i < screenVertices.Length; i++)
+            {
+                if (screenVertices[i].x < min_x)
+                    min_x = screenVertices[i].x;
+                if (screenVertices[i].y < min_y)
+                    min_y = screenVertices[i].y;
+                if (screenVertices[i].x > max_x)
+                    max_x = screenVertices[i].x;
+                if (screenVertices[i].y > max_y)
+                    max_y = screenVertices[i].y;
+            }
+            Rect boundingBox = Rect.MinMaxRect(min_x, min_y, max_x, max_y);
+            Debug.Log("[AWAnalysis] Bounding box of NPC " + npc.name + " : " + boundingBox);
+            return boundingBox;
+        }
+
+        /// <summary>
+        /// return the bounding box of `npc`.
+        /// The returned Rect is less precise then the one returned by AWSIMBoundingBox,
+        /// but the computation is simpler.
+        /// </summary>
+        /// <returns></returns>
+        private Rect AWSIMBoundingBox2(NPCVehicle npc)
         {
             Bounds localBounds = npc.Bounds;
             var localCorners = new Vector3[8];
@@ -94,68 +146,11 @@ namespace AWSIM
             }
 
             Rect boundingBox = Rect.MinMaxRect(min_x, min_y, max_x, max_y);
-            Debug.Log("[AWAnalyzer] Bounding box: " + boundingBox);
+            Debug.Log("[AWAnalysis] Bounding box of " + npc.name + " :" + boundingBox);
             return boundingBox;
         }
 
-        void Test2()
-        {
-            Mesh mesh = npc.gameObject.GetComponentsInChildren<MeshFilter>()[6].mesh;
-            Bounds localBounds = npc.Bounds;
-            Vector3[] localVertices = mesh.vertices;
-
-            var worldVertices = new List<Vector3>();
-            for (int i = 0; i < localVertices.Length; i++)
-                if (localBounds.Contains(localVertices[i]))
-                    worldVertices.Add(npc.transform.TransformPoint(localVertices[i]));
-
-            var screenVertices = new Vector3[worldVertices.Count];
-            for (int i = 0; i < worldVertices.Count; i++)
-                screenVertices[i] = sensorCamera.WorldToScreenPoint(worldVertices[i]);
-
-            float min_x = screenVertices[0].x;
-            float min_y = screenVertices[0].y;
-            float max_x = screenVertices[0].x;
-            float max_y = screenVertices[0].y;
-
-            for (int i = 1; i < screenVertices.Length; i++)
-            {
-                if (screenVertices[i].x < min_x)
-                    min_x = screenVertices[i].x;
-                if (screenVertices[i].y < min_y)
-                    min_y = screenVertices[i].y;
-                if (screenVertices[i].x > max_x)
-                    max_x = screenVertices[i].x;
-                if (screenVertices[i].y > max_y)
-                    max_y = screenVertices[i].y;
-            }
-            Rect boundingBox = Rect.MinMaxRect(min_x, min_y, max_x, max_y);
-
-            //Vector2[] vertices_2d = new Vector2[localVertices.Length];
-            //for (var i = 0; i < localVertices.Length; i++)
-            //    vertices_2d[i] = sensorCamera.WorldToScreenPoint(
-            //        npc.transform.TransformPoint(localVertices[i]));
-
-            //// find the min max bounds of the 2D points
-            //Vector2 min = vertices_2d[0];
-            //Vector2 max = vertices_2d[0];
-            //foreach (Vector2 vertex in vertices_2d)
-            //{
-            //    min = Vector2.Min(min, vertex);
-            //    max = Vector2.Max(max, vertex);
-            //}
-            //Rect boundingBox = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
-
-            Debug.Log("[AWAnalyzer] Bounding box 2: " + boundingBox);
-            //GUI.Box(new Rect(0, 0, 100, 100), "screenRect");
-        }
-
-        //private void OnGUI()
-        //{
-        //    //Test();
-        //    GUI.Box(new Rect(1103, 246, 443, 279), "screenRect");
-        //}
-
+        // for debug purpose
         void DrawBounds(Bounds b, float delay = 0)
         {
             // bottom corners
@@ -171,6 +166,7 @@ namespace AWSIM
             var p8 = new Vector3(b.min.x, b.max.y, b.max.z);
             DrawBounds(new Vector3[8] { p1, p2, p3, p4, p5, p6, p7, p8 }, delay);
         }
+        // for debug purpose
         void DrawBounds(Vector3[] corners, float duration = 0)
         {
             // bottom
@@ -190,6 +186,32 @@ namespace AWSIM
             Debug.DrawLine(corners[1], corners[5], Color.gray, duration);
             Debug.DrawLine(corners[2], corners[6], Color.green, duration);
             Debug.DrawLine(corners[3], corners[7], Color.cyan, duration);
+        }
+        // for debug purpose
+        void DrawMesh(NPCVehicle npc, Mesh mesh, Vector3 localPosition)
+        {
+            var color = Color.red;
+            var duration = 0.5f;
+            var localVertices = mesh.vertices;
+            var worldVertices = new Vector3[localVertices.Length];
+            for (int i = 0; i < localVertices.Length; i++)
+                worldVertices[i] = npc.transform.TransformPoint(
+                    localVertices[i] + localPosition);
+            for (int i = 0; i < mesh.triangles.Length / 3; i++)
+            {
+                Debug.DrawLine(
+                    worldVertices[mesh.triangles[i * 3 + 2]],
+                    worldVertices[mesh.triangles[i * 3]],
+                    color, duration);
+                Debug.DrawLine(
+                    worldVertices[mesh.triangles[i * 3]],
+                    worldVertices[mesh.triangles[i * 3 + 1]],
+                    color, duration);
+                Debug.DrawLine(
+                    worldVertices[mesh.triangles[i * 3 + 1]],
+                    worldVertices[mesh.triangles[i * 3 + 2]],
+                    color, duration);
+            }
         }
     }
 }

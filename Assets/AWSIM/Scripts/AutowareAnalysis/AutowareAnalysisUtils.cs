@@ -146,5 +146,32 @@ namespace AWSIM
                 lanes.Add(ParseLanes(laneName));
             return lanes;
         }
+
+        public static MeshCollider GetNPCMeshCollider(NPCVehicle npc)
+        {
+            var meshes  = npc.GetComponentsInChildren<MeshCollider>();
+            foreach(var mesh in meshes)
+            {
+                if (mesh.name == "BodyCollider")
+                    return mesh;
+            }
+            Debug.LogError("[AWAnalysis] Cannot find BodyCollider");
+            return meshes[0];
+        }
+
+        public static void Screenshot(Camera cam, string fileName)
+        {
+            RenderTexture screenTexture = new RenderTexture(Screen.width, Screen.height, 16);
+            cam.targetTexture = screenTexture;
+            RenderTexture.active = screenTexture;
+            cam.Render();
+
+            Texture2D renderedTexture = new Texture2D(Screen.width, Screen.height);
+            renderedTexture.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+            RenderTexture.active = null;
+
+            byte[] byteArray = renderedTexture.EncodeToPNG();
+            System.IO.File.WriteAllBytes(Application.dataPath + "/" + fileName, byteArray);
+        }
     }
 }
