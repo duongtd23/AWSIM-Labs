@@ -3,33 +3,33 @@ using System.Collections.Generic;
 using UnityEngine;
 using AWSIM.TrafficSimulation;
 using System;
+using TrafficSimulatorMsgs;
 
-namespace AWSIM
+namespace AWSIM.AWAnalysis
 {
     public class PerceptionAnalysis : MonoBehaviour
     {
-        private NPCVehicle dummy;
         public Camera sensorCamera;
+        public GameObject autowareEgoCar;
 
-        // Start is called before the first frame update
+        // ignore NPCs outside of this distance
+        public const int NPC_RECOGNIZE_DISTANCE = 130;
+
+        // the last ROS2 message received
+        private tier4_perception_msgs.msg.DetectedObjectsWithFeature lastMsgReceived;
+
+        private int timeStepCount = 0;
+
         void Start()
         {
             try
             {
-                SimulatorROS2Node.CreateSubscription<tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
-                    "/perception/object_recognition/detection/rois0", msg =>
-                    {
-                        for (int i = 0; i < msg.Feature_objects.Length; i++)
-                        {
-                            var roi = msg.Feature_objects[i].Feature.Roi;
-                            Rect boundingBox = new Rect(
-                                (float)roi.X_offset,
-                                (float)sensorCamera.pixelHeight - roi.Y_offset - roi.Height,
-                                (float)roi.Width,
-                                (float)roi.Height);
-                            Debug.Log("[AWAnalysis] Detected object " + msg.Feature_objects[i].Object.Classification + boundingBox);
-                        }
-                    });
+                SimulatorROS2Node.CreateSubscription
+                <tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
+                "/perception/object_recognition/detection/rois0", msg =>
+                {
+                    lastMsgReceived = msg;
+                });
             }
             catch (NullReferenceException e)
             {
@@ -38,21 +38,86 @@ namespace AWSIM
             }
         }
 
-        // Update is called once per frame
         void FixedUpdate()
         {
-            if (dummy == null && CustomNPCSpawningManager.Manager() != null)
-                ToySpawn();
-            if (dummy != null)
+            timeStepCount = (timeStepCount + 1) % 10;
+            if (timeStepCount % 10 != 9)
+                return;
+
+            // invoke the following every 0.02*10 second
+            if (CustomNPCSpawningManager.Manager() != null &&
+                CustomNPCSpawningManager.GetNPCs() != null)
             {
-                //AutowareAnalysisUtils.Screenshot(sensorCamera, "screenshot.png");
-                AWSIMBoundingBox(dummy);
+                List<Rect> detectedBoxes = ParseDetectedMsg(lastMsgReceived);
+                foreach (NPCVehicle npc in CustomNPCSpawningManager.GetNPCs())
+                {
+                    var distance = Vector3.Distance(
+                        npc.transform.position,
+                        autowareEgoCar.transform.position);
+                    // if the NPC is within the distance considered and
+                    // it is visible by the sensor camera view 
+                    if (distance < NPC_RECOGNIZE_DISTANCE &&
+                        CameraUtils.NPCVisibleByCamera(sensorCamera, npc))
+                        EvaluatePerception(npc, detectedBoxes);
+                }
             }
         }
-        void ToySpawn()
+
+        /// <summary>
+        /// parse the last received message to get a list of bounding box
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        private List<Rect> ParseDetectedMsg(tier4_perception_msgs.msg.DetectedObjectsWithFeature msg)
         {
-            LanePosition spawnPosition = new LanePosition("TrafficLane.240", 15f);
-            dummy = CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, out int waypointIndex);
+            List<Rect> boxes = new List<Rect>();
+            if (msg == null)
+                return boxes;
+            for (int i = 0; i < msg.Feature_objects.Length; i++)
+            {
+                var roi = msg.Feature_objects[i].Feature.Roi;
+                Rect detectedBox = new Rect(
+                    (float)roi.X_offset,
+                    (float)sensorCamera.pixelHeight - roi.Y_offset - roi.Height,
+                    (float)roi.Width,
+                    (float)roi.Height);
+                Debug.Log("[AWAnalysis] Autoware detected an object: " + msg.Feature_objects[i].Object.Classification + detectedBox);
+                boxes.Add(detectedBox);
+            }
+            return boxes;
+        }
+
+        /// <summary>
+        /// Evaluate perception module
+        /// </summary>
+        /// <param name="npc">The (ground-trust) NPC vehicle </param>
+        /// <param name="detectedBoxes"> the list of bounding boxes detected by Autoware</param>
+        private void EvaluatePerception(NPCVehicle npc, List<Rect> detectedBoxes)
+        {
+            Rect groundTrustBox = AWSIMBoundingBox(npc);
+            float bestIOURatio = 0;
+            int bestMatchBoxIndex = -1;
+            for (int i = 0; i < detectedBoxes.Count; i++)
+            {
+                float iouRatio = BoundingBoxUtils.IOURatio(detectedBoxes[i], groundTrustBox);
+                if (iouRatio > bestIOURatio)
+                {
+                    bestIOURatio = iouRatio;
+                    bestMatchBoxIndex = i;
+                }
+            }
+            if (bestMatchBoxIndex == -1)
+            {
+                Debug.LogError("[AWAnalysis] No detected box with IOU ratio > 0 found" +
+                    " for NPC " + npc.name + " whose bounding box is " + groundTrustBox);
+            }
+            else
+            {
+                Debug.Log("[AWAnalysis] Found a detected bounding box " +
+                    detectedBoxes[bestMatchBoxIndex]  + " matches with IOU ratio " +
+                    bestIOURatio * 100 + "% " +
+                    "for NPC " + npc.name + " whose bounding box is " + groundTrustBox);
+            }
         }
 
         /// <summary>
@@ -63,7 +128,7 @@ namespace AWSIM
         /// <returns></returns>
         private Rect AWSIMBoundingBox(NPCVehicle npc)
         {
-            MeshCollider bodyCollider = AutowareAnalysisUtils.GetNPCMeshCollider(npc);
+            MeshCollider bodyCollider = CameraUtils.GetNPCMeshCollider(npc);
             Vector3 localPosition = bodyCollider.transform.parent.localPosition;
 
             Mesh mesh = bodyCollider.sharedMesh;
@@ -75,26 +140,42 @@ namespace AWSIM
                 worldVertices.Add(npc.transform.TransformPoint(
                     localVertices[i] + localPosition));
 
-            var screenVertices = new Vector3[worldVertices.Count];
+            var screenVertices = new List<Vector3>();
             for (int i = 0; i < worldVertices.Count; i++)
-                screenVertices[i] = sensorCamera.WorldToScreenPoint(worldVertices[i]);
-
+            {
+                var screenPoint = sensorCamera.WorldToScreenPoint(worldVertices[i]);
+                if (screenPoint.z > 0)
+                {
+                    screenPoint = CameraUtils.FixScreenPoint(screenPoint, sensorCamera);
+                    screenVertices.Add(screenPoint);
+                }
+            }
             float min_x = screenVertices[0].x;
             float min_y = screenVertices[0].y;
             float max_x = screenVertices[0].x;
             float max_y = screenVertices[0].y;
 
-            for (int i = 1; i < screenVertices.Length; i++)
+            for (int i = 1; i < screenVertices.Count; i++)
             {
-                if (screenVertices[i].x < min_x)
+                if (screenVertices[i].x < min_x &&
+                    CameraUtils.InRange(screenVertices[i].y, 0, sensorCamera.pixelHeight))
                     min_x = screenVertices[i].x;
-                if (screenVertices[i].y < min_y)
+                if (screenVertices[i].y < min_y &&
+                    CameraUtils.InRange(screenVertices[i].x, 0, sensorCamera.pixelWidth))
                     min_y = screenVertices[i].y;
-                if (screenVertices[i].x > max_x)
+                if (screenVertices[i].x > max_x &&
+                    CameraUtils.InRange(screenVertices[i].y, 0, sensorCamera.pixelHeight))
                     max_x = screenVertices[i].x;
-                if (screenVertices[i].y > max_y)
+                if (screenVertices[i].y > max_y &&
+                    CameraUtils.InRange(screenVertices[i].x, 0, sensorCamera.pixelWidth))
                     max_y = screenVertices[i].y;
             }
+            // if min_x is -0.1
+            min_x = Mathf.Max(0, min_x);
+            min_y = Mathf.Max(0, min_y);
+            max_x = Mathf.Min(sensorCamera.pixelWidth, max_x);
+            max_y = Mathf.Min(sensorCamera.pixelHeight, max_y);
+
             Rect boundingBox = Rect.MinMaxRect(min_x, min_y, max_x, max_y);
             Debug.Log("[AWAnalysis] Bounding box of NPC " + npc.name + " : " + boundingBox);
             return boundingBox;
@@ -108,20 +189,7 @@ namespace AWSIM
         /// <returns></returns>
         private Rect AWSIMBoundingBox2(NPCVehicle npc)
         {
-            Bounds localBounds = npc.Bounds;
-            var localCorners = new Vector3[8];
-            localCorners[0] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
-            localCorners[1] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
-            localCorners[2] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
-            localCorners[3] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
-            localCorners[4] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
-            localCorners[5] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
-            localCorners[6] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
-            localCorners[7] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
-
-            var worldCorners = new Vector3[8];
-            for (int i = 0; i < 8; i++)
-                worldCorners[i] = npc.transform.TransformPoint(localCorners[i]);
+            var worldCorners = CameraUtils.NPCLocalBoundsToWorldCorners(npc);
 
             //DrawBounds(worldCorners, 0.5f);
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
+using AWSIM.AWAnalysis;
 
 namespace AWSIM.TrafficSimulation
 {

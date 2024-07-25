@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using AWSIM.AWAnalysis;
 
 namespace AWSIM.TrafficSimulation
 {

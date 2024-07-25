@@ -170,6 +170,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 445656315769820269, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: randomTrafficSims.Array.data[0].enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5984117683371609910, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: egoVehicleTransform
       value: 
@@ -1714,7 +1718,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1743169424}
   m_HandleRect: {fileID: 1743169422}
   m_Direction: 2
-  m_Value: 0.99999243
+  m_Value: 1.0000001
   m_Size: 0.70882994
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -3443,6 +3447,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sensorCamera: {fileID: 344861285}
+  autowareEgoCar: {fileID: 897708388}
 --- !u!114 &717467356
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10507,7 +10512,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -3.75, y: -39.999035}
+  m_AnchoredPosition: {x: -3.75, y: -40.000015}
   m_SizeDelta: {x: -27.5, y: 0}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &2100303027

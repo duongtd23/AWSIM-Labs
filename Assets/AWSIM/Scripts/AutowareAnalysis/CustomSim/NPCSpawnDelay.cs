@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
+using AWSIM.TrafficSimulation;
 
-namespace AWSIM.TrafficSimulation
+namespace AWSIM.AWAnalysis
 {
     public enum NPCDelayType
     {

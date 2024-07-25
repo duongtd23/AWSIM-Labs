@@ -3,8 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using AWSIM.TrafficSimulation;
 
-namespace AWSIM.TrafficSimulation
+namespace AWSIM.AWAnalysis
 {
     public class CustomNPCSpawningManager
     {
@@ -33,6 +34,9 @@ namespace AWSIM.TrafficSimulation
         private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>> delayingMoveNPCs;
         private List<DelayingNPCVehicle> delayingSpawnNPCs;
 
+        // all NPC vehicles spawned
+        private List<NPCVehicle> npcs;
+
         private CustomNPCSpawningManager(GameObject parent, GameObject ego, GameObject taxi,
             GameObject hatchback, GameObject smallCar, GameObject truck, GameObject van,
             LayerMask vehicleLM, LayerMask groundLM)
@@ -51,6 +55,7 @@ namespace AWSIM.TrafficSimulation
             egoEngaged = false;
             delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>>();
             delayingSpawnNPCs = new List<DelayingNPCVehicle>();
+            npcs = new List<NPCVehicle>();
 
             egoRigidbody = autowareEgoCar.GetComponent<Rigidbody>();
             if (egoRigidbody == null)
@@ -91,11 +96,10 @@ namespace AWSIM.TrafficSimulation
                 vehicleLM, groundLM);
             return manager;
         }
-        public static CustomNPCSpawningManager Manager()
-        {
-            return manager;
-        }
+        public static CustomNPCSpawningManager Manager() => manager;
+        public static List<NPCVehicle> GetNPCs() => Manager().npcs;
 
+        // this should be called every frame
         public void UpdateNPCs()
         {
             if (Manager() != null)
@@ -114,6 +118,13 @@ namespace AWSIM.TrafficSimulation
             }
         }
 
+        /// <summary>
+        /// Mainly perform 2 tasks:
+        /// 1. Scan `delayingMoveNPCs`, i.e., the list of NPCs were spawned but not yet moved,
+        ///    to make them move if they are ready to move.
+        /// 2. Scan `delayingSpawnNPCs`, i.e., the list of NPCs waiting to be spawned,
+        ///    to spawn them if they are ready to be spawned.
+        /// </summary>
         private void UpdateDelayingNPCs()
         {
             List<NPCVehicle> removeAfter = new List<NPCVehicle>();
@@ -151,7 +162,7 @@ namespace AWSIM.TrafficSimulation
                 delayingSpawnNPCs.Remove(entry);
         }
 
-        // spawn an obstacle
+        // spawn a stand still vehicle 
         public static NPCVehicle PoseObstacle(string vehicleType, string trafficLaneName, float distance)
         {
             EnsureNonNullInstance(Manager());
@@ -169,6 +180,7 @@ namespace AWSIM.TrafficSimulation
             npc.name = "NPC-Taxi";
             var vehicle = npc.GetComponent<NPCVehicle>();
             vehicle.VehicleID = SpawnIdGenerator.Generate();
+            GetNPCs().Add(vehicle);
             return vehicle;
         }
 
@@ -184,6 +196,7 @@ namespace AWSIM.TrafficSimulation
             // spawn NPC
             var npc = Manager().npcVehicleSpawner.Spawn(Manager().GetNPCPrefab(vehicleType), SpawnIdGenerator.Generate(), spawnPoint,
                 Quaternion.LookRotation(spawnPoint.Forward));
+            GetNPCs().Add(npc);
             return npc;
         }
 
@@ -236,6 +249,8 @@ namespace AWSIM.TrafficSimulation
             Manager().delayingSpawnNPCs.Add(delaynpc);
             return delaynpc;
         }
+
+        // parse vehicle type
         private GameObject GetNPCPrefab(string vehicleType)
         {
             switch (vehicleType.ToLower())
@@ -244,7 +259,7 @@ namespace AWSIM.TrafficSimulation
                     return npcTaxi;
                 case "hatchback":
                     return npcHatchback;
-                case "small-car":
+                case "small-car": case "smallcar":
                     return npcSmallCar;
                 case "truck":
                     return npcTruck;
@@ -267,6 +282,10 @@ namespace AWSIM.TrafficSimulation
         }
     }
 
+    /// <summary>
+    /// A pair of lane and offset position from the starting point of the lane
+    /// This is used for many purpose, e.g., to specify location for spawning NPCs
+    /// </summary>
     public class LanePosition
     {
         public string LaneName { get; set; }
