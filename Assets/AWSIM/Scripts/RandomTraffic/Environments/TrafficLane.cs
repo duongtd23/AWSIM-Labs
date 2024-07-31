@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using AWSIM.AWAnalysis;
+using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation
 {
@@ -98,11 +98,19 @@ namespace AWSIM.TrafficSimulation
             return trafficLane;
         }
 
+        public float DistanceUpToWaypoint(int waypointIndex)
+        {
+            float distance = 0;
+            for (int i = 0; i < waypointIndex; i++)
+                distance += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return distance;
+        }
+
         public float TotalLength()
         {
             float totalLen = 0;
-            for (int i = 0; i < waypoints.Length-1; i++)
-                totalLen += AutowareAnalysisUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            for (int i = 0; i < waypoints.Length - 1; i++)
+                totalLen += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
             return totalLen;
         }
     }

@@ -1,9 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using AWSIM.TrafficSimulation;
+using AWSIM.AWAnalysis.CustomSim;
 using System;
-using TrafficSimulatorMsgs;
 
 namespace AWSIM.AWAnalysis
 {

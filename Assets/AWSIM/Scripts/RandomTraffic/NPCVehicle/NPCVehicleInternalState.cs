@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using AWSIM.AWAnalysis;
+using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation
 {
@@ -266,26 +267,26 @@ namespace AWSIM.TrafficSimulation
             float distanceGone = 0;
             for (int i = 0; i < WaypointIndex - 1; i++)
             {
-                distanceGone += AutowareAnalysisUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[i], CurrentFollowingLane.Waypoints[i + 1]);
+                distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[i], CurrentFollowingLane.Waypoints[i + 1]);
             }
             int lastWaypointIndex = WaypointIndex - 1 >= 0 ? WaypointIndex - 1 : 0;
-            distanceGone += AutowareAnalysisUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[lastWaypointIndex], position);
+            distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[lastWaypointIndex], position);
             return distanceGone;
         }
 
         // goal, defined as a pair of lane name and distance (from the starting point)
-        private LanePosition goal;
-        public LanePosition Goal => goal;
+        private LaneOffsetPosition goal;
+        public LaneOffsetPosition Goal => goal;
         public bool GoalArrived { get; set; }
 
         public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
-            Dictionary<string, float> desiredSpeed, LanePosition goal, int waypointIndex = 0)
+            Dictionary<string, float> desiredSpeed, LaneOffsetPosition goal, int waypointIndex = 0)
         {
             var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
             state.desiredSpeed = desiredSpeed;
 
-            TrafficLane lane = AutowareAnalysisUtils.ParseLanes(goal.LaneName);
-            goal.Position = Mathf.Min(goal.Position, lane.TotalLength());
+            TrafficLane lane = CustomSimUtils.ParseLane(goal.GetLane());
+            goal.SetOffset(Mathf.Min(goal.GetOffset(), lane.TotalLength()));
             state.goal = goal;
 
             return state;

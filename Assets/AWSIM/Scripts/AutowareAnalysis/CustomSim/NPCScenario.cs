@@ -4,42 +4,37 @@ using AWSIM;
 using AWSIM.TrafficSimulation;
 using UnityEngine;
 
-namespace AWSIM.AWAnalysis
+namespace AWSIM.AWAnalysis.CustomSim
 {
     public class NPCScenario : MonoBehaviour
     {
-        public GameObject autowareEgoCar;
-
-        // taxi, hatchback, small car, truck, van prefabs, respectively
-        public GameObject npcTaxi, npcHatchback, npcSmallCar, npcTruck, npcVan;
-
-        [SerializeField, Tooltip("Vehicle layer for raytracing the collision distances.")]
-        private LayerMask vehicleLayerMask;
-        [SerializeField, Tooltip("Ground layer for raytracing the collision distances.")]
-        private LayerMask groundLayerMask;
-
         // Start is called before the first frame update
         void Start()
         {
-            CustomNPCSpawningManager.Initialize(this.gameObject, autowareEgoCar, npcTaxi,
-                npcHatchback, npcSmallCar, npcTruck, npcVan,
-                vehicleLayerMask, groundLayerMask);
-
+            while (CustomNPCSpawningManager.Manager() == null) ;
             Scenario1();
+            Test1();
         }
 
         //Update is called once per frame
         void FixedUpdate()
         {
-            // this should be enable even no scenario is specified
-            CustomNPCSpawningManager.Manager()?.UpdateNPCs();
+        }
+
+        private void Test1()
+        {
+            TrafficLane[] allLanes = CustomNPCSpawningManager.GetAllTrafficLanes();
+            CustomSimUtils.LeftLaneOffset("TrafficLane.247", 15f, allLanes, out TrafficLane lane1, out float offset1);
+            CustomSimUtils.RightLaneOffset("TrafficLane.247", 15f, allLanes, out TrafficLane lane12, out float offset12);
+            Debug.Log("[NPCSim] lane1: " + lane1 + " at " + offset1);
+            Debug.Log("[NPCSim] lane12: " + lane12 + " at " + offset12);
         }
 
         // a scenario
         private void Scenario1()
         {
             // set initial position on lane 239, 15m from the begining of the lane
-            LanePosition spawnPosition = new LanePosition("TrafficLane.239", 15f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.239", 15f);
 
             // define route, i.e., from lane 239 go straight to lane 448, and then change to lane 265
             List<string> route = new List<string>()
@@ -57,12 +52,11 @@ namespace AWSIM.AWAnalysis
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
             // Note that you can set the 2nd param to very big number (e.g., float.MaxValue),
-            //  in that case, the vehicle will stop at the end of the goal lane
-            var goal = new LanePosition("TrafficLane.265", 60f);
+            // in that case, the vehicle will stop at the end of the goal lane
+            var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
             CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, route, desiredSpeeds, goal);
         }
-
 
         // another scenario
         private void Scenario2()
@@ -74,7 +68,7 @@ namespace AWSIM.AWAnalysis
         private void Scenario3()
         {
             // set initial position
-            LanePosition spawnPosition = new LanePosition("TrafficLane.239", 15f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.239", 15f);
 
             // define route
             List<string> route = new List<string>()
@@ -92,7 +86,7 @@ namespace AWSIM.AWAnalysis
             };
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            var goal = new LanePosition("TrafficLane.268", 20f);
+            var goal = new LaneOffsetPosition("TrafficLane.268", 20f);
 
             CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, route, desiredSpeeds, goal);
 
@@ -104,7 +98,7 @@ namespace AWSIM.AWAnalysis
         private void Scenario4()
         {
             // set initial position
-            LanePosition spawnPosition = new LanePosition("TrafficLane.240", 2f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.240", 2f);
 
             // define route
             List<string> route = new List<string>()
@@ -115,7 +109,7 @@ namespace AWSIM.AWAnalysis
             var desiredSpeeds = new Dictionary<string, float>();
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            var goal = new LanePosition("TrafficLane.240", 30f);
+            var goal = new LaneOffsetPosition("TrafficLane.240", 30f);
 
             CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.Delay(5f));
         }
@@ -124,7 +118,7 @@ namespace AWSIM.AWAnalysis
         private void Scenario5()
         {
             // set initial position on lane 239, 15m from the begining of the lane
-            LanePosition spawnPosition = new LanePosition("TrafficLane.239", 15f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.239", 15f);
 
             // define route, i.e., from lane 239 go straight to lane 448, and then change to lane 265
             List<string> route = new List<string>()
@@ -141,7 +135,7 @@ namespace AWSIM.AWAnalysis
             };
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            var goal = new LanePosition("TrafficLane.265", 60f);
+            var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
             CustomNPCSpawningManager.SpawnNPCWithDelay("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.Delay(5f));
         }
@@ -150,7 +144,7 @@ namespace AWSIM.AWAnalysis
         private void Scenario6()
         {
             // set initial position
-            LanePosition spawnPosition = new LanePosition("TrafficLane.240", 7f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.240", 7f);
 
             // define route
             List<string> route = new List<string>()
@@ -162,16 +156,16 @@ namespace AWSIM.AWAnalysis
             var desiredSpeeds = new Dictionary<string, float>() { };
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            var goal = new LanePosition("TrafficLane.240", 30f);
+            var goal = new LaneOffsetPosition("TrafficLane.240", 30f);
 
             CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoMove(1f));
         }
 
-        // spawn an NPC, delay its movement, and make it move when the Ego gets plan trajectory
+        // spawn an NPC, delay its movement, and make it move when the Ego engaged
         private void Scenario7()
         {
             // set initial position on lane 239, 15m from the begining of the lane
-            LanePosition spawnPosition = new LanePosition("TrafficLane.239", 15f);
+            LaneOffsetPosition spawnPosition = new LaneOffsetPosition("TrafficLane.239", 15f);
 
             // define route, i.e., from lane 239 go straight to lane 448, and then change to lane 265
             List<string> route = new List<string>()
@@ -184,7 +178,7 @@ namespace AWSIM.AWAnalysis
             var desiredSpeeds = new Dictionary<string, float>();
             // set goal
             // stop on lane 265, 40m far from the starting point of the lane
-            var goal = new LanePosition("TrafficLane.265", 60f);
+            var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
             CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoEngaged(0f));
         }

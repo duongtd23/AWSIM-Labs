@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
-using AWSIM.AWAnalysis;
+using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation
 {
@@ -163,7 +163,7 @@ namespace AWSIM.TrafficSimulation
         }
 
         public void Register(NPCVehicle vehicle, List<TrafficLane> route, int waypointIndex,
-            Dictionary<string,float> desiredSpeed, LanePosition goal)
+            Dictionary<string,float> desiredSpeed, LaneOffsetPosition goal)
         {
             vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, desiredSpeed, goal, waypointIndex));
         }

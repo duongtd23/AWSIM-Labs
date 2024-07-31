@@ -1,11 +1,9 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using AWSIM.TrafficSimulation;
 
-namespace AWSIM.AWAnalysis
+namespace AWSIM.AWAnalysis.CustomSim
 {
     public class CustomNPCSpawningManager
     {
@@ -17,6 +15,7 @@ namespace AWSIM.AWAnalysis
         private LayerMask vehicleLayerMask;
         private LayerMask groundLayerMask;
         private GameObject parentGameObject;
+        private TrafficLane[] allTrafficLanes;
 
         private Rigidbody egoRigidbody;
 
@@ -31,17 +30,19 @@ namespace AWSIM.AWAnalysis
         // this flag becomes true when the ego vehicle got a plan trajectory
         private bool egoEngaged = false;
 
-        private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>> delayingMoveNPCs;
+        private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>> delayingMoveNPCs;
         private List<DelayingNPCVehicle> delayingSpawnNPCs;
 
         // all NPC vehicles spawned
         private List<NPCVehicle> npcs;
 
-        private CustomNPCSpawningManager(GameObject parent, GameObject ego, GameObject taxi,
-            GameObject hatchback, GameObject smallCar, GameObject truck, GameObject van,
+        private CustomNPCSpawningManager(GameObject parent, TrafficLane[] trafficLanes,
+            GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
+            GameObject truck, GameObject van,
             LayerMask vehicleLM, LayerMask groundLM)
         {
             autowareEgoCar = ego;
+            allTrafficLanes = trafficLanes;
             npcTaxi = taxi;
             npcHatchback = hatchback;
             npcSmallCar = smallCar;
@@ -53,7 +54,7 @@ namespace AWSIM.AWAnalysis
             egoStartMovingTime = -1;
             egoEngagedTime = -1;
             egoEngaged = false;
-            delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>>();
+            delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>>();
             delayingSpawnNPCs = new List<DelayingNPCVehicle>();
             npcs = new List<NPCVehicle>();
 
@@ -88,16 +89,19 @@ namespace AWSIM.AWAnalysis
             }
         }
 
-        public static CustomNPCSpawningManager Initialize(GameObject parent, GameObject ego, GameObject taxi,
-            GameObject hatchback, GameObject smallCar, GameObject truck, GameObject van,
+        public static CustomNPCSpawningManager Initialize(GameObject parent, TrafficLane[] trafficLanes,
+            GameObject ego, GameObject taxi, GameObject hatchback,
+            GameObject smallCar, GameObject truck, GameObject van,
             LayerMask vehicleLM, LayerMask groundLM)
         {
-            manager = new CustomNPCSpawningManager(parent, ego, taxi, hatchback, smallCar, truck, van,
+            manager = new CustomNPCSpawningManager(parent, trafficLanes,
+                ego, taxi, hatchback, smallCar, truck, van,
                 vehicleLM, groundLM);
             return manager;
         }
         public static CustomNPCSpawningManager Manager() => manager;
         public static List<NPCVehicle> GetNPCs() => Manager().npcs;
+        public static TrafficLane[] GetAllTrafficLanes() => Manager().allTrafficLanes;
 
         // this should be called every frame
         public void UpdateNPCs()
@@ -107,7 +111,7 @@ namespace AWSIM.AWAnalysis
                 // check if Ego moved
                 // TODO: use proper implementation instead of egoRigidbody.velocity
                 if (egoStartMovingTime <= 0 &&
-                    AutowareAnalysisUtils.DistanceIgnoreYAxis(egoRigidbody.velocity, Vector3.zero) > 0.2f)
+                    CustomSimUtils.DistanceIgnoreYAxis(egoRigidbody.velocity, Vector3.zero) > 0.2f)
                     egoStartMovingTime = Time.fixedTime;
                 // check if Ego got trajectory
                 if (egoEngagedTime <= 0 && egoEngaged)
@@ -138,7 +142,7 @@ namespace AWSIM.AWAnalysis
                     (delay.DelayType == NPCDelayType.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
                     List<string> route = entry.Value.Item2;
-                    var routeLanes = AutowareAnalysisUtils.ParseLanes(route);
+                    var routeLanes = CustomSimUtils.ParseLanes(route);
                     npcVehicleSimulator.Register(npc, routeLanes, entry.Value.Item3, entry.Value.Item4, entry.Value.Item5);
                     removeAfter.Add(npc);
                 }
@@ -170,7 +174,7 @@ namespace AWSIM.AWAnalysis
             if (obj == null)
                 throw new UnityException("[NPCSim] Cannot find traffic line with name: " + trafficLaneName);
             TrafficLane lane = obj.GetComponent<TrafficLane>();
-            Vector3 position = AutowareAnalysisUtils.CalculatePosition(lane, distance, out int waypointIndex);
+            Vector3 position = CustomSimUtils.CalculatePosition(lane, distance, out int waypointIndex);
             Vector3 fwd = waypointIndex == 0 ?
                 lane.Waypoints[1] - lane.Waypoints[0] :
                 lane.Waypoints[waypointIndex] - lane.Waypoints[waypointIndex - 1];
@@ -185,12 +189,12 @@ namespace AWSIM.AWAnalysis
         }
 
         // spawn an NPC
-        public static NPCVehicle SpawnNPC(string vehicleType, LanePosition spawnPosition, out int waypointIndex)
+        public static NPCVehicle SpawnNPC(string vehicleType, LaneOffsetPosition spawnPosition, out int waypointIndex)
         {
             EnsureNonNullInstance(Manager());
             // calculate position
-            TrafficLane spawnLane = AutowareAnalysisUtils.ParseLanes(spawnPosition.LaneName);
-            Vector3 position = AutowareAnalysisUtils.CalculatePosition(spawnLane, spawnPosition.Position, out waypointIndex);
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(spawnPosition.GetLane());
+            Vector3 position = CustomSimUtils.CalculatePosition(spawnLane, spawnPosition.GetOffset(), out waypointIndex);
             NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, position, waypointIndex);
 
             // spawn NPC
@@ -201,27 +205,27 @@ namespace AWSIM.AWAnalysis
         }
 
         // spawn an NPC and make it move
-        public static NPCVehicle SpawnNPC(string vehicleType, LanePosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LanePosition goal)
+        public static NPCVehicle SpawnNPC(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
+            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal)
         {
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
 
             // set route and goal
-            var routeLanes = AutowareAnalysisUtils.ParseLanes(route);
+            var routeLanes = CustomSimUtils.ParseLanes(route);
             Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, desiredSpeeds, goal);
             return npc;
         }
 
         // spawn an NPC and delay `delay.ActivateDelay` seconds to make it move
-        public static NPCVehicle SpawnNPCAndDelayMovement(string vehicleType, LanePosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LanePosition goal, NPCSpawnDelay delay)
+        public static NPCVehicle SpawnNPCAndDelayMovement(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
+            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal, NPCSpawnDelay delay)
         {
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
 
             if (delay != null)
-                Manager().delayingMoveNPCs.Add(npc, Tuple.Create<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LanePosition>
+                Manager().delayingMoveNPCs.Add(npc, Tuple.Create<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>
                 (
                     delay,
                     route,
@@ -233,8 +237,8 @@ namespace AWSIM.AWAnalysis
         }
 
         // delay `delay.SpawnDelay` seconds to spawn the NPC
-        public static DelayingNPCVehicle SpawnNPCWithDelay(string vehicleType, LanePosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LanePosition goal, NPCSpawnDelay delay)
+        public static DelayingNPCVehicle SpawnNPCWithDelay(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
+            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal, NPCSpawnDelay delay)
         {
             if (delay == null)
                 throw new UnityException("[NPCSim]: Invalid NPCSpawnDelay paramater.");
@@ -279,22 +283,6 @@ namespace AWSIM.AWAnalysis
                 throw new NullReferenceException("[NPCSim] Could not find an instance of `CustomNPCSpawningManager`. " +
                     "Initialize it with `CustomNPCSpawningManager.Initialize()`");
             }
-        }
-    }
-
-    /// <summary>
-    /// A pair of lane and offset position from the starting point of the lane
-    /// This is used for many purpose, e.g., to specify location for spawning NPCs
-    /// </summary>
-    public class LanePosition
-    {
-        public string LaneName { get; set; }
-        // distance from the starting point of the lane
-        public float Position { get; set; }
-        public LanePosition(string laneName, float position)
-        {
-            LaneName = laneName;
-            Position = position;
         }
     }
 }

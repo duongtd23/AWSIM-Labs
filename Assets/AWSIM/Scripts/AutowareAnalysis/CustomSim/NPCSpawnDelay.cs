@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using AWSIM.TrafficSimulation;
 
-namespace AWSIM.AWAnalysis
+namespace AWSIM.AWAnalysis.CustomSim
 {
     public enum NPCDelayType
     {
@@ -57,13 +57,13 @@ namespace AWSIM.AWAnalysis
     {
         public uint VehicleID { get; set; }
         public string VehicleType { get; set; }
-        public LanePosition SpawnPosition { get; set; }
+        public LaneOffsetPosition SpawnPosition { get; set; }
         public List<string> Route { get; set; }
         public Dictionary<string, float> DesiredSpeeds { get; set; }
-        public LanePosition Goal { get; set; }
+        public LaneOffsetPosition Goal { get; set; }
         public NPCSpawnDelay Delay { get; set; }
-        public DelayingNPCVehicle(uint vehicleID, string vehicleType, LanePosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LanePosition goal, NPCSpawnDelay delay)
+        public DelayingNPCVehicle(uint vehicleID, string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
+            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal, NPCSpawnDelay delay)
         {
             VehicleID = vehicleID;
             VehicleType = vehicleType;

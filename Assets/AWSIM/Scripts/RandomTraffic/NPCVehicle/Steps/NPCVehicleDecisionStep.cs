@@ -166,8 +166,8 @@ namespace AWSIM.TrafficSimulation
         private static float CalculateGoalDistance(NPCVehicleInternalState state)
         {
             var distanceToGoal = float.MaxValue;
-            if (state.Goal != null && state.Goal.LaneName == state.CurrentFollowingLane.name)
-                distanceToGoal = state.Goal.Position -
+            if (state.Goal != null && state.Goal.GetLane() == state.CurrentFollowingLane.name)
+                distanceToGoal = state.Goal.GetOffset() -
                     state.DistanceHasGoneOnLane();
             return distanceToGoal;
         }
