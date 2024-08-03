@@ -1,6 +1,6 @@
 using System;
 
-namespace AWSIM.AWAnalysis.Exp
+namespace AWSIM.AWAnalysis.Error
 {
     public class LaneNotFoundException : Exception
     {

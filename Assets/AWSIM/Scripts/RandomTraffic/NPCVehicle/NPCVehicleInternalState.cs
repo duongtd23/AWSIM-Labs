@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using AWSIM.AWAnalysis;
+using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation

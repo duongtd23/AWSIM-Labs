@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-namespace AWSIM.AWAnalysis.CustomSim
+﻿using System;
+namespace AWSIM_Script.Object
 {
     /// <summary>
     /// A pair of lane and offset position from the starting point of the lane
@@ -30,5 +27,25 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             this.offset = offset;
         }
+
+        public static LaneOffsetPosition DummyPosition()
+        {
+            return new LaneOffsetPosition("", 0);
+        }
+        public override bool Equals(object obj)
+        {
+            if (obj is LaneOffsetPosition)
+            {
+                var obj2 = (LaneOffsetPosition)obj;
+                return this.GetLane() == obj2.GetLane() &&
+                    this.GetOffset() == obj2.GetOffset();
+            }    
+            return base.Equals(obj);
+        }
+        public override string ToString()
+        {
+            return laneName + " at " + offset;
+        }
     }
 }
+

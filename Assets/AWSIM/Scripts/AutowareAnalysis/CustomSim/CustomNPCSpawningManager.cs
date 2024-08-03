@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using AWSIM.TrafficSimulation;
+using AWSIM_Script.Object;
+using AWSIM_Script.Error;
+using AWSIM.AWAnalysis.Error;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -30,8 +33,9 @@ namespace AWSIM.AWAnalysis.CustomSim
         // this flag becomes true when the ego vehicle got a plan trajectory
         private bool egoEngaged = false;
 
-        private Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>> delayingMoveNPCs;
-        private List<DelayingNPCVehicle> delayingSpawnNPCs;
+        // 2nd item: waypoint index
+        private Dictionary<NPCVehicle, Tuple<int, NPCCar>> delayingMoveNPCs;
+        private List<NPCCar> delayingSpawnNPCs;
 
         // all NPC vehicles spawned
         private List<NPCVehicle> npcs;
@@ -54,8 +58,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             egoStartMovingTime = -1;
             egoEngagedTime = -1;
             egoEngaged = false;
-            delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>>();
-            delayingSpawnNPCs = new List<DelayingNPCVehicle>();
+            delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<int, NPCCar>>();
+            delayingSpawnNPCs = new List<NPCCar>();
             npcs = new List<NPCVehicle>();
 
             egoRigidbody = autowareEgoCar.GetComponent<Rigidbody>();
@@ -134,62 +138,53 @@ namespace AWSIM.AWAnalysis.CustomSim
             List<NPCVehicle> removeAfter = new List<NPCVehicle>();
             foreach (var entry in delayingMoveNPCs)
             {
-                NPCVehicle npc = entry.Key;
-                NPCSpawnDelay delay = entry.Value.Item1;
+                NPCVehicle npcVehicle = entry.Key;
+                NPCCar npcCar = entry.Value.Item2;
+                int waypointIndex = entry.Value.Item1;
+                NPCSpawnDelay delay = npcCar.SpawnDelayOption;
 
-                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
+                if ((delay.DelayType == DelayKind.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
+                    (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
+                    (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
-                    List<string> route = entry.Value.Item2;
+                    List<string> route = npcCar.Route();
                     var routeLanes = CustomSimUtils.ParseLanes(route);
-                    npcVehicleSimulator.Register(npc, routeLanes, entry.Value.Item3, entry.Value.Item4, entry.Value.Item5);
-                    removeAfter.Add(npc);
+                    npcVehicleSimulator.Register(npcVehicle, routeLanes,
+                        waypointIndex, npcCar.RouteAndSpeeds(), npcCar.Goal);
+                    removeAfter.Add(npcVehicle);
                 }
             }
             foreach (var npc in removeAfter)
                 delayingMoveNPCs.Remove(npc);
 
-            List<DelayingNPCVehicle> removeAfter2 = new List<DelayingNPCVehicle>();
-            foreach (var entry in delayingSpawnNPCs)
+            List<NPCCar> removeAfter2 = new List<NPCCar>();
+            foreach (var npcCar in delayingSpawnNPCs)
             {
-                NPCSpawnDelay delay = entry.Delay;
-                if ((delay.DelayType == NPCDelayType.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == NPCDelayType.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
+                NPCSpawnDelay delay = npcCar.SpawnDelayOption;
+                if ((delay.DelayType == DelayKind.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
+                    (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
+                    (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
-                    SpawnNPC(entry.VehicleType, entry.SpawnPosition, entry.Route, entry.DesiredSpeeds, entry.Goal);
-                    removeAfter2.Add(entry);
+                    SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal);
+                    removeAfter2.Add(npcCar);
                 }
             }
             foreach (var entry in removeAfter2)
                 delayingSpawnNPCs.Remove(entry);
         }
 
-        // spawn a stand still vehicle 
-        public static NPCVehicle PoseObstacle(string vehicleType, string trafficLaneName, float distance)
+        // spawn a stand still vehicle
+        public static NPCVehicle PoseObstacle(VehicleType vehicleType, IPosition spawnPosition)
         {
-            EnsureNonNullInstance(Manager());
-            GameObject obj = GameObject.Find(trafficLaneName);
-            if (obj == null)
-                throw new UnityException("[NPCSim] Cannot find traffic line with name: " + trafficLaneName);
-            TrafficLane lane = obj.GetComponent<TrafficLane>();
-            Vector3 position = CustomSimUtils.CalculatePosition(lane, distance, out int waypointIndex);
-            Vector3 fwd = waypointIndex == 0 ?
-                lane.Waypoints[1] - lane.Waypoints[0] :
-                lane.Waypoints[waypointIndex] - lane.Waypoints[waypointIndex - 1];
-            GameObject npc = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(vehicleType),
-                position,
-                Quaternion.LookRotation(fwd));
-            npc.name = "NPC-Taxi";
-            var vehicle = npc.GetComponent<NPCVehicle>();
-            vehicle.VehicleID = SpawnIdGenerator.Generate();
-            GetNPCs().Add(vehicle);
-            return vehicle;
+            return SpawnNPC(vehicleType, spawnPosition, out int _waypointIndex);
+        }
+        public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition)
+        {
+            return SpawnNPC(vehicleType, spawnPosition, out int _waypointIndex);
         }
 
-        // spawn an NPC
-        public static NPCVehicle SpawnNPC(string vehicleType, LaneOffsetPosition spawnPosition, out int waypointIndex)
+        // spawn an NPC (static, no movement)
+        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex)
         {
             EnsureNonNullInstance(Manager());
             // calculate position
@@ -198,76 +193,76 @@ namespace AWSIM.AWAnalysis.CustomSim
             NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, position, waypointIndex);
 
             // spawn NPC
-            var npc = Manager().npcVehicleSpawner.Spawn(Manager().GetNPCPrefab(vehicleType), SpawnIdGenerator.Generate(), spawnPoint,
+            var npc = Manager().npcVehicleSpawner.Spawn(Manager().GetNPCPrefab(vehicleType),
+                SpawnIdGenerator.Generate(), spawnPoint,
                 Quaternion.LookRotation(spawnPoint.Forward));
             GetNPCs().Add(npc);
             return npc;
         }
 
         // spawn an NPC and make it move
-        public static NPCVehicle SpawnNPC(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal)
+        public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition,
+            NPCConfig npcConfig, IPosition goal)
         {
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
 
             // set route and goal
-            var routeLanes = CustomSimUtils.ParseLanes(route);
-            Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, desiredSpeeds, goal);
+            var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
+            Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds, goal);
             return npc;
         }
 
         // spawn an NPC and delay `delay.ActivateDelay` seconds to make it move
-        public static NPCVehicle SpawnNPCAndDelayMovement(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal, NPCSpawnDelay delay)
+        public static NPCVehicle SpawnNPCAndDelayMovement(NPCCar npcCar)
         {
-            // spawn NPC
-            NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
+            if (npcCar.SpawnDelayOption == null || npcCar.SpawnDelayOption.ActionDelayed != DelayedAction.MOVING)
+                throw new CustomSimException("[CustomSim]: Invalid NPCSpawnDelay paramater.");
 
-            if (delay != null)
-                Manager().delayingMoveNPCs.Add(npc, Tuple.Create<NPCSpawnDelay, List<string>, int, Dictionary<string, float>, LaneOffsetPosition>
-                (
-                    delay,
-                    route,
-                    waypointIndex,
-                    desiredSpeeds,
-                    goal
-                ));
+            // spawn NPC
+            NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex);
+
+            Manager().delayingMoveNPCs.Add(npc,
+                Tuple.Create(waypointIndex, npcCar));
             return npc;
         }
 
-        // delay `delay.SpawnDelay` seconds to spawn the NPC
-        public static DelayingNPCVehicle SpawnNPCWithDelay(string vehicleType, LaneOffsetPosition spawnPosition, List<string> route,
-            Dictionary<string, float> desiredSpeeds, LaneOffsetPosition goal, NPCSpawnDelay delay)
+        public static void SpawnNPC(NPCCar npcCar)
         {
-            if (delay == null)
-                throw new UnityException("[NPCSim]: Invalid NPCSpawnDelay paramater.");
-            var delaynpc = new DelayingNPCVehicle(
-                    SpawnIdGenerator.Generate(),
-                    vehicleType,
-                    spawnPosition,
-                    route,
-                    desiredSpeeds,
-                    goal,
-                    delay);
-            Manager().delayingSpawnNPCs.Add(delaynpc);
-            return delaynpc;
+            if (npcCar.InitialPosition == null)
+                throw new InvalidScriptException("Undefined initial position" +
+                    npcCar.Name == null ? "." : " " + npcCar.Name);
+
+            // delay spawn
+            if (npcCar.SpawnDelayOption != null &&
+                npcCar.SpawnDelayOption != NPCSpawnDelay.DummyDelay() &&
+                npcCar.SpawnDelayOption.DelayType != DelayKind.NONE)
+            {
+                switch (npcCar.SpawnDelayOption.ActionDelayed)
+                {
+                    case DelayedAction.SPAWNING:
+                        Manager().delayingSpawnNPCs.Add(npcCar);
+                        break;
+                    case DelayedAction.MOVING:
+                        SpawnNPCAndDelayMovement(npcCar);
+                        break;
+                }
+            } 
         }
 
-        // parse vehicle type
-        private GameObject GetNPCPrefab(string vehicleType)
+        private GameObject GetNPCPrefab(VehicleType vehicleType)
         {
-            switch (vehicleType.ToLower())
+            switch (vehicleType)
             {
-                case "taxi":
+                case VehicleType.TAXI:
                     return npcTaxi;
-                case "hatchback":
+                case VehicleType.HATCHBACK:
                     return npcHatchback;
-                case "small-car": case "smallcar":
+                case VehicleType.SMALL_CAR:
                     return npcSmallCar;
-                case "truck":
+                case VehicleType.TRUCK:
                     return npcTruck;
-                case "van":
+                case VehicleType.VAN:
                     return npcVan;
                 default:
                     Debug.LogWarning("[NPCSim] Cannot detect the vehicle type `" + vehicleType + "`. " +

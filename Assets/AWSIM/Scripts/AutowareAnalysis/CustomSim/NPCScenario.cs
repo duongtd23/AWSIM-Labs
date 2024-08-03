@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using AWSIM;
 using AWSIM.TrafficSimulation;
 using UnityEngine;
+using AWSIM_Script.Object;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -55,13 +56,16 @@ namespace AWSIM.AWAnalysis.CustomSim
             // in that case, the vehicle will stop at the end of the goal lane
             var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
-            CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, route, desiredSpeeds, goal);
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.TAXI, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds)));
         }
 
         // another scenario
         private void Scenario2()
         {
-            NPCVehicle npc = CustomNPCSpawningManager.PoseObstacle("small-car", "TrafficLane.263", 20f);
+            NPCVehicle npc = CustomNPCSpawningManager.PoseObstacle(VehicleType.SMALL_CAR,
+                new LaneOffsetPosition("TrafficLane.263", 20f));
         }
 
         // another scenario
@@ -88,10 +92,9 @@ namespace AWSIM.AWAnalysis.CustomSim
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LaneOffsetPosition("TrafficLane.268", 20f);
 
-            CustomNPCSpawningManager.SpawnNPC("taxi", spawnPosition, route, desiredSpeeds, goal);
-
-            // an obstacle
-            //PoseObstacle("TrafficLane.263", 15f);
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.TAXI, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds)));
         }
 
         // spawn an NPC and make it move 5 seconds later
@@ -111,7 +114,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LaneOffsetPosition("TrafficLane.240", 30f);
 
-            CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.Delay(5f));
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.HATCHBACK, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds),
+                NPCSpawnDelay.DelayMove(5f)));
         }
 
         // spawn an NPC with 5 seconds delay
@@ -137,7 +143,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
-            CustomNPCSpawningManager.SpawnNPCWithDelay("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.Delay(5f));
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.VAN, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds),
+                NPCSpawnDelay.DelaySpawn(5f)));
         }
 
         // spawn an NPC and make it move at 1 second after the Ego moves
@@ -158,7 +167,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LaneOffsetPosition("TrafficLane.240", 30f);
 
-            CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoMove(1f));
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.TAXI, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds),
+                NPCSpawnDelay.DelayMoveUntilEgoMove(1f)));
         }
 
         // spawn an NPC, delay its movement, and make it move when the Ego engaged
@@ -180,7 +192,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             // stop on lane 265, 40m far from the starting point of the lane
             var goal = new LaneOffsetPosition("TrafficLane.265", 60f);
 
-            CustomNPCSpawningManager.SpawnNPCAndDelayMovement("taxi", spawnPosition, route, desiredSpeeds, goal, NPCSpawnDelay.DelayUntilEgoEngaged(0f));
+            CustomNPCSpawningManager.SpawnNPC(new NPCCar(
+                VehicleType.TRUCK, spawnPosition, goal,
+                new NPCConfig(route, desiredSpeeds),
+                NPCSpawnDelay.DelayMoveUntilEgoEngaged(0f)));
         }
     }
 
