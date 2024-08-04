@@ -165,10 +165,7 @@ namespace AWSIM.TrafficSimulation
         public void Register(NPCVehicle vehicle, List<TrafficLane> route, int waypointIndex,
             Dictionary<string,float> desiredSpeed, IPosition goal)
         {
-            if (goal is LaneOffsetPosition)
-                vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, desiredSpeed, (LaneOffsetPosition)goal, waypointIndex));
-            // TODO: implement
-            throw new NotImplementedException();
+            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, desiredSpeed, goal, waypointIndex));
         }
     }
 }

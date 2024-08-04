@@ -4,6 +4,7 @@ using AWSIM;
 using AWSIM.TrafficSimulation;
 using UnityEngine;
 using AWSIM_Script.Object;
+using AWSIM_Script.Parser;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -13,8 +14,9 @@ namespace AWSIM.AWAnalysis.CustomSim
         void Start()
         {
             while (CustomNPCSpawningManager.Manager() == null) ;
-            Scenario1();
-            Test1();
+            //Scenario1();
+            //Test1();
+            LoadScript();
         }
 
         //Update is called once per frame
@@ -29,6 +31,38 @@ namespace AWSIM.AWAnalysis.CustomSim
             CustomSimUtils.RightLaneOffset("TrafficLane.247", 15f, allLanes, out TrafficLane lane12, out float offset12);
             Debug.Log("[NPCSim] lane1: " + lane1 + " at " + offset1);
             Debug.Log("[NPCSim] lane12: " + lane12 + " at " + offset12);
+        }
+
+        // make sure to give the command line argument `-script <path-to-script-file>`
+        private void LoadScript()
+        {
+            string[] args = System.Environment.GetCommandLineArgs();
+            string scriptFilePath = string.Empty;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "-script")
+                {
+                    scriptFilePath = args[i + 1];
+                    break;
+                }
+            }
+            if (scriptFilePath == null)
+                Debug.LogError("[CustomSim] Input script is not given. " +
+                    "Specify it by argument `-script <path-to-script-file>`.");
+            else
+            {
+                Debug.Log("Loading input script " + scriptFilePath);
+                Scenario scenario = new ScriptParser().ParseScriptFromFile(scriptFilePath);
+                RunScenario(scenario);
+            }
+        }
+
+        private void RunScenario(Scenario scenario)
+        {
+            foreach (NPCCar npcCar in scenario.NPCs)
+            {
+                CustomNPCSpawningManager.SpawnNPC(npcCar);
+            }
         }
 
         // a scenario

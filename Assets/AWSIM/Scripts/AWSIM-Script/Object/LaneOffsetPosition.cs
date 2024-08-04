@@ -1,4 +1,5 @@
 ﻿using System;
+
 namespace AWSIM_Script.Object
 {
     /// <summary>
@@ -45,6 +46,11 @@ namespace AWSIM_Script.Object
         public override string ToString()
         {
             return laneName + " at " + offset;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(laneName, offset);
         }
     }
 }

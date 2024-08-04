@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Xml.Linq;
+using UnityEngine;
 using Antlr4.Runtime.Tree;
 using AWSIM_Script.Error;
-using AWSIM_Script.Object;
 using static AWSIMScriptGrammarParser;
 using System.Collections.Generic;
 
@@ -17,10 +16,9 @@ namespace AWSIM_Script.Parser
         public static void ValidateSemiColon(IParseTree node)
         {
             if (node == null || !(node is TerminalNodeImpl))
-                // TODO: replace with Debug.LogError later
-                Console.WriteLine("[ERROR] Look like you miss/wrongly declare a semi colon");
+                Debug.LogError("[ERROR] Look like you miss/wrongly declare a semi colon");
             if (node.GetText() != SEMI_COLON)
-                Console.WriteLine("[ERROR] A semi colon is expected at the end of: " + node.Parent.GetText());
+                Debug.LogError("[ERROR] A semi colon is expected at the end of: " + node.Parent.GetText());
         }
 
         // validate that the node is a colon

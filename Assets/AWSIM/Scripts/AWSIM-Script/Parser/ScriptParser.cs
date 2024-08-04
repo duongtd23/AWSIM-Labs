@@ -14,10 +14,15 @@ namespace AWSIM_Script.Parser
 		public ScriptParser()
 		{
 		}
-
-        public Scenario ParseScript(string input)
+        public Scenario ParseScriptFromFile(string scriptFilePath)
         {
-            ICharStream stream = CharStreams.fromString(input);
+            string scriptContent = File.ReadAllText(scriptFilePath);
+            return ParseScript(scriptContent);
+        }
+
+        public Scenario ParseScript(string scriptContent)
+        {
+            ICharStream stream = CharStreams.fromString(scriptContent);
             ITokenSource lexer = new AWSIMScriptGrammarLexer(stream);
             ITokenStream tokens = new CommonTokenStream(lexer);
             AWSIMScriptGrammarParser parser = new AWSIMScriptGrammarParser(tokens);

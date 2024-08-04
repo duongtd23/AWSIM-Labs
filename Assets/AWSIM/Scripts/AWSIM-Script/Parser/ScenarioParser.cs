@@ -1,4 +1,4 @@
-﻿using System;
+﻿using UnityEngine;
 using Antlr4.Runtime.Tree;
 using AWSIM_Script.Error;
 using AWSIM_Script.Object;
@@ -29,7 +29,7 @@ namespace AWSIM_Script.Parser
             if (runFuncs.Count == 0)
                 throw new InvalidScriptException("There is no run function in the input script.");
             if (runFuncs.Count > 1)
-                Console.WriteLine("[ERROR] Found more than run function in the input script." +
+                Debug.LogError("[ERROR] Found more than run function in the input script." +
                     " Use the last one by default.");
             var runFunc = runFuncs[runFuncs.Count - 1];
 
@@ -151,11 +151,11 @@ namespace AWSIM_Script.Parser
             }
 
             NPCCar npc = new NPCCar(vehicleType, spawnPosition);
-            if (goal != LaneOffsetPosition.DummyPosition())
+            if (!(goal.Equals(LaneOffsetPosition.DummyPosition())))
                 npc.Goal = goal;
             if (route.Count > 0)
                 npc.Config = new NPCConfig(route);
-            if (delay != NPCSpawnDelay.DummyDelay())
+            if (!(delay.Equals(NPCSpawnDelay.DummyDelay())))
                 npc.SpawnDelayOption = delay;
             if (npcName != "")
                 npc.Name = npcName;

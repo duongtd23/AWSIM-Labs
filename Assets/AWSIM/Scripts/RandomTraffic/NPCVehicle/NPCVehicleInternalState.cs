@@ -251,7 +251,9 @@ namespace AWSIM.TrafficSimulation
         // return the desired speed for a given lane
         public float TargetSpeed(TrafficLane lane)
         {
-            if (desiredSpeed.ContainsKey(lane.name))
+            if (desiredSpeed.ContainsKey(lane.name) &&
+                desiredSpeed[lane.name] != NPCConfig.DUMMY_SPEED &&
+                desiredSpeed[lane.name] >= 0)
                 return desiredSpeed[lane.name];
             return lane.SpeedLimit;
         }
@@ -275,20 +277,16 @@ namespace AWSIM.TrafficSimulation
         }
 
         // goal, defined as a pair of lane name and distance (from the starting point)
-        private LaneOffsetPosition goal;
-        public LaneOffsetPosition Goal => goal;
+        private IPosition goal;
+        public IPosition Goal => goal;
         public bool GoalArrived { get; set; }
 
         public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
-            Dictionary<string, float> desiredSpeed, LaneOffsetPosition goal, int waypointIndex = 0)
+            Dictionary<string, float> desiredSpeed, IPosition goal, int waypointIndex = 0)
         {
             var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
             state.desiredSpeed = desiredSpeed;
-
-            TrafficLane lane = CustomSimUtils.ParseLane(goal.GetLane());
-            goal.SetOffset(Mathf.Min(goal.GetOffset(), lane.TotalLength()));
             state.goal = goal;
-
             return state;
         }
     }

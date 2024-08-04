@@ -19,6 +19,8 @@ namespace AWSIM.AWAnalysis
 
         private int timeStepCount = 0;
 
+        private bool autowareActive = false;
+
         void Start()
         {
             try
@@ -27,11 +29,13 @@ namespace AWSIM.AWAnalysis
                 <tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
                 "/perception/object_recognition/detection/rois0", msg =>
                 {
+                    autowareActive = true;
                     lastMsgReceived = msg;
                 });
             }
             catch (NullReferenceException e)
             {
+                autowareActive = false;
                 Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
                     "Make sure Autoware has been started. Exception detail: " + e);
             }
@@ -39,25 +43,28 @@ namespace AWSIM.AWAnalysis
 
         void FixedUpdate()
         {
-            timeStepCount = (timeStepCount + 1) % 10;
-            if (timeStepCount % 10 != 9)
-                return;
-
-            // invoke the following every 0.02*10 second
-            if (CustomNPCSpawningManager.Manager() != null &&
-                CustomNPCSpawningManager.GetNPCs() != null)
+            if (autowareActive)
             {
-                List<Rect> detectedBoxes = ParseDetectedMsg(lastMsgReceived);
-                foreach (NPCVehicle npc in CustomNPCSpawningManager.GetNPCs())
+                timeStepCount = (timeStepCount + 1) % 10;
+                if (timeStepCount % 10 != 9)
+                    return;
+
+                // invoke the following every 0.02*10 second
+                if (CustomNPCSpawningManager.Manager() != null &&
+                    CustomNPCSpawningManager.GetNPCs() != null)
                 {
-                    var distance = Vector3.Distance(
-                        npc.transform.position,
-                        autowareEgoCar.transform.position);
-                    // if the NPC is within the distance considered and
-                    // it is visible by the sensor camera view 
-                    if (distance < NPC_RECOGNIZE_DISTANCE &&
-                        CameraUtils.NPCVisibleByCamera(sensorCamera, npc))
-                        EvaluatePerception(npc, detectedBoxes);
+                    List<Rect> detectedBoxes = ParseDetectedMsg(lastMsgReceived);
+                    foreach (NPCVehicle npc in CustomNPCSpawningManager.GetNPCs())
+                    {
+                        var distance = Vector3.Distance(
+                            npc.transform.position,
+                            autowareEgoCar.transform.position);
+                        // if the NPC is within the distance considered and
+                        // it is visible by the sensor camera view 
+                        if (distance < NPC_RECOGNIZE_DISTANCE &&
+                            CameraUtils.NPCVisibleByCamera(sensorCamera, npc))
+                            EvaluatePerception(npc, detectedBoxes);
+                    }
                 }
             }
         }

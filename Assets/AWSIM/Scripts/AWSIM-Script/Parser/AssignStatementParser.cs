@@ -1,4 +1,4 @@
-﻿using System;
+﻿using UnityEngine;
 using AWSIM_Script.Error;
 using AWSIM_Script.Parser.Object;
 using static AWSIMScriptGrammarParser;
@@ -18,7 +18,7 @@ namespace AWSIM_Script.Parser
 
 			string varName = assignmentStmContext.children[0].GetText();
 			if (scenarioEnv.Variables.ContainsKey(varName))
-				Console.WriteLine("[ERROR]: Redefine the variable " + varName);
+				Debug.LogError("[ERROR]: Redefine the variable " + varName);
             scenarioEnv.Variables.Add(varName,
 				(ExpressionContext)assignmentStmContext.children[2]);
 			return true;

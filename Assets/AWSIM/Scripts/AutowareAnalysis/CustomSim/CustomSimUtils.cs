@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AWSIM.AWAnalysis.Error;
 using AWSIM.TrafficSimulation;
+using AWSIM_Script.Object;
 using UnityEngine;
 
 namespace AWSIM.AWAnalysis.CustomSim
@@ -97,6 +98,18 @@ namespace AWSIM.AWAnalysis.CustomSim
                 " The end point of the lane is used.");
             waypointIndex = lane.Waypoints.Length - 1;
             return lane.Waypoints[waypointIndex];
+        }
+
+        // if the offset of goal exceeds the lane's total length,
+        // set the offset to lane length
+        public static IPosition ValidateGoal(IPosition goal)
+        {
+            TrafficLane lane = ParseLane(goal.GetLane());
+            if (goal.GetOffset() > lane.TotalLength())
+            {
+                return new LaneOffsetPosition(goal.GetLane(), lane.TotalLength());
+            }
+            return goal;
         }
 
         /// <summary>

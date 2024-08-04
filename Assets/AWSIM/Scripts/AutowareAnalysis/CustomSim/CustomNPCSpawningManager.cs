@@ -150,7 +150,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                     List<string> route = npcCar.Route();
                     var routeLanes = CustomSimUtils.ParseLanes(route);
                     npcVehicleSimulator.Register(npcVehicle, routeLanes,
-                        waypointIndex, npcCar.RouteAndSpeeds(), npcCar.Goal);
+                        waypointIndex, npcCar.RouteAndSpeeds(), CustomSimUtils.ValidateGoal(npcCar.Goal));
                     removeAfter.Add(npcVehicle);
                 }
             }
@@ -173,14 +173,28 @@ namespace AWSIM.AWAnalysis.CustomSim
                 delayingSpawnNPCs.Remove(entry);
         }
 
-        // spawn a stand still vehicle
+        // spawn a stand still vehicle 
         public static NPCVehicle PoseObstacle(VehicleType vehicleType, IPosition spawnPosition)
         {
-            return SpawnNPC(vehicleType, spawnPosition, out int _waypointIndex);
+            EnsureNonNullInstance(Manager());
+            TrafficLane lane = CustomSimUtils.ParseLane(spawnPosition.GetLane());
+            Vector3 position = CustomSimUtils.CalculatePosition(
+                lane, spawnPosition.GetOffset(), out int waypointIndex);
+            Vector3 fwd = waypointIndex == 0 ?
+                lane.Waypoints[1] - lane.Waypoints[0] :
+                lane.Waypoints[waypointIndex] - lane.Waypoints[waypointIndex - 1];
+            GameObject npcGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(vehicleType),
+                position,
+                Quaternion.LookRotation(fwd));
+            var npc = npcGameObj.GetComponent<NPCVehicle>();
+            npc.VehicleID = SpawnIdGenerator.Generate();
+            GetNPCs().Add(npc);
+            return npc;
         }
+
         public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition)
         {
-            return SpawnNPC(vehicleType, spawnPosition, out int _waypointIndex);
+            return PoseObstacle(vehicleType, spawnPosition);
         }
 
         // spawn an NPC (static, no movement)
@@ -189,7 +203,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             EnsureNonNullInstance(Manager());
             // calculate position
             TrafficLane spawnLane = CustomSimUtils.ParseLane(spawnPosition.GetLane());
-            Vector3 position = CustomSimUtils.CalculatePosition(spawnLane, spawnPosition.GetOffset(), out waypointIndex);
+            Vector3 position = CustomSimUtils.CalculatePosition(
+                spawnLane, spawnPosition.GetOffset(), out waypointIndex);
             NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, position, waypointIndex);
 
             // spawn NPC
@@ -209,7 +224,8 @@ namespace AWSIM.AWAnalysis.CustomSim
 
             // set route and goal
             var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
-            Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds, goal);
+            Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds,
+                CustomSimUtils.ValidateGoal(goal));
             return npc;
         }
 
@@ -233,21 +249,28 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new InvalidScriptException("Undefined initial position" +
                     npcCar.Name == null ? "." : " " + npcCar.Name);
 
-            // delay spawn
-            if (npcCar.SpawnDelayOption != null &&
-                npcCar.SpawnDelayOption != NPCSpawnDelay.DummyDelay() &&
-                npcCar.SpawnDelayOption.DelayType != DelayKind.NONE)
+            if (!npcCar.HasGoal())
             {
-                switch (npcCar.SpawnDelayOption.ActionDelayed)
+                PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition);
+            }
+            else
+            {
+                if (npcCar.HasDelayOption())
                 {
-                    case DelayedAction.SPAWNING:
-                        Manager().delayingSpawnNPCs.Add(npcCar);
-                        break;
-                    case DelayedAction.MOVING:
-                        SpawnNPCAndDelayMovement(npcCar);
-                        break;
+                    switch (npcCar.SpawnDelayOption.ActionDelayed)
+                    {
+                        case DelayedAction.SPAWNING:
+                            Manager().delayingSpawnNPCs.Add(npcCar);
+                            break;
+                        case DelayedAction.MOVING:
+                            SpawnNPCAndDelayMovement(npcCar);
+                            break;
+                    }
                 }
-            } 
+                else
+                    SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition,
+                        npcCar.Config, npcCar.Goal);
+            }
         }
 
         private GameObject GetNPCPrefab(VehicleType vehicleType)

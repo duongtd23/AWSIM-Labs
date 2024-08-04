@@ -111,9 +111,15 @@ namespace AWSIM_Script.Object
             {
                 var obj2 = (NPCSpawnDelay)obj;
                 return this.DelayType == obj2.DelayType &&
-                    this.DelayAmount == obj2.DelayAmount;
+                    this.DelayAmount == obj2.DelayAmount &&
+                    this.ActionDelayed == obj2.ActionDelayed;
             }
             return base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(DelayType, DelayAmount, ActionDelayed);
         }
     }
 }

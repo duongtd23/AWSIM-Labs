@@ -44,11 +44,11 @@ namespace AWSIM_Script.Object
         {
 			SpawnDelayOption = spawnDelay;
         }
+		public VehicleType VehicleType { get; set; }
         public IPosition InitialPosition { get; set; }
         public IPosition Goal { get; set; }
-		public NPCSpawnDelay SpawnDelayOption { get; set; }
 		public NPCConfig Config { get; set; }
-		public VehicleType VehicleType { get; set; }
+        public NPCSpawnDelay SpawnDelayOption { get; set; }
 		public string Name { get; set; }
 
 		public Dictionary<string,float> RouteAndSpeeds()
@@ -67,6 +67,25 @@ namespace AWSIM_Script.Object
 				return null;
 			return new List<string>(routeSpeeds.Keys);
         }
+
+		public bool HasGoal()
+		{
+			return Goal != null &&
+				!Goal.Equals(LaneOffsetPosition.DummyPosition());
+		}
+
+		public bool HasConfig()
+		{
+			return Config != null &&
+				Config.RouteAndSpeeds != null;
+		}
+
+		public bool HasDelayOption()
+		{
+			return SpawnDelayOption != null &&
+				!SpawnDelayOption.Equals(NPCSpawnDelay.DummyDelay()) &&
+				SpawnDelayOption.DelayType != DelayKind.NONE;
+		}
     }
 }
 
