@@ -36,17 +36,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         // make sure to give the command line argument `-script <path-to-script-file>`
         private void LoadScript()
         {
-            string[] args = System.Environment.GetCommandLineArgs();
-            string scriptFilePath = string.Empty;
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i] == "-script")
-                {
-                    scriptFilePath = args[i + 1];
-                    break;
-                }
-            }
-            if (scriptFilePath == null)
+            bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
+            if (!argDefined)
                 Debug.LogError("[CustomSim] Input script is not given. " +
                     "Specify it by argument `-script <path-to-script-file>`.");
             else

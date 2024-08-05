@@ -19,31 +19,40 @@ namespace AWSIM.AWAnalysis
 
         private int timeStepCount = 0;
 
-        private bool autowareActive = false;
+        private bool autowareActive = true;
+        private bool perceptionAnalysisEnable = true;
 
         void Start()
         {
-            try
+            // parse command line arguments
+            CommandLineArgsManager.Instance();
+
+            bool argDefined = CommandLineArgsManager.GetPerceptionAnalysisFlag(out bool flag);
+            if (argDefined)
+                perceptionAnalysisEnable = flag;
+            if (perceptionAnalysisEnable)
             {
-                SimulatorROS2Node.CreateSubscription
-                <tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
-                "/perception/object_recognition/detection/rois0", msg =>
+                try
                 {
-                    autowareActive = true;
-                    lastMsgReceived = msg;
-                });
-            }
-            catch (NullReferenceException e)
-            {
-                autowareActive = false;
-                Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
-                    "Make sure Autoware has been started. Exception detail: " + e);
+                    SimulatorROS2Node.CreateSubscription
+                    <tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
+                    "/perception/object_recognition/detection/rois0", msg =>
+                    {
+                        lastMsgReceived = msg;
+                    });
+                }
+                catch (NullReferenceException e)
+                {
+                    autowareActive = false;
+                    Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
+                        "Make sure Autoware has been started. Exception detail: " + e);
+                }
             }
         }
 
         void FixedUpdate()
         {
-            if (autowareActive)
+            if (perceptionAnalysisEnable && autowareActive)
             {
                 timeStepCount = (timeStepCount + 1) % 10;
                 if (timeStepCount % 10 != 9)
