@@ -8,6 +8,8 @@ using AWSIM.AWAnalysis.Error;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
+    // TODO: check the route given is valid, i.e.,
+    // two consecutive lanes are always valid
     public class CustomNPCSpawningManager
     {
         // singleton instance
