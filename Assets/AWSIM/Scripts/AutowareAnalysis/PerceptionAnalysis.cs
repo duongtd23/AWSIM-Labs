@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using AWSIM.AWAnalysis.CustomSim;
 using System;
+using tier4_perception_msgs.msg;
+using AWSIM.AWAnalysis.TraceExporter;
 
 namespace AWSIM.AWAnalysis
 {
@@ -15,7 +17,12 @@ namespace AWSIM.AWAnalysis
         public const int NPC_RECOGNIZE_DISTANCE = 130;
 
         // the last ROS2 message received
-        private tier4_perception_msgs.msg.DetectedObjectsWithFeature lastMsgReceived;
+        private DetectedObjectsWithFeature lastBoundingBoxMsgReceived;
+
+        private autoware_adapi_v1_msgs.msg.DynamicObjectArray lastDetectedObjectsMsgReceived;
+        // each 100 milliseconds
+        public const int TRACE_RATE = 100;
+        private TraceWriter traceWriter;
 
         private int timeStepCount = 0;
 
@@ -34,11 +41,17 @@ namespace AWSIM.AWAnalysis
             {
                 try
                 {
-                    SimulatorROS2Node.CreateSubscription
-                    <tier4_perception_msgs.msg.DetectedObjectsWithFeature>(
+                    SimulatorROS2Node.CreateSubscription<DetectedObjectsWithFeature>(
                     "/perception/object_recognition/detection/rois0", msg =>
                     {
-                        lastMsgReceived = msg;
+                        lastBoundingBoxMsgReceived = msg;
+                    });
+                    traceWriter = new TraceWriter("trace.maude");
+                    SimulatorROS2Node.CreateSubscription<
+                        autoware_adapi_v1_msgs.msg.DynamicObjectArray>(
+                    "/api/perception/objects", msg =>
+                    {
+                        HandleDetectedObjectsMsg(msg);
                     });
                 }
                 catch (NullReferenceException e)
@@ -54,6 +67,8 @@ namespace AWSIM.AWAnalysis
         {
             if (perceptionAnalysisEnable && autowareActive)
             {
+                if (Time.fixedTime > 60)
+                    traceWriter.WriteFile();
                 timeStepCount = (timeStepCount + 1) % 10;
                 if (timeStepCount % 10 != 9)
                     return;
@@ -62,7 +77,7 @@ namespace AWSIM.AWAnalysis
                 if (CustomNPCSpawningManager.Manager() != null &&
                     CustomNPCSpawningManager.GetNPCs() != null)
                 {
-                    List<Rect> detectedBoxes = ParseDetectedMsg(lastMsgReceived);
+                    List<Rect> detectedBoxes = ParseDetectedMsg(lastBoundingBoxMsgReceived);
                     foreach (NPCVehicle npc in CustomNPCSpawningManager.GetNPCs())
                     {
                         var distance = Vector3.Distance(
@@ -75,6 +90,16 @@ namespace AWSIM.AWAnalysis
                             EvaluatePerception(npc, detectedBoxes);
                     }
                 }
+            }
+        }
+
+        private void HandleDetectedObjectsMsg(autoware_adapi_v1_msgs.msg.DynamicObjectArray msg)
+        {
+            float diff = AutowareAnalysisUtils.DiffInMiliSec(msg.Header.Stamp, lastBoundingBoxMsgReceived.Header.Stamp);
+            if (diff >= TRACE_RATE)
+            {
+                traceWriter.AppendMsg(msg);
+                lastDetectedObjectsMsgReceived = msg;
             }
         }
 
