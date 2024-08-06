@@ -22,7 +22,9 @@ namespace AWSIM.AWAnalysis
         private autoware_adapi_v1_msgs.msg.DynamicObjectArray lastDetectedObjectsMsgReceived;
         // each 100 milliseconds
         public const int TRACE_RATE = 100;
+        public const int CAPTURE_DURATION = 60;
         private TraceWriter traceWriter;
+        private bool traceWritten = false;
 
         private int timeStepCount = 0;
 
@@ -67,8 +69,11 @@ namespace AWSIM.AWAnalysis
         {
             if (perceptionAnalysisEnable && autowareActive)
             {
-                if (Time.fixedTime > 60)
+                if (Time.fixedTime > CAPTURE_DURATION && !traceWritten)
+                {
                     traceWriter.WriteFile();
+                    traceWritten = true;
+                }    
                 timeStepCount = (timeStepCount + 1) % 10;
                 if (timeStepCount % 10 != 9)
                     return;
@@ -95,8 +100,8 @@ namespace AWSIM.AWAnalysis
 
         private void HandleDetectedObjectsMsg(autoware_adapi_v1_msgs.msg.DynamicObjectArray msg)
         {
-            float diff = AutowareAnalysisUtils.DiffInMiliSec(msg.Header.Stamp, lastBoundingBoxMsgReceived.Header.Stamp);
-            if (diff >= TRACE_RATE)
+            if (lastDetectedObjectsMsgReceived == null ||
+                 AutowareAnalysisUtils.DiffInMiliSec(lastBoundingBoxMsgReceived.Header.Stamp, msg.Header.Stamp) >= TRACE_RATE)
             {
                 traceWriter.AppendMsg(msg);
                 lastDetectedObjectsMsgReceived = msg;

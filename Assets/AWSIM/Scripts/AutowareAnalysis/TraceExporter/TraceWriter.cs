@@ -39,16 +39,16 @@ namespace AWSIM.AWAnalysis.TraceExporter
 			if (msg.Objects.Length < 1)
 				return false;
 
-			msg2Str += WriteObjects(msg.Objects) + "}";
+			msg2Str += WriteObjects(msg.Objects);
 
             if (lastObjStr == "")
 			{
-                contents += msg2Str;
+                contents += msg2Str + " .";
             }
 			else
 			{
 				contents += "\n" + TAB +
-					"rl " + lastObjStr + "\n" + TAB +
+					"rl " + lastObjStr + "\n" + TAB + "=> " +
 					msg2Str + " .";
 			}
 			lastObjStr = msg2Str;
@@ -89,38 +89,46 @@ namespace AWSIM.AWAnalysis.TraceExporter
 		private string PoseToString(geometry_msgs.msg.Pose pose)
 		{
             string result = "{pos: ";
-            result += pose.Position.X + " ";
-            result += pose.Position.Y + " ";
-            result += pose.Position.Z + ", qua: ";
-            result += pose.Orientation.X + " ";
-            result += pose.Orientation.Y + " ";
-            result += pose.Orientation.Z + " ";
-            result += pose.Orientation.W + "}";
+            result += DoubleToMaudeString(pose.Position.X) + " ";
+            result += DoubleToMaudeString(pose.Position.Y) + " ";
+            result += DoubleToMaudeString(pose.Position.Z) + ", qua: ";
+            result += DoubleToMaudeString(pose.Orientation.X) + " ";
+            result += DoubleToMaudeString(pose.Orientation.Y) + " ";
+            result += DoubleToMaudeString(pose.Orientation.Z) + " ";
+            result += DoubleToMaudeString(pose.Orientation.W) + "}";
 			return result;
         }
 
         private string TwistToString(geometry_msgs.msg.Twist twist)
         {
             string result = "{lin: ";
-            result += twist.Linear.X + " ";
-            result += twist.Linear.Y + " ";
-            result += twist.Linear.Z + ", ang: ";
-            result += twist.Angular.X + " ";
-            result += twist.Angular.Y + " ";
-            result += twist.Angular.Z + "}";
+            result += DoubleToMaudeString(twist.Linear.X) + " ";
+            result += DoubleToMaudeString(twist.Linear.Y) + " ";
+            result += DoubleToMaudeString(twist.Linear.Z) + ", ang: ";
+            result += DoubleToMaudeString(twist.Angular.X) + " ";
+            result += DoubleToMaudeString(twist.Angular.Y) + " ";
+            result += DoubleToMaudeString(twist.Angular.Z) + "}";
             return result;
         }
 
         private string AccelToString(geometry_msgs.msg.Accel twist)
         {
             string result = "{lin: ";
-            result += twist.Linear.X + " ";
-            result += twist.Linear.Y + " ";
-            result += twist.Linear.Z + ", ang: ";
-            result += twist.Angular.X + " ";
-            result += twist.Angular.Y + " ";
-            result += twist.Angular.Z + "}";
+            result += DoubleToMaudeString(twist.Linear.X) + " ";
+            result += DoubleToMaudeString(twist.Linear.Y) + " ";
+            result += DoubleToMaudeString(twist.Linear.Z) + ", ang: ";
+            result += DoubleToMaudeString(twist.Angular.X) + " ";
+            result += DoubleToMaudeString(twist.Angular.Y) + " ";
+            result += DoubleToMaudeString(twist.Angular.Z) + "}";
             return result;
         }
+
+		private string DoubleToMaudeString(double number)
+		{
+			string str = number.ToString();
+			if (!str.Contains("."))
+				str += ".0";
+			return str;
+		}
     }
 }
