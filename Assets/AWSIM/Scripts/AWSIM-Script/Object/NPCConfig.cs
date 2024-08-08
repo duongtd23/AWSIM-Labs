@@ -7,6 +7,11 @@ namespace AWSIM_Script.Object
         // this value will be replaced by the speed limit of the coressponding lane
         public const float DUMMY_SPEED = -1;
 
+        public NPCConfig(List<string> route)
+        {
+            RouteAndSpeeds = new Dictionary<string, float>();
+            route.ForEach(lane => RouteAndSpeeds.Add(lane, DUMMY_SPEED));
+        }
 		public NPCConfig(Dictionary<string, float> routeAndSpeeds)
 		{
 			RouteAndSpeeds = routeAndSpeeds;

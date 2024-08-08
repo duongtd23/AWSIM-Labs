@@ -224,7 +224,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
 
-            // set route and goal
+            // set route
             var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
             Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds,
                 CustomSimUtils.ValidateGoal(goal));
@@ -251,6 +251,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new InvalidScriptException("Undefined initial position" +
                     npcCar.Name == null ? "." : " " + npcCar.Name);
 
+            ValidateNPC(ref npcCar);
             if (!npcCar.HasGoal())
             {
                 PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition);
@@ -272,6 +273,37 @@ namespace AWSIM.AWAnalysis.CustomSim
                 else
                     SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition,
                         npcCar.Config, npcCar.Goal);
+            }
+        }
+
+        // validate (and update if neccessary) a given NPC
+        // the given NPC might lack of route, etc.
+        private static void ValidateNPC(ref NPCCar npcCar)
+        {
+            // validate spawn lane
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(npcCar.InitialPosition.GetLane());
+            if (!npcCar.HasGoal())
+                return;
+            // validate goal lane if exists
+            TrafficLane goalLane = CustomSimUtils.ParseLane(npcCar.Goal.GetLane());
+            // validate route
+            var npcConfig = npcCar.Config;
+            // if there is no route config, validate if goal can be reached directly from spawn lane
+            if (npcConfig == null || npcConfig.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
+            {
+                if (spawnLane == goalLane)
+                    npcCar.Config = new NPCConfig(new List<string> {
+                        npcCar.InitialPosition.GetLane()
+                    });
+                else if (spawnLane.NextLanes.Contains(goalLane))
+                {
+                    npcCar.Config = new NPCConfig(new List<string> {
+                        npcCar.InitialPosition.GetLane(),
+                        npcCar.Goal.GetLane()
+                    });
+                }
+                else
+                    throw new InvalidScriptException($"Undefined route from {npcCar.InitialPosition} to {npcCar.Goal}.");
             }
         }
 
