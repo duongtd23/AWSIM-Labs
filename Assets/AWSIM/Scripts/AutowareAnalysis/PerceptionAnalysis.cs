@@ -22,14 +22,15 @@ namespace AWSIM.AWAnalysis
         private autoware_adapi_v1_msgs.msg.DynamicObjectArray lastDetectedObjectsMsgReceived;
         // each 100 milliseconds
         public const int TRACE_RATE = 100;
-        public const int CAPTURE_DURATION = 60;
+        public const int CAPTURE_DURATION = 40;
         private TraceWriter traceWriter;
         private bool traceWritten = false;
 
         private int timeStepCount = 0;
 
         private bool autowareActive = true;
-        private bool perceptionAnalysisEnable = true;
+        private bool perceptionAnalysisEnable = false;
+        private bool perceptionTraceCapture = true ;
 
         void Start()
         {
@@ -39,16 +40,20 @@ namespace AWSIM.AWAnalysis
             bool argDefined = CommandLineArgsManager.GetPerceptionAnalysisFlag(out bool flag);
             if (argDefined)
                 perceptionAnalysisEnable = flag;
-            if (perceptionAnalysisEnable)
+
+            try
             {
-                try
+                if (perceptionAnalysisEnable)
                 {
                     SimulatorROS2Node.CreateSubscription<DetectedObjectsWithFeature>(
                     "/perception/object_recognition/detection/rois0", msg =>
                     {
                         lastBoundingBoxMsgReceived = msg;
                     });
-                    traceWriter = new TraceWriter("trace.maude");
+                }
+                if (perceptionTraceCapture)
+                {
+                    traceWriter = new TraceWriter("perception-trace.maude");
                     SimulatorROS2Node.CreateSubscription<
                         autoware_adapi_v1_msgs.msg.DynamicObjectArray>(
                     "/api/perception/objects", msg =>
@@ -56,27 +61,30 @@ namespace AWSIM.AWAnalysis
                         HandleDetectedObjectsMsg(msg);
                     });
                 }
-                catch (NullReferenceException e)
-                {
-                    autowareActive = false;
-                    Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
-                        "Make sure Autoware has been started. Exception detail: " + e);
-                }
+            }
+            catch (NullReferenceException e)
+            {
+                autowareActive = false;
+                Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /perception/object_recognition/detection/rois0. " +
+                    "Make sure Autoware has been started. Exception detail: " + e);
             }
         }
 
         void FixedUpdate()
         {
-            if (perceptionAnalysisEnable && autowareActive)
+            if (perceptionTraceCapture)
             {
                 if (Time.fixedTime > CAPTURE_DURATION && !traceWritten)
                 {
                     traceWriter.WriteFile();
                     traceWritten = true;
                 }    
-                timeStepCount = (timeStepCount + 1) % 10;
-                if (timeStepCount % 10 != 9)
-                    return;
+            }
+            if (perceptionAnalysisEnable && autowareActive)
+            {
+                // timeStepCount = (timeStepCount + 1) % 10;
+                // if (timeStepCount % 10 != 9)
+                //     return;
 
                 // invoke the following every 0.02*10 second
                 if (CustomNPCSpawningManager.Manager() != null &&
@@ -100,12 +108,12 @@ namespace AWSIM.AWAnalysis
 
         private void HandleDetectedObjectsMsg(autoware_adapi_v1_msgs.msg.DynamicObjectArray msg)
         {
-            if (lastDetectedObjectsMsgReceived == null ||
-                 AutowareAnalysisUtils.DiffInMiliSec(lastBoundingBoxMsgReceived.Header.Stamp, msg.Header.Stamp) >= TRACE_RATE)
-            {
+            // if (lastDetectedObjectsMsgReceived == null ||
+            //      AutowareAnalysisUtils.DiffInMiliSec(lastBoundingBoxMsgReceived.Header.Stamp, msg.Header.Stamp) >= TRACE_RATE)
+            // {
                 traceWriter.AppendMsg(msg);
                 lastDetectedObjectsMsgReceived = msg;
-            }
+            // }
         }
 
         /// <summary>

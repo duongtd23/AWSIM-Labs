@@ -36,9 +36,9 @@ namespace AWSIM.AWAnalysis
                 return;
             while (CustomNPCSpawningManager.Manager() == null) ;
 
-            stepCount = (stepCount + 1) % UPDATE_INTERVAL;
-            if (stepCount % UPDATE_INTERVAL != 1)
-                return;
+            // stepCount = (stepCount + 1) % UPDATE_INTERVAL;
+            // if (stepCount % UPDATE_INTERVAL != 1)
+            //     return;
 
             if (Time.fixedTime >= CAPTURE_DURATION + DELAY && !traceWritten)
             {
@@ -48,10 +48,8 @@ namespace AWSIM.AWAnalysis
             if (!traceWritten)
             {
                 List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
-                double timeFromStart = Time.fixedTimeAsDouble;
-                long seconds = ((long)timeFromStart);
-                long nanoSeconds = (long)(timeFromStart * 1000000000 - seconds * 1000000000);
-                string stateStr = "time(" + seconds + ", " + nanoSeconds + ") # {";
+                var rosTime = SimulatorROS2Node.GetCurrentRosTime();
+                string stateStr = "time(" + rosTime.Sec + ", " + rosTime.Nanosec + ") # {";
                 stateStr += DumpEgoInfo();
                 npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
                 stateStr += "}";

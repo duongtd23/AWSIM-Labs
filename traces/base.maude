@@ -1,0 +1,82 @@
+fmod VECTOR3 is 
+  pr FLOAT .
+  sort Vector3 .
+  op ___ : Float Float Float -> Vector3 [ctor] .
+  op magnitude : Vector3 -> Float .
+  op distance : Vector3 Vector3 -> Float .
+  vars X Y Z X2 Y2 Z2 : Float .
+  eq magnitude(X Y Z) = sqrt(X * X + Y * Y + Z * Z) .
+  eq distance(X Y Z, X2 Y2 Z2) =
+    magnitude((X - X2) (Y - Y2) (Z - Z2)) .
+endfm
+
+fmod QUATERNION is 
+  pr FLOAT .
+  sort Quaternion .
+  op ____ : Float Float Float Float -> Quaternion [ctor] .
+endfm
+
+fmod POSE is
+  pr VECTOR3 + QUATERNION .
+  sort Pose .
+  op nilPose : -> Pose [ctor] .
+  --- position and quaternion
+  op {pos:_,qua:_} : Vector3 Quaternion -> Pose [ctor] .
+endfm
+
+fmod TWIST is
+  pr VECTOR3 .
+  sort Twist .
+  op nilTwist : -> Twist [ctor] .
+  --- linear and angular
+  op {lin:_,ang:_} : Vector3 Vector3 -> Twist [ctor] .
+endfm
+
+fmod OBJECT-NAME is
+  pr STRING .
+  sort Name .
+  subsort String < Name .
+  op nil : -> Name [ctor] .
+endfm
+
+fmod TIME-STAMP is 
+  pr INT .
+  sort TimeStamp .
+  --- second and nanosecond
+  op time : Int Int -> TimeStamp [ctor] .
+endfm
+
+fmod OBJECT is 
+  pr POSE + TWIST + OBJECT-NAME .
+  pr LIST{Int} . 
+  sort Object .
+  op {id:_,name:_,pose:_,twist:_,accel:_} : 
+    List{Int} Name Pose Twist Twist -> Object [ctor] .
+endfm
+
+view Object from TRIV to OBJECT is
+  sort Elt to Object .
+endv 
+fmod OBJECT-SET is
+  pr SET{Object} .
+endfm
+
+mod AWSTATE is 
+  pr OBJECT-SET + TIME-STAMP .
+  sort AWState .
+  op _#{_} : TimeStamp Set{Object} -> AWState .
+
+  ops init terminate : -> AWState .
+
+  rl terminate => terminate .
+endm
+
+
+--- view AWState from TRIV to AWSTATE is
+---   sort Elt to AWState .
+--- endv
+
+--- red in VECTOR3 : < 1.3, -2.3, -4.0 > .
+--- red in POSE : pos: < 1.3, -2.3, -4.0 >, qua: < 0.0, 1.0, 0.0, -0.2 > .
+--- red in TWIST : lin: < 1.3, -2.3, -4.0 >, ang: < 0.0, 1.0, -0.2 > .
+

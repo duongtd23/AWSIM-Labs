@@ -1,0 +1,60 @@
+in groundtrust-trace.maude .
+
+--- search in TRACE : init =>! S:AWState .
+--- eof
+in model-checker .
+
+mod PROPERTIES is
+  pr TRACE .
+  inc SATISFACTION .
+  subsort AWState < State .
+  var OBJs : Set{Object} .
+  vars T T2 : TimeStamp .
+  vars ID ID2 : List{Int} .
+  --- var NAME : Name .
+  var POSE : Pose .
+  vars TWIST ACCEL TWIST2 ACCEL2 : Twist .
+  var PROP : Prop .
+  vars X Y Z SPEED DIS : Float .
+  vars V V2 : Vector3 .
+  vars Q Q2 : Quaternion .
+  vars STR : String .
+
+  op egoSpeedLessThan : Float -> Prop .
+  op egoNPCDistanceLessThan : Float -> Prop . 
+  op npcSpeedLessThan : Float -> Prop .
+
+  ceq T # {{id: ID, name: "ego", pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, OBJs}
+      |= egoSpeedLessThan(SPEED) = true
+    if (magnitude(V) < SPEED) .
+  
+  ceq T  # {{id: ID, name: "ego", pose: {pos: V, qua: Q}, twist: TWIST, accel: ACCEL}, 
+            {id: ID2, name: STR, pose: {pos: V2, qua: Q2}, twist: TWIST2, accel: ACCEL2} ,
+            OBJs}
+      |= egoNPCDistanceLessThan(DIS) = true
+    if STR =/= "ego" /\
+       (distance(V, V2) < DIS) .
+      
+  ceq T # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, OBJs}
+      |= npcSpeedLessThan(SPEED) = true
+    if STR =/= "ego" /\
+       (magnitude(V) < SPEED) .
+  
+  eq terminate |= PROP = true .
+  eq T # {OBJs} |= PROP = false [owise] .
+endm
+
+mod PROPERTIES-CHECK is
+  inc PROPERTIES .
+  inc MODEL-CHECKER .
+  inc LTL-SIMPLIFIER .
+  op property1 : -> Formula .
+  
+  --- when the distance between ego and an NPC < 20m, ego's speed should be less than 10m/s
+  eq property1 = [] (egoNPCDistanceLessThan(20.0) -> egoSpeedLessThan(10.0)) .
+
+  --- E.g.,
+  --- [] (egoNPCDistanceLessThan(100) -> detectedBoundingBox-precise(90%))
+endm
+
+red in PROPERTIES-CHECK : modelCheck(init, [](npcSpeedLessThan(1.0))) .
