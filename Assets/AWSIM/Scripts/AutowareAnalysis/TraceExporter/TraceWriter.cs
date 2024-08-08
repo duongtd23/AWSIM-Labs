@@ -9,7 +9,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 	{
         private const string TAB = "  ";
         private const string TEMPLATE = "in base.maude\n\nmod TRACE is " +
-            "\n  pr STATE .\n\n  op init : -> State .\n  eq init = ";
+            "\n  pr AWSTATE .\n\n  eq init = ";
 
         public TraceWriter(string filePath)
 		{
@@ -28,6 +28,22 @@ namespace AWSIM.AWAnalysis.TraceExporter
 		{
             contents += "\nendm";
             File.WriteAllText(filePath, contents);
+            return true;
+        }
+
+		public bool AppendGroundTrustInfo(string stateInfo)
+		{
+            if (lastObjStr == "")
+            {
+                contents += stateInfo + " .";
+            }
+            else
+            {
+                contents += "\n" + TAB +
+                    "rl " + lastObjStr + "\n" + TAB + "=> " +
+                    stateInfo + " .";
+            }
+            lastObjStr = stateInfo;
             return true;
         }
 
@@ -123,7 +139,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             return result;
         }
 
-		private string DoubleToMaudeString(double number)
+		public static string DoubleToMaudeString(double number)
 		{
 			string str = number.ToString();
 			if (!str.Contains("."))
