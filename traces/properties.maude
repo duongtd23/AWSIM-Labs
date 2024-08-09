@@ -1,4 +1,4 @@
-in groundtrust-trace.maude .
+in groundtrust-trace-test.maude .
 
 --- search in TRACE : init =>! S:AWState .
 --- eof
@@ -12,17 +12,20 @@ mod PROPERTIES is
   vars T T2 : TimeStamp .
   vars ID ID2 : List{Int} .
   --- var NAME : Name .
-  var POSE : Pose .
+  vars POSE POSE2 : Pose .
   vars TWIST ACCEL TWIST2 ACCEL2 : Twist .
   var PROP : Prop .
   vars X Y Z SPEED DIS : Float .
-  vars V V2 : Vector3 .
+  vars V V2 V3 V4 : Vector3 .
   vars Q Q2 : Quaternion .
-  vars STR : String .
+  vars STR STR2 : String .
+  vars I I2 : Int .
 
   op egoSpeedLessThan : Float -> Prop .
   op egoNPCDistanceLessThan : Float -> Prop . 
   op npcSpeedLessThan : Float -> Prop .
+  op diffSpeedLessThan : String String Float -> Prop .
+  ops timeLessThan timeGreaterThan : Int -> Prop .
 
   ceq T # {{id: ID, name: "ego", pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, OBJs}
       |= egoSpeedLessThan(SPEED) = true
@@ -39,7 +42,18 @@ mod PROPERTIES is
       |= npcSpeedLessThan(SPEED) = true
     if STR =/= "ego" /\
        (magnitude(V) < SPEED) .
-  
+
+  ceq T  # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, 
+            {id: ID2, name: STR2, pose: POSE2, twist: {lin: V3, ang: V4}, accel: ACCEL2} ,
+            OBJs}
+      |= diffSpeedLessThan(STR,STR2,SPEED) = true
+    if (distance(V, V3) < SPEED) .
+
+  ceq T # {OBJs} |= timeLessThan(I) = true
+    if T < I .
+  ceq T # {OBJs} |= timeGreaterThan(I) = true
+    if T > I .
+
   eq terminate |= PROP = true .
   eq T # {OBJs} |= PROP = false [owise] .
 endm
@@ -48,13 +62,19 @@ mod PROPERTIES-CHECK is
   inc PROPERTIES .
   inc MODEL-CHECKER .
   inc LTL-SIMPLIFIER .
-  op property1 : -> Formula .
+  ops property1 p2 : -> Formula .
   
   --- when the distance between ego and an NPC < 20m, ego's speed should be less than 10m/s
-  eq property1 = [] (egoNPCDistanceLessThan(20.0) -> egoSpeedLessThan(10.0)) .
+  eq property1 = [] (egoNPCDistanceLessThan(20.0) -> egoSpeedLessThan(6.0)) .
+  eq p2 = [] (timeLessThan(65000) -> diffSpeedLessThan("ego", "Taxi(Clone)_0", 2.0)) .
 
   --- E.g.,
   --- [] (egoNPCDistanceLessThan(100) -> detectedBoundingBox-precise(90%))
 endm
 
-red in PROPERTIES-CHECK : modelCheck(init, [](npcSpeedLessThan(1.0))) .
+search [1] in PROPERTIES : init =>* T  # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, 
+            {id: ID2, name: STR2, pose: POSE2, twist: {lin: V3, ang: V4}, accel: ACCEL2} ,
+            OBJs}
+    such that T < 65000 /\
+      distance(V, V3) > 2.0 .
+red in PROPERTIES-CHECK : modelCheck(init, p2) .

@@ -13,10 +13,10 @@ namespace AWSIM.AWAnalysis
         public GameObject autowareEgoCar;
         private TraceWriter traceWriter;
         private bool traceWritten = false;
-        public const int CAPTURE_DURATION = 30;
+        public const int CAPTURE_DURATION = 90;
 
-        // 5 seconds delay before capturing the trace
-        private const int DELAY = 5;
+        // 2 seconds delay before capturing the trace
+        private const int DELAY = 15;
 
         private const int CAPTURE_RATE = 10; // Hz
         private int UPDATE_INTERVAL;
@@ -26,7 +26,7 @@ namespace AWSIM.AWAnalysis
         void Start()
         {
             UPDATE_INTERVAL = (int)(1 / Time.fixedDeltaTime / CAPTURE_RATE);
-            traceWriter = new TraceWriter("groundtrust-trace.maude");
+            traceWriter = new TraceWriter("traces/groundtrust-trace-test.maude");
         }
 
         // Update is called once per frame

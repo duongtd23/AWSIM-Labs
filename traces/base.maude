@@ -44,6 +44,21 @@ fmod TIME-STAMP is
   sort TimeStamp .
   --- second and nanosecond
   op time : Int Int -> TimeStamp [ctor] .
+  ops _<_ _>_ : TimeStamp TimeStamp -> Bool .
+  ops _<_ _>_ : TimeStamp Int -> Bool .
+  vars S S2 NS NS2 I : Int .
+  eq time(S,NS) < time(S2,NS2) =
+    S < S2 or
+    (S == S2 and NS < NS2) .
+  eq time(S,NS) > time(S2,NS2) =
+    S > S2 or
+    (S == S2 and NS > NS2) .
+  --- I is in milliseconds
+  eq time(S,NS) < I =
+    (S * 1000 + NS quo 1000000) < I .
+  --- I is in milliseconds
+  eq time(S,NS) > I =
+    (S * 1000 + NS quo 1000000) > I .
 endfm
 
 fmod OBJECT is 

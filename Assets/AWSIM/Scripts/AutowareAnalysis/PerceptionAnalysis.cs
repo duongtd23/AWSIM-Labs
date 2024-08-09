@@ -30,7 +30,7 @@ namespace AWSIM.AWAnalysis
 
         private bool autowareActive = true;
         private bool perceptionAnalysisEnable = false;
-        private bool perceptionTraceCapture = true ;
+        private bool perceptionTraceCapture = false ;
 
         void Start()
         {
@@ -53,7 +53,7 @@ namespace AWSIM.AWAnalysis
                 }
                 if (perceptionTraceCapture)
                 {
-                    traceWriter = new TraceWriter("perception-trace.maude");
+                    traceWriter = new TraceWriter("traces/perception-trace.maude");
                     SimulatorROS2Node.CreateSubscription<
                         autoware_adapi_v1_msgs.msg.DynamicObjectArray>(
                     "/api/perception/objects", msg =>
