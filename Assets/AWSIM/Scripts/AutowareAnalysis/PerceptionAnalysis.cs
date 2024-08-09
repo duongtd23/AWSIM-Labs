@@ -4,7 +4,6 @@ using UnityEngine;
 using AWSIM.AWAnalysis.CustomSim;
 using System;
 using tier4_perception_msgs.msg;
-using AWSIM.AWAnalysis.TraceExporter;
 
 namespace AWSIM.AWAnalysis
 {
@@ -19,18 +18,12 @@ namespace AWSIM.AWAnalysis
         // the last ROS2 message received
         private DetectedObjectsWithFeature lastBoundingBoxMsgReceived;
 
-        private autoware_adapi_v1_msgs.msg.DynamicObjectArray lastDetectedObjectsMsgReceived;
         // each 100 milliseconds
         public const int TRACE_RATE = 100;
         public const int CAPTURE_DURATION = 40;
-        private TraceWriter traceWriter;
-        private bool traceWritten = false;
-
-        private int timeStepCount = 0;
 
         private bool autowareActive = true;
         private bool perceptionAnalysisEnable = false;
-        private bool perceptionTraceCapture = false ;
 
         void Start()
         {
@@ -51,16 +44,6 @@ namespace AWSIM.AWAnalysis
                         lastBoundingBoxMsgReceived = msg;
                     });
                 }
-                if (perceptionTraceCapture)
-                {
-                    traceWriter = new TraceWriter("traces/perception-trace.maude");
-                    SimulatorROS2Node.CreateSubscription<
-                        autoware_adapi_v1_msgs.msg.DynamicObjectArray>(
-                    "/api/perception/objects", msg =>
-                    {
-                        HandleDetectedObjectsMsg(msg);
-                    });
-                }
             }
             catch (NullReferenceException e)
             {
@@ -72,14 +55,6 @@ namespace AWSIM.AWAnalysis
 
         void FixedUpdate()
         {
-            if (perceptionTraceCapture)
-            {
-                if (Time.fixedTime > CAPTURE_DURATION && !traceWritten)
-                {
-                    traceWriter.WriteFile();
-                    traceWritten = true;
-                }    
-            }
             if (perceptionAnalysisEnable && autowareActive)
             {
                 // timeStepCount = (timeStepCount + 1) % 10;
@@ -106,22 +81,12 @@ namespace AWSIM.AWAnalysis
             }
         }
 
-        private void HandleDetectedObjectsMsg(autoware_adapi_v1_msgs.msg.DynamicObjectArray msg)
-        {
-            // if (lastDetectedObjectsMsgReceived == null ||
-            //      AutowareAnalysisUtils.DiffInMiliSec(lastBoundingBoxMsgReceived.Header.Stamp, msg.Header.Stamp) >= TRACE_RATE)
-            // {
-                traceWriter.AppendMsg(msg);
-                lastDetectedObjectsMsgReceived = msg;
-            // }
-        }
-
         /// <summary>
         /// parse the last received message to get a list of bounding box
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
-        private List<Rect> ParseDetectedMsg(tier4_perception_msgs.msg.DetectedObjectsWithFeature msg)
+        private List<Rect> ParseDetectedMsg(DetectedObjectsWithFeature msg)
         {
             List<Rect> boxes = new List<Rect>();
             if (msg == null)
