@@ -82,8 +82,7 @@ namespace AWSIM.AWAnalysis
             string name = "name: \"" + npc.name + "\"";
             string pose = DumpPoseInfo(npc.RigidBodyTransform);
 
-            var rigibody = npc.GetComponent<Rigidbody>();
-            string twist = DumpTwistInfo(rigibody);
+            string twist = DumpTwistInfo(npc);
             string accel = "accel: nilTwist";
             return "{" + id + ", " + name + ", " + pose + ", " + twist + ", " + accel + "}";
         }
@@ -96,7 +95,7 @@ namespace AWSIM.AWAnalysis
             pose += TraceWriter.DoubleToMaudeString(position.x) + " ";
             pose += TraceWriter.DoubleToMaudeString(position.y) + " ";
             pose += TraceWriter.DoubleToMaudeString(position.z) + ", qua: ";
-            // TODO: the other work may computer the difference of rotation based on
+            // TODO: the other work may compute the difference of rotation based on
             // its x,y,z, and w components,
             // this is not resonable since even a slight change of one component,
             // the rotation might become totally different
@@ -109,7 +108,20 @@ namespace AWSIM.AWAnalysis
             return pose;
         }
 
-        // twist = linear velocity + angulaar velocity
+        // twist = linear velocity + angular velocity
+        private string DumpTwistInfo(NPCVehicle npc)
+        {
+            Vector3 linearVel = npc.Velocity;
+            string twist = "twist: {lin: ";
+            twist += TraceWriter.DoubleToMaudeString(linearVel.x) + " ";
+            twist += TraceWriter.DoubleToMaudeString(linearVel.y) + " ";
+            twist += TraceWriter.DoubleToMaudeString(linearVel.z) + ", ang: ";
+            twist += "0.0 ";
+            twist += TraceWriter.DoubleToMaudeString(npc.YawAngularSpeed) + " ";
+            twist += "0.0}";
+            return twist;
+        }
+
         private string DumpTwistInfo(Rigidbody rigibody)
         {
             Vector3 linearVel = rigibody.velocity;

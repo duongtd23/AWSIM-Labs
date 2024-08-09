@@ -429,5 +429,10 @@ namespace AWSIM
             Gizmos.color = cacheColor;
             Gizmos.matrix = cacheMatrix;
         }
+
+        // get information
+        public Vector3 Velocity => lastVelocity;
+        public float YawAngularSpeed => yawAngularSpeed;
+        public float Acceleration => acceleration;
     }
 }
