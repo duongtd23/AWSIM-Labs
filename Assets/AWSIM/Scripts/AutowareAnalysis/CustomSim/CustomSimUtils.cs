@@ -89,9 +89,17 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
                 else
                 {
-                    Vector3 temp = (endPoint - startPoint).normalized;
-                    waypointIndex = j + 1;
-                    return startPoint + (temp * distance);
+                    if (remainDistance == 0)
+                    {
+                        waypointIndex = j;
+                        return startPoint;
+                    }
+                    else
+                    {
+                        Vector3 temp = (endPoint - startPoint).normalized;
+                        waypointIndex = j + 1;
+                        return startPoint + (temp * remainDistance);
+                    }
                 }
             }
             Debug.LogWarning("The given distance " + distance + " is larger than the total lane length." +
