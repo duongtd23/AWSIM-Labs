@@ -41,6 +41,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
                         "/api/localization/intialization_state", msg =>
                         {
+                        if (msg.State == LocalizationInitializationState.INITIALIZED)
+                        {    
                             ready = true;
                             timeStart = Time.fixedTime;
                             Debug.Log("[AWAnalysis] Start capturing perception trace");
@@ -49,6 +51,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             {
                                 HandleDetectedObjectsMsg(msg);
                             });
+                        }
                         });
                     }
                     catch (NullReferenceException e)
@@ -56,10 +59,10 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         Debug.LogError("[AWAnalysis] Cannot create ROS subscriber. " +
                             "Make sure Autoware has been started. Exception detail: " + e);
                     }
-                    break;
+                break;
                 case CaptureStartingTime.AWSIM_STARTED:
                     ready = true;
-                    break;
+                break;
             }
         }
 

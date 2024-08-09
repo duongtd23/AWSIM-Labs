@@ -5,8 +5,19 @@ spawnPosition = "TrafficLane.239" at 15;
 // with-speed-limit is optional
 route = [
     "TrafficLane.239",
-    "TrafficLane.448" with-speed-limit 20,
+    "TrafficLane.448" with-speed-limit 10,
     "TrafficLane.265" with-speed-limit 7
+];
+
+route3 = [
+    "TrafficLane.359",
+    "TrafficLane.253",
+    "TrafficLane.274",
+    "TrafficLane.256",
+    "TrafficLane.271",
+    "TrafficLane.259",
+    "TrafficLane.262",
+    "TrafficLane.420"
 ];
 
 goal = "TrafficLane.265" at 60;
@@ -14,7 +25,7 @@ goal = "TrafficLane.265" at 60;
 vehicleType = "Taxi";
 
 // the NPC function
-npc1 = NPC(vehicleType, spawnPosition, goal, route);
+npc1 = NPC(vehicleType, spawnPosition, goal, route, delay-move-until-ego-engaged(1));
 
 // parameter route may be omitted only if goal and spawnPosition located on the same or two consecutive lanes.
 // npc1 = NPC("van", spawnPosition, goal);
@@ -34,12 +45,12 @@ npc1 = NPC(vehicleType, spawnPosition, goal, route);
 // npc1 = NPC(vehicleType, spawnPosition, goal, route, delay-spawn-until-ego-move(1));
 
 // spawn NPC, delay its movement until the Ego engaged
-// npc3 = NPC("van", "TrafficLane.239", goal, route, delay-move-until-ego-engaged(1));
+npc3 = NPC("van", "TrafficLane.359", "TrafficLane.420" at 40, route3, delay-move-until-ego-engaged(1));
 
-npc2 = NPC("hatchback", "TrafficLane.240");
+npc2 = NPC("hatchback", "TrafficLane.240", "TrafficLane.422" at 60, delay-move-until-ego-engaged(1));
 
 // scenario. We may add some more parameters later
-run([npc1, npc2]);
+run([npc1, npc2, npc3]);
 
 // with only one npc
 // run([NPC("hatchback", "TrafficLane.240", "TrafficLane.241")]);
