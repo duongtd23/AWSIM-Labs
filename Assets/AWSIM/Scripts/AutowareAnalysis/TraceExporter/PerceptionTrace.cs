@@ -129,12 +129,24 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 int temp = obj.Id.Uuid[i];
                 id += " " + temp;
             }
-            string name = "name: nil";
+
+            string existenceProbability = "epro: " + DoubleToMaudeString(obj.Existence_probability);
+            string classification = "class:[";
+            for (int i = 0; i < obj.Classification.Length; i++)
+            {
+                int label = obj.Classification[i].Label;
+                classification += label + " " + DoubleToMaudeString(obj.Classification[i].Probability);
+                if (i < obj.Classification.Length - 1)
+                    classification += ", ";
+            }
+
+            classification += "]";
             string pose = "pose: " + PoseToString(obj.Kinematics.Pose);
             string twist = "twist: " + TwistToString(obj.Kinematics.Twist);
             string accel = "accel: " + AccelToString(obj.Kinematics.Accel);
 
-            return "{" + id + ", " + name + ", " + pose + ", " + twist + ", " + accel + "}";
+            return "{" + id + ", " + existenceProbability + ", " + classification +
+                   ", " + pose + ", " + twist + ", " + accel + "}";
         }
 
         private string PoseToString(geometry_msgs.msg.Pose pose)

@@ -40,7 +40,8 @@ namespace AWSIM
                 wheelPitchAngle %= 360;
 
                 // steer angle.
-                var fixedSteerAngle = Mathf.MoveTowardsAngle(lastSteerAngle, steerAngle, Time.deltaTime * maxSteerSpeed);
+                var fixedSteerAngle =
+                    Mathf.MoveTowardsAngle(lastSteerAngle, steerAngle, Time.deltaTime * maxSteerSpeed);
 
                 // Apply rotations to visual wheel object.
                 VisualTransform.localEulerAngles = new Vector3(wheelPitchAngle, fixedSteerAngle, 0);
@@ -84,8 +85,7 @@ namespace AWSIM
             }
         }
 
-        [SerializeField]
-        GameObject visualObjectRoot;
+        [SerializeField] GameObject visualObjectRoot;
 
         [Serializable]
         public class EmissionMaterial
@@ -156,40 +156,42 @@ namespace AWSIM
         public uint VehicleID { get; set; }
 
         // dynamics settings const values.
-        const float maxSteerAngle = 40f;                    // deg
-        const float maxSteerSpeed = 60f;                    // deg/s
-        const float maxVerticalSpeed = 40;                  // m/s
-        const float maxSlope = 45;                          // deg
+        const float maxSteerAngle = 40f; // deg
+        const float maxSteerSpeed = 60f; // deg/s
+        const float maxVerticalSpeed = 40; // m/s
+        const float maxSlope = 45; // deg
 
         // light visual settings const values.
-        const float turnSignalBlinkSec = 0.5f;             // seconds
-        const float brakeLightAccelThreshold = -0.1f;      // m/s
+        const float turnSignalBlinkSec = 0.5f; // seconds
+        const float brakeLightAccelThreshold = -0.1f; // m/s
 
-        [Header("Physics Settings")]
-        [SerializeField] Transform centerOfMass;
+        [Header("Physics Settings")] [SerializeField]
+        Transform centerOfMass;
+
         [SerializeField] new Rigidbody rigidbody;
         [SerializeField] Rigidbody trailer = null;
         [SerializeField] AxleSettings axleSettings;
 
-        [Header("Bounding box Settngs")]
-        [SerializeField] Bounds bounds;
+        [Header("Bounding box Settngs")] [SerializeField]
+        Bounds bounds;
 
-        [Header("Brake light parameters")]
-        [SerializeField] EmissionMaterial brakeLight;
+        [Header("Brake light parameters")] [SerializeField]
+        EmissionMaterial brakeLight;
 
-        [Header("Turn signal parameters")]
-        [SerializeField] EmissionMaterial leftTurnSignalLight;
+        [Header("Turn signal parameters")] [SerializeField]
+        EmissionMaterial leftTurnSignalLight;
+
         [SerializeField] EmissionMaterial rightTurnSignalLight;
 
         TurnSignalState turnSignalState = TurnSignalState.OFF;
         float turnSignalTimer = 0;
         bool currentTurnSignalOn = false;
 
-        float wheelbase;        // m
-        float acceleration;     // m/s^2
-        Vector3 velocity;       // m/s
-        float speed;            // m/s (forward only)
-        float yawAngularSpeed;  // deg/s (yaw only)
+        float wheelbase; // m
+        float acceleration; // m/s^2
+        Vector3 velocity; // m/s
+        float speed; // m/s (forward only)
+        float yawAngularSpeed; // deg/s (yaw only)
 
         Vector3 lastVelocity;
         Vector3 lastPosition;
@@ -262,6 +264,7 @@ namespace AWSIM
                 {
                     return 0f;
                 }
+
                 var gyrationRadius = speed / Mathf.Tan(yawAngularSpeed);
                 var yaw = Mathf.Asin(Mathf.Clamp(wheelBase / gyrationRadius, -1f, 1f)) * Mathf.Rad2Deg;
                 yaw = Mathf.Clamp(yaw, -maxSteerAngle, maxSteerAngle);
@@ -283,22 +286,22 @@ namespace AWSIM
             bool IsAnyTurnSignalInputs()
             {
                 return turnSignalState == TurnSignalState.LEFT
-                    || turnSignalState == TurnSignalState.RIGHT
-                    || turnSignalState == TurnSignalState.HAZARD;
+                       || turnSignalState == TurnSignalState.RIGHT
+                       || turnSignalState == TurnSignalState.HAZARD;
             }
 
             bool IsLeftTurnSignalOn()
             {
                 return (turnSignalState == TurnSignalState.LEFT
-                    || turnSignalState == TurnSignalState.HAZARD)
-                    && currentTurnSignalOn;
+                        || turnSignalState == TurnSignalState.HAZARD)
+                       && currentTurnSignalOn;
             }
 
             bool IsRightTurniSignalOn()
             {
                 return (turnSignalState == TurnSignalState.RIGHT
-                    || turnSignalState == TurnSignalState.HAZARD)
-                    && currentTurnSignalOn;
+                        || turnSignalState == TurnSignalState.HAZARD)
+                       && currentTurnSignalOn;
             }
         }
 
@@ -431,8 +434,11 @@ namespace AWSIM
         }
 
         // get information
+        public Vector3 Position => lastPosition;
         public Vector3 Velocity => lastVelocity;
+        public float EulerAnguleY => lastEulerAnguleY;
         public float YawAngularSpeed => yawAngularSpeed;
         public float Acceleration => acceleration;
+        public string ScriptName { get; set; }
     }
 }

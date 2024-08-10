@@ -27,11 +27,14 @@ namespace AWSIM_Script.Parser
         {
             var runFuncs = scenarioScore.Functions.FindAll(function => function.Name == FunctionParser.FUNCTION_RUN);
             if (runFuncs.Count == 0)
-                throw new InvalidScriptException("There is no run function in the input script.");
+            {
+                Debug.LogWarning("[AWAnalysis] There is no run function in the input script.");
+                return new Scenario();
+            }
             if (runFuncs.Count > 1)
-                Debug.LogError("[ERROR] Found more than run function in the input script." +
+                Debug.LogError("[AWAnalysis] Found more than run function in the input script." +
                     " Use the last one by default.");
-            var runFunc = runFuncs[runFuncs.Count - 1];
+            var runFunc = runFuncs[^1];
 
             if (runFunc.Parameters.Count < 1)
                 throw new InvalidScriptException("Invalid arguments passed for function run: ");

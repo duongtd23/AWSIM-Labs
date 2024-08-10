@@ -85,11 +85,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 fileWritten = true;
                 return;
             }
-            while (CustomNPCSpawningManager.Manager() == null) ;
+            // while (CustomNPCSpawningManager.Manager() == null) ;
             List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
-            var rosTime = SimulatorROS2Node.GetCurrentRosTime();
-            string stateStr = "time(" + rosTime.Sec + ", " + rosTime.Nanosec + ") # {";
-            stateStr += DumpEgoInfo();
+            // var rosTime = SimulatorROS2Node.GetCurrentRosTime();
+            // string stateStr = "time(" + rosTime.Sec + ", " + rosTime.Nanosec + ") # {";
+            string stateStr = "";
+            // stateStr += DumpEgoInfo();
             npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
             stateStr += "}";
 
@@ -118,19 +119,15 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         private string DumpNPCInfo(NPCVehicle npc)
         {
-            byte[] bytes = BitConverter.GetBytes(npc.VehicleID);
-            string id = "id:";
-            foreach (byte b in bytes)
-            {
-                int temp = b;
-                id += " " + temp;
-            }
-            //for (int i = bytes.Length; i < 32; i++)
-            string name = "name: \"" + npc.name + "\"";
-            string pose = DumpPoseInfo(npc.RigidBodyTransform);
+            string id = "id: " + npc.VehicleID;
+            string name = "name: \"" + (npc.ScriptName ?? "") + "\"";
+            // string pose = DumpPoseInfo(npc);
+            string pose = "";
 
-            string twist = DumpTwistInfo(npc);
-            string accel = "accel: nilTwist";
+            // string twist = DumpTwistInfo(npc);
+            string twist = "";
+            // scalar acceleration
+            string accel = "accel: " + PerceptionTrace.DoubleToMaudeString(npc.Acceleration);
             return "{" + id + ", " + name + ", " + pose + ", " + twist + ", " + accel + "}";
         }
 
@@ -154,18 +151,26 @@ namespace AWSIM.AWAnalysis.TraceExporter
             pose += PerceptionTrace.DoubleToMaudeString(rotation.w) + "}";
             return pose;
         }
+        
+        // pose = position + rotation
+        private string DumpPoseInfo(NPCVehicle npc)
+        {
+            string pose = "pose: {pos: ";
+            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.x) + " ";
+            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.y) + " ";
+            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.z) + ", rota: ";
+            pose += PerceptionTrace.DoubleToMaudeString(npc.EulerAnguleY) + "}";
+            return pose;
+        }
 
         // twist = linear velocity + angular velocity
         private string DumpTwistInfo(NPCVehicle npc)
         {
-            Vector3 linearVel = npc.Velocity;
             string twist = "twist: {lin: ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.x) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.y) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.z) + ", ang: ";
-            twist += "0.0 ";
-            twist += PerceptionTrace.DoubleToMaudeString(npc.YawAngularSpeed) + " ";
-            twist += "0.0}";
+            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.x) + " ";
+            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.y) + " ";
+            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.z) + ", ang: ";
+            twist += PerceptionTrace.DoubleToMaudeString(npc.YawAngularSpeed) + "}";
             return twist;
         }
 

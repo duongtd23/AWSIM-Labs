@@ -167,7 +167,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                     (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
                     (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
-                    SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal);
+                    SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal, npcCar.Name);
                     removeAfter2.Add(npcCar);
                 }
             }
@@ -176,7 +176,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         }
 
         // spawn a stand still vehicle 
-        public static NPCVehicle PoseObstacle(VehicleType vehicleType, IPosition spawnPosition)
+        public static NPCVehicle PoseObstacle(VehicleType vehicleType, IPosition spawnPosition, string name = "")
         {
             EnsureNonNullInstance(Manager());
             TrafficLane lane = CustomSimUtils.ParseLane(spawnPosition.GetLane());
@@ -188,19 +188,22 @@ namespace AWSIM.AWAnalysis.CustomSim
             GameObject npcGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(vehicleType),
                 position,
                 Quaternion.LookRotation(fwd));
-            var npc = npcGameObj.GetComponent<NPCVehicle>();
+            NPCVehicle npc = npcGameObj.GetComponent<NPCVehicle>();
             npc.VehicleID = SpawnIdGenerator.Generate();
+            if (name != "")
+                npc.ScriptName = name;
             GetNPCs().Add(npc);
             return npc;
         }
 
-        public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition)
+        public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, string name = "")
         {
-            return PoseObstacle(vehicleType, spawnPosition);
+            return PoseObstacle(vehicleType, spawnPosition, name);
         }
 
         // spawn an NPC (static, no movement)
-        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex)
+        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex,
+            string name = "")
         {
             EnsureNonNullInstance(Manager());
             // calculate position
@@ -210,19 +213,21 @@ namespace AWSIM.AWAnalysis.CustomSim
             NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, position, waypointIndex);
 
             // spawn NPC
-            var npc = Manager().npcVehicleSpawner.Spawn(Manager().GetNPCPrefab(vehicleType),
+            NPCVehicle npc = Manager().npcVehicleSpawner.Spawn(Manager().GetNPCPrefab(vehicleType),
                 SpawnIdGenerator.Generate(), spawnPoint,
                 Quaternion.LookRotation(spawnPoint.Forward));
+            if (name != "")
+                npc.ScriptName = name;
             GetNPCs().Add(npc);
             return npc;
         }
 
         // spawn an NPC and make it move
         public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition,
-            NPCConfig npcConfig, IPosition goal)
+            NPCConfig npcConfig, IPosition goal, string name = "")
         {
             // spawn NPC
-            NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex);
+            NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, name);
 
             // set route
             var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
@@ -238,7 +243,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new CustomSimException("[CustomSim]: Invalid NPCSpawnDelay paramater.");
 
             // spawn NPC
-            NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex);
+            NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex, npcCar.Name);
 
             Manager().delayingMoveNPCs.Add(npc,
                 Tuple.Create(waypointIndex, npcCar));
@@ -254,7 +259,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             ValidateNPC(ref npcCar);
             if (!npcCar.HasGoal())
             {
-                PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition);
+                PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Name);
             }
             else
             {
@@ -272,7 +277,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
                 else
                     SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition,
-                        npcCar.Config, npcCar.Goal);
+                        npcCar.Config, npcCar.Goal, npcCar.Name);
             }
         }
 

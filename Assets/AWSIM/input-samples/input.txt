@@ -17,7 +17,8 @@ route3 = [
     "TrafficLane.271",
     "TrafficLane.259",
     "TrafficLane.262",
-    "TrafficLane.420"
+    "TrafficLane.420",
+    "TrafficLane.229"
 ];
 
 goal = "TrafficLane.265" at 60;
@@ -45,7 +46,7 @@ npc1 = NPC(vehicleType, spawnPosition, goal, route, delay-move-until-ego-engaged
 // npc1 = NPC(vehicleType, spawnPosition, goal, route, delay-spawn-until-ego-move(1));
 
 // spawn NPC, delay its movement until the Ego engaged
-npc3 = NPC("van", "TrafficLane.359", "TrafficLane.420" at 40, route3, delay-move-until-ego-engaged(1));
+npc3 = NPC("van", "TrafficLane.359", "TrafficLane.229" at 40, route3, delay-move-until-ego-engaged(1));
 
 npc2 = NPC("hatchback", "TrafficLane.240", "TrafficLane.422" at 60, delay-move-until-ego-engaged(1));
 

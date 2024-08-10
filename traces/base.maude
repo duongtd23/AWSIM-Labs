@@ -22,6 +22,8 @@ fmod POSE is
   op nilPose : -> Pose [ctor] .
   --- position and quaternion
   op {pos:_,qua:_} : Vector3 Quaternion -> Pose [ctor] .
+  --- Euler angle wrt Y-axis in Unity or Z-axis in ROS
+  op {pos:_,rota:_} : Vector3 Float -> Pose [ctor] .
 endfm
 
 fmod TWIST is
@@ -30,13 +32,8 @@ fmod TWIST is
   op nilTwist : -> Twist [ctor] .
   --- linear and angular
   op {lin:_,ang:_} : Vector3 Vector3 -> Twist [ctor] .
-endfm
-
-fmod OBJECT-NAME is
-  pr STRING .
-  sort Name .
-  subsort String < Name .
-  op nil : -> Name [ctor] .
+  --- Yaw speed
+  op {lin:_,ang:_} : Vector3 Float -> Twist [ctor] .
 endfm
 
 fmod TIME-STAMP is 
@@ -61,12 +58,44 @@ fmod TIME-STAMP is
     (S * 1000 + NS quo 1000000) > I .
 endfm
 
-fmod OBJECT is 
-  pr POSE + TWIST + OBJECT-NAME .
+fmod GROUND-TRUTH-OBJECT is 
+  pr POSE + TWIST + STRING .
   pr LIST{Int} . 
-  sort Object .
+  sort GTObject .
+  --- for Ego
   op {id:_,name:_,pose:_,twist:_,accel:_} : 
-    List{Int} Name Pose Twist Twist -> Object [ctor] .
+    List{Int} String Pose Twist Twist -> GTObject [ctor] .
+  --- for NPCs
+  op {id:_,name:_,pose:_,twist:_,accel:_} : 
+    List{Int} String Pose Twist Float -> GTObject [ctor] .
+endfm
+
+fmod CLASSIFICATION is
+  pr FLOAT + NAT .
+  sort Class .
+  --- class ID and probability
+  op __ : Nat Float -> Class [ctor] .
+endfm
+
+view Class from TRIV to CLASSIFICATION is
+  sort Elt to Class .
+endv 
+fmod CLASS-SET is 
+  pr SET{Class} .
+endfm
+
+fmod PERCEPTION-OBJECT is 
+  pr POSE + TWIST + CLASS-SET .
+  pr LIST{Int} . 
+  sort PObject .
+  op {id:_,epro:_,class:[_],pose:_,twist:_,accel:_} : 
+    List{Int} Float Set{Class} Pose Twist Twist -> PObject [ctor] .
+endfm
+
+fmod OBJECT is
+  pr GROUND-TRUTH-OBJECT + PERCEPTION-OBJECT .
+  sort Object .
+  subsorts GTObject PObject < Object .
 endfm
 
 view Object from TRIV to OBJECT is
