@@ -12,7 +12,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         public const string TAB = "  ";
         public const string TEMPLATE = "in base.maude\n\nmod TRACE is " +
             "\n  pr AWSTATE .\n\n  eq init = ";
-
+        
         private string contents;
         private string filePath;
         private GameObject autowareEgoCar;
@@ -20,6 +20,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 		private TraceCaptureConfig config;
 		private bool ready, fileWritten;
         private float timeStart;
+        private float timeNow;
 
         public const int CAPTURE_DURATION = 60;
 
@@ -47,12 +48,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 try
                 {
                     SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-                    "/api/localization/intialization_state", msg =>
+                    "/localization/initialization_state", msg =>
                     {
                         if (msg.State == LocalizationInitializationState.INITIALIZED)
                         {
                             ready = true;
-                            timeStart = Time.fixedTime;
+                            timeStart = timeNow;
                             Debug.Log("[AWAnalysis] Start capturing ground truth trace");
                         }
                     });
@@ -71,6 +72,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         public void FixedUpdate()
         {
+            timeNow = Time.fixedTime;
             if (!ready || fileWritten)
                 return;
             if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)

@@ -15,6 +15,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private TraceCaptureConfig config;
         private bool ready, fileWritten;
         private float timeStart;
+        private float timeNow;
 
         public const int CAPTURE_DURATION = 60;
 
@@ -39,12 +40,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     try
                     {
                         SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-                        "/api/localization/intialization_state", msg =>
+                        "/localization/initialization_state", msg =>
                         {
                         if (msg.State == LocalizationInitializationState.INITIALIZED)
                         {    
                             ready = true;
-                            timeStart = Time.fixedTime;
+                            timeStart = timeNow;
                             Debug.Log("[AWAnalysis] Start capturing perception trace");
                             SimulatorROS2Node.CreateSubscription<DynamicObjectArray>(
                             "/api/perception/objects", msg =>
@@ -68,6 +69,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         public void FixedUpdate()
         {
+            timeNow = Time.fixedTime;
             if (!ready || fileWritten)
                 return;
             if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)
