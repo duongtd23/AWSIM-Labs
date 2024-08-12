@@ -3,72 +3,78 @@ using System.Collections.Generic;
 using System.IO;
 using autoware_adapi_v1_msgs.msg;
 using AWSIM.AWAnalysis.CustomSim;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
-	public class GroundTruthTrace
-	{
+    public class GroundTruthTrace
+    {
         public const string TAB = "  ";
         public const string TEMPLATE = "in base.maude\n\nmod TRACE is " +
             "\n  pr AWSTATE .\n\n  eq init = ";
-        
+
         private string contents;
         private string filePath;
         private GameObject autowareEgoCar;
-        private string lastObjStr;
-		private TraceCaptureConfig config;
-		private bool ready, fileWritten;
+        private TraceCaptureConfig config;
+        private bool ready, fileWritten;
         private float timeStart;
         private float timeNow;
+
+        // ROS time at start
+        private double rosTimeAtStart;
 
         public const int CAPTURE_DURATION = 60;
 
         public GroundTruthTrace(string filePath, GameObject autowareEgoCar)
-		{
-			this.filePath = filePath;
+        {
+            this.filePath = filePath;
             this.autowareEgoCar = autowareEgoCar;
-			this.config = new TraceCaptureConfig(CaptureStartingTime.AW_LOCALIZATION_INITIALIZED);
+            this.config = new TraceCaptureConfig(CaptureStartingTime.AW_LOCALIZATION_INITIALIZED);
             contents = TEMPLATE;
-            lastObjStr = "";
         }
 
         public GroundTruthTrace(string filePath, GameObject autowareEgoCar,
             TraceCaptureConfig config)
-            :this(filePath,autowareEgoCar)
+            : this(filePath, autowareEgoCar)
         {
             this.config = config;
         }
 
         public void Start()
-		{
+        {
+            // difference between ROS time and Unity time
+            var rosTime = SimulatorROS2Node.GetCurrentRosTime();
+            var unityTime = Time.fixedTime;
+            rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9) - unityTime;
             switch (config.TraceCaptureFrom)
-			{
-			case CaptureStartingTime.AW_LOCALIZATION_INITIALIZED:
-                try
-                {
-                    SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-                    "/localization/initialization_state", msg =>
+            {
+                case CaptureStartingTime.AW_LOCALIZATION_INITIALIZED:
+                    try
                     {
-                        if (msg.State == LocalizationInitializationState.INITIALIZED)
+                        SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
+                        "/localization/initialization_state", msg =>
                         {
-                            ready = true;
-                            timeStart = timeNow;
-                            Debug.Log("[AWAnalysis] Start capturing ground truth trace");
-                        }
-                    });
-                }
-                catch (NullReferenceException e)
-                {
-                    Debug.LogError("[AWAnalysis] Cannot create ROS subscriber. " +
-                        "Make sure Autoware has been started. Exception detail: " + e);
-                }
-            break;
-			case CaptureStartingTime.AWSIM_STARTED:
-				ready = true;
-            break;
-			}
-		}
+                            if (msg.State == LocalizationInitializationState.INITIALIZED)
+                            {
+                                ready = true;
+                                timeStart = timeNow;
+                                Debug.Log("[AWAnalysis] Start capturing ground truth trace");
+                            }
+                        });
+                    }
+                    catch (NullReferenceException e)
+                    {
+                        Debug.LogError("[AWAnalysis] Cannot create ROS subscriber. " +
+                            "Make sure Autoware has been started. Exception detail: " + e);
+                    }
+                    break;
+                case CaptureStartingTime.AWSIM_STARTED:
+                    ready = true;
+                    break;
+            }
+        }
 
         public void FixedUpdate()
         {
@@ -77,115 +83,40 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 return;
             if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)
             {
-                contents += "\n" + TAB +
-                    "rl " + lastObjStr + "\n" + TAB +
-                    "=> terminate .";
-                contents += "\nendm";
+                contents += "terminate .\nendm";
                 File.WriteAllText(filePath, contents);
                 fileWritten = true;
                 return;
             }
+
+            string stateStr = $"{timeNow + rosTimeAtStart} # {{";
+            stateStr += DumpEgoInfo();
+
             // while (CustomNPCSpawningManager.Manager() == null) ;
             List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
-            // var rosTime = SimulatorROS2Node.GetCurrentRosTime();
-            // string stateStr = "time(" + rosTime.Sec + ", " + rosTime.Nanosec + ") # {";
-            string stateStr = "";
-            // stateStr += DumpEgoInfo();
             npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
             stateStr += "}";
 
-            if (lastObjStr == "")
-                contents += stateStr + " .";
-            else
-                contents += "\n" + TAB +
-                    "rl " + lastObjStr + "\n" + TAB + "=> " +
-                    stateStr + " .";
-            lastObjStr = stateStr;
-
-            contents += stateStr;
+            contents += stateStr + " .";
+            contents += $"\n  rl {stateStr}\n  => ";
         }
 
         private string DumpEgoInfo()
         {
-            string id = "id: nil";
-            string name = "name: \"ego\"";
-            string pose = DumpPoseInfo(autowareEgoCar.transform);
+            Transform tf = autowareEgoCar.GetComponentAtIndex<Transform>(0);
+            string pose = $"pose: {{pos: {tf.position.x} {tf.position.y} {tf.position.z}, qua: {tf.rotation.x} {tf.rotation.y} {tf.rotation.z} {tf.rotation.w}}}";
 
-            var rigibody = autowareEgoCar.GetComponent<Rigidbody>();
-            string twist = DumpTwistInfo(rigibody);
-            string accel = "accel: nilTwist";
-            return "{" + id + ", " + name + ", " + pose + ", " + twist + ", " + accel + "}";
+            Rigidbody rb = autowareEgoCar.GetComponentAtIndex<Rigidbody>(1);
+            string twist = $"twist: {{lin: {rb.velocity.x} {rb.velocity.y} {rb.velocity.z}, ang: {rb.angularVelocity.x} {rb.angularVelocity.y} {rb.angularVelocity.z}}}";
+            return $"{{name: \"ego\", {pose}, {twist}, accel: nilTwist}}";
         }
 
         private string DumpNPCInfo(NPCVehicle npc)
         {
-            string id = "id: " + npc.VehicleID;
-            string name = "name: \"" + (npc.ScriptName ?? "") + "\"";
-            // string pose = DumpPoseInfo(npc);
-            string pose = "";
-
-            // string twist = DumpTwistInfo(npc);
-            string twist = "";
-            // scalar acceleration
-            string accel = "accel: " + PerceptionTrace.DoubleToMaudeString(npc.Acceleration);
-            return "{" + id + ", " + name + ", " + pose + ", " + twist + ", " + accel + "}";
-        }
-
-        // pose = position + rotation
-        private string DumpPoseInfo(Transform transform)
-        {
-            string pose = "pose: {pos: ";
-            Vector3 position = transform.position;
-            pose += PerceptionTrace.DoubleToMaudeString(position.x) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(position.y) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(position.z) + ", qua: ";
-            // TODO: the other work may compute the difference of rotation based on
-            // its x,y,z, and w components,
-            // this is not resonable since even a slight change of one component,
-            // the rotation might become totally different
-            // NEED TO CHECK LATER
-            Quaternion rotation = transform.rotation;
-            pose += PerceptionTrace.DoubleToMaudeString(rotation.x) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(rotation.y) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(rotation.z) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(rotation.w) + "}";
-            return pose;
-        }
-        
-        // pose = position + rotation
-        private string DumpPoseInfo(NPCVehicle npc)
-        {
-            string pose = "pose: {pos: ";
-            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.x) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.y) + " ";
-            pose += PerceptionTrace.DoubleToMaudeString(npc.Position.z) + ", rota: ";
-            pose += PerceptionTrace.DoubleToMaudeString(npc.EulerAnguleY) + "}";
-            return pose;
-        }
-
-        // twist = linear velocity + angular velocity
-        private string DumpTwistInfo(NPCVehicle npc)
-        {
-            string twist = "twist: {lin: ";
-            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.x) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.y) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(npc.Velocity.z) + ", ang: ";
-            twist += PerceptionTrace.DoubleToMaudeString(npc.YawAngularSpeed) + "}";
-            return twist;
-        }
-
-        private string DumpTwistInfo(Rigidbody rigibody)
-        {
-            Vector3 linearVel = rigibody.velocity;
-            Vector3 angularVel = rigibody.angularVelocity;
-            string twist = "twist: {lin: ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.x) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.y) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(linearVel.z) + ", ang: ";
-            twist += PerceptionTrace.DoubleToMaudeString(angularVel.x) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(angularVel.y) + " ";
-            twist += PerceptionTrace.DoubleToMaudeString(angularVel.z) + "}";
-            return twist;
+            string pose = $"pose: {{pos: {npc.Position.x} {npc.Position.y} {npc.Position.z}, rota: {npc.EulerAnguleY}}}";
+            string twist = $"twist: {{lin: {npc.Velocity.x} {npc.Velocity.y} {npc.Velocity.z}, ang: {npc.YawAngularSpeed}}}";
+            string accel = $"accel: {npc.Acceleration}";
+            return $"{{id: [{npc.VehicleID}], name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}}}";
         }
     }
 }

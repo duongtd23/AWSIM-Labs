@@ -7,11 +7,10 @@ using UnityEngine;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
-	public class PerceptionTrace
-	{
+    public class PerceptionTrace
+    {
         private string contents;
         private string filePath;
-        private string lastObjStr;
         private TraceCaptureConfig config;
         private bool ready, fileWritten;
         private float timeStart;
@@ -24,10 +23,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
             this.filePath = filePath;
             config = new TraceCaptureConfig(CaptureStartingTime.AW_LOCALIZATION_INITIALIZED);
             contents = GroundTruthTrace.TEMPLATE;
-            lastObjStr = "";
         }
         public PerceptionTrace(string filePath, TraceCaptureConfig config)
-            :this(filePath)
+            : this(filePath)
         {
             this.config = config;
         }
@@ -42,17 +40,17 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
                         "/localization/initialization_state", msg =>
                         {
-                        if (msg.State == LocalizationInitializationState.INITIALIZED)
-                        {    
-                            ready = true;
-                            timeStart = timeNow;
-                            Debug.Log("[AWAnalysis] Start capturing perception trace");
-                            SimulatorROS2Node.CreateSubscription<DynamicObjectArray>(
-                            "/api/perception/objects", msg =>
+                            if (msg.State == LocalizationInitializationState.INITIALIZED)
                             {
-                                HandleDetectedObjectsMsg(msg);
-                            });
-                        }
+                                ready = true;
+                                timeStart = timeNow;
+                                Debug.Log("[AWAnalysis] Start capturing perception trace");
+                                SimulatorROS2Node.CreateSubscription<DynamicObjectArray>(
+                                "/api/perception/objects", msg =>
+                                {
+                                    HandleDetectedObjectsMsg(msg);
+                                });
+                            }
                         });
                     }
                     catch (NullReferenceException e)
@@ -60,10 +58,10 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         Debug.LogError("[AWAnalysis] Cannot create ROS subscriber. " +
                             "Make sure Autoware has been started. Exception detail: " + e);
                     }
-                break;
+                    break;
                 case CaptureStartingTime.AWSIM_STARTED:
                     ready = true;
-                break;
+                    break;
             }
         }
 
@@ -74,124 +72,54 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 return;
             if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)
             {
-                contents += "\n" + GroundTruthTrace.TAB +
-                    "rl " + lastObjStr + "\n" + GroundTruthTrace.TAB +
-                    "=> terminate .";
-                contents += "\nendm";
+                contents += "terminate .\nendm";
                 File.WriteAllText(filePath, contents);
                 fileWritten = true;
-                return;
             }
         }
 
         private void HandleDetectedObjectsMsg(DynamicObjectArray msg)
         {
-            string msg2Str = WriteTimeStamp(msg.Header.Stamp);
-            msg2Str += " # ";
             if (msg.Objects.Length < 1)
                 return;
-
-            msg2Str += WriteObjects(msg.Objects);
-
-            if (lastObjStr == "")
+            string msg2Str = $"{msg.Header.Stamp.Sec + msg.Header.Stamp.Nanosec / Math.Pow(10, 9)} # {{";
+            msg2Str += WriteObject(msg.Objects[0]);
+            for (int i = 1; i < msg.Objects.Length; i++)
             {
-                contents += msg2Str + " .";
+                msg2Str += ", " + WriteObject(msg.Objects[i]);
             }
-            else
-            {
-                contents += "\n" + GroundTruthTrace.TAB +
-                    "rl " + lastObjStr + "\n" + GroundTruthTrace.TAB + "=> " +
-                    msg2Str + " .";
-            }
-            lastObjStr = msg2Str;
-        }
+            msg2Str += "}";
 
-        private string WriteTimeStamp(builtin_interfaces.msg.Time time)
-        {
-            return "time(" + time.Sec + ", " + time.Nanosec + ")";
-        }
-
-        private string WriteObjects(DynamicObject[] objects)
-        {
-            string result = WriteObject(objects[0]);
-            for (int i = 1; i < objects.Length; i++)
-            {
-                result += ", " + WriteObject(objects[i]);
-            }
-            return "{" + result + "}";
+            contents += msg2Str + " .";
+            contents += $"\n  rl {msg2Str}\n  => ";
         }
 
         private string WriteObject(DynamicObject obj)
         {
-            string id = "id:";
+            string uuid = "";
             for (int i = 0; i < obj.Id.Uuid.Length; i++)
             {
-                int temp = obj.Id.Uuid[i];
-                id += " " + temp;
+                uuid += $"{(int)obj.Id.Uuid[i]} ";
             }
+            uuid = uuid[..^1];
 
-            string existenceProbability = "epro: " + DoubleToMaudeString(obj.Existence_probability);
-            string classification = "class:[";
+            string classification = "";
             for (int i = 0; i < obj.Classification.Length; i++)
             {
-                int label = obj.Classification[i].Label;
-                classification += label + " " + DoubleToMaudeString(obj.Classification[i].Probability);
-                if (i < obj.Classification.Length - 1)
-                    classification += ", ";
+                classification += $"{(int)obj.Classification[i].Label} -> {obj.Classification[i].Probability}, ";
             }
+            classification = classification[..^2];
 
-            classification += "]";
-            string pose = "pose: " + PoseToString(obj.Kinematics.Pose);
-            string twist = "twist: " + TwistToString(obj.Kinematics.Twist);
-            string accel = "accel: " + AccelToString(obj.Kinematics.Accel);
+            var tf = obj.Kinematics.Pose;
+            string pose = $"pose: {{pos: {tf.Position.X} {tf.Position.Y} {tf.Position.Z}, qua: {tf.Orientation.X} {tf.Orientation.Y} {tf.Orientation.Z} {tf.Orientation.W}}}";
 
-            return "{" + id + ", " + existenceProbability + ", " + classification +
-                   ", " + pose + ", " + twist + ", " + accel + "}";
-        }
+            var vel = obj.Kinematics.Twist;
+            string twist = $"twist: {{lin: {vel.Linear.X} {vel.Linear.Y} {vel.Linear.Z}, ang: {vel.Angular.X} {vel.Angular.Y} {vel.Angular.Z}}}";
 
-        private string PoseToString(geometry_msgs.msg.Pose pose)
-        {
-            string result = "{pos: ";
-            result += DoubleToMaudeString(pose.Position.X) + " ";
-            result += DoubleToMaudeString(pose.Position.Y) + " ";
-            result += DoubleToMaudeString(pose.Position.Z) + ", qua: ";
-            result += DoubleToMaudeString(pose.Orientation.X) + " ";
-            result += DoubleToMaudeString(pose.Orientation.Y) + " ";
-            result += DoubleToMaudeString(pose.Orientation.Z) + " ";
-            result += DoubleToMaudeString(pose.Orientation.W) + "}";
-            return result;
-        }
+            var accel = obj.Kinematics.Accel;
+            string accelStr = $"accel: {{lin: {accel.Linear.X} {accel.Linear.Y} {accel.Linear.Z}, ang: {accel.Angular.X} {accel.Angular.Y} {accel.Angular.Z}}}";
 
-        private string TwistToString(geometry_msgs.msg.Twist twist)
-        {
-            string result = "{lin: ";
-            result += DoubleToMaudeString(twist.Linear.X) + " ";
-            result += DoubleToMaudeString(twist.Linear.Y) + " ";
-            result += DoubleToMaudeString(twist.Linear.Z) + ", ang: ";
-            result += DoubleToMaudeString(twist.Angular.X) + " ";
-            result += DoubleToMaudeString(twist.Angular.Y) + " ";
-            result += DoubleToMaudeString(twist.Angular.Z) + "}";
-            return result;
-        }
-
-        private string AccelToString(geometry_msgs.msg.Accel twist)
-        {
-            string result = "{lin: ";
-            result += DoubleToMaudeString(twist.Linear.X) + " ";
-            result += DoubleToMaudeString(twist.Linear.Y) + " ";
-            result += DoubleToMaudeString(twist.Linear.Z) + ", ang: ";
-            result += DoubleToMaudeString(twist.Angular.X) + " ";
-            result += DoubleToMaudeString(twist.Angular.Y) + " ";
-            result += DoubleToMaudeString(twist.Angular.Z) + "}";
-            return result;
-        }
-
-        public static string DoubleToMaudeString(double number)
-        {
-            string str = number.ToString();
-            if (!str.Contains("."))
-                str += ".0";
-            return str;
+            return $"{{id: [{uuid}], epro: {obj.Existence_probability}, class: [{classification}], {pose}, {twist}, {accelStr}}}";
         }
     }
 }

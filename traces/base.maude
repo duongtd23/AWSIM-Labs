@@ -1,19 +1,117 @@
+fmod FLOAT-RENAME is
+  pr FLOAT * (
+    op -_ : Float -> Float to -f_,
+    op _+_ : Float Float -> Float to _+f_,
+    op _-_ : Float Float -> Float to _-f_,
+    op _*_ : Float Float -> Float to _*f_,
+    op _/_ : [Float] [Float] -> [Float] to _/f_,
+    op _rem_ : [Float] [Float] -> [Float] to _remf_,
+    op _^_ : [Float] [Float] -> [Float] to _^f_,
+    op abs : Float -> Float to absf,
+    op floor : Float -> Float to floorf,
+    op ceiling : Float -> Float to ceilingf,
+    op min : Float Float -> Float to minf,
+    op max : Float Float -> Float to maxf,
+    op _<_ : Float Float -> Bool to _<f_,
+    op _>_ : Float Float -> Bool to _>f_,
+    op _<=_ : Float Float -> Bool to _<=f_,
+    op _>=_ : Float Float -> Bool to _>=f_
+  ) .
+endfm
+
+fmod CONVERSION-RENAME is
+  protecting RAT .
+  protecting FLOAT-RENAME .
+  protecting STRING .
+  sort DecFloat .
+  op <_,_,_> : Int String Int -> DecFloat [ctor] .
+  op float : Rat -> Float [special (
+    id-hook FloatOpSymbol (float)
+    op-hook floatSymbol (<Floats> : ~> Float)
+    op-hook succSymbol (s_ : Nat ~> NzNat)
+    op-hook minusSymbol (-_ : NzNat ~> Int)
+    op-hook divisionSymbol (_/_ : NzInt NzNat ~> NzRat))] .
+  op rat : FiniteFloat -> Rat [special (
+    id-hook FloatOpSymbol (rat)
+    op-hook floatSymbol (<Floats> : ~> Float)
+    op-hook succSymbol (s_ : Nat ~> NzNat)
+    op-hook minusSymbol (-_ : NzNat ~> Int)
+    op-hook divisionSymbol (_/_ : NzInt NzNat ~> NzRat))] .
+  op string : [Rat] [NzNat] -> [String] [special (
+    id-hook StringOpSymbol (string)
+    op-hook stringSymbol (<Strings> : ~> String)
+    op-hook succSymbol (s_ : Nat ~> NzNat)
+    op-hook minusSymbol (-_ : NzNat ~> Int)
+    op-hook divisionSymbol (_/_ : NzInt NzNat ~> NzRat))] .
+  op rat : [String] [NzNat] -> [Rat] [special (
+    id-hook StringOpSymbol (rat)
+    op-hook stringSymbol (<Strings> : ~> String)
+    op-hook succSymbol (s_ : Nat ~> NzNat)
+    op-hook minusSymbol (-_ : NzNat ~> Int)
+    op-hook divisionSymbol (_/_ : NzInt NzNat ~> NzRat))] .
+  op string : Float -> String [special (
+    id-hook StringOpSymbol (string)
+    op-hook stringSymbol (<Strings> : ~> String)
+    op-hook floatSymbol (<Floats> : ~> Float))] .
+  op float : [String] -> [Float] [special (
+    id-hook StringOpSymbol (float)
+    op-hook stringSymbol (<Strings> : ~> String)
+    op-hook floatSymbol (<Floats> : ~> Float))] .
+  op decFloat : Float Nat -> DecFloat [special (
+    id-hook StringOpSymbol (decFloat)
+    op-hook stringSymbol (<Strings> : ~> String)
+    op-hook floatSymbol (<Floats> : ~> Float)
+    op-hook succSymbol (s_ : Nat ~> NzNat)
+    op-hook minusSymbol (-_ : NzNat ~> Int)
+    op-hook decFloatSymbol (<_, _, _> : Int String Int ~> DecFloat))] .
+endfm
+
+fmod FLOAT-OR-INT is
+  pr CONVERSION-RENAME .
+
+  sort FloatOrInt .
+  subsorts Float Int < FloatOrInt .
+
+  op _+._ : FloatOrInt FloatOrInt -> Float [assoc comm prec 33] .
+  op _-._ : FloatOrInt FloatOrInt -> Float [prec 33 gather (E e)] .
+  op _*._ : FloatOrInt FloatOrInt -> Float [assoc comm prec 31] .
+
+  vars I I2 : Int .
+  vars F F2 : Float .
+  vars FI FI2 : FloatOrInt .
+  
+  eq I +. F = float(I) +f F .
+  eq F +. I = F +f float(I) .
+  eq I +. I2 = float(I) +f float(I2) .
+  eq F +. F2 = F +f F2 .
+
+  eq I -. F = float(I) -f F .
+  eq F -. I = F -f float(I) .
+  eq I -. I2 = float(I) -f float(I2) .
+  eq F -. F2 = F -f F2 .
+
+  eq I *. F = float(I) *f F .
+  eq F *. I = F *f float(I) .
+  eq I *. I2 = float(I) *f float(I2) .
+  eq F *. F2 = F *f F2 .
+endfm
+
 fmod VECTOR3 is 
-  pr FLOAT .
+  pr FLOAT-OR-INT .
   sort Vector3 .
-  op ___ : Float Float Float -> Vector3 [ctor] .
+  op ___ : FloatOrInt FloatOrInt FloatOrInt -> Vector3 [ctor] .
   op magnitude : Vector3 -> Float .
   op distance : Vector3 Vector3 -> Float .
-  vars X Y Z X2 Y2 Z2 : Float .
-  eq magnitude(X Y Z) = sqrt(X * X + Y * Y + Z * Z) .
+  vars X Y Z X2 Y2 Z2 : FloatOrInt .
+  eq magnitude(X Y Z) = sqrt(X *. X +. Y *. Y +. Z *. Z) .
   eq distance(X Y Z, X2 Y2 Z2) =
-    magnitude((X - X2) (Y - Y2) (Z - Z2)) .
+    magnitude((X -. X2) (Y -. Y2) (Z -. Z2)) .
 endfm
 
 fmod QUATERNION is 
-  pr FLOAT .
+  pr FLOAT-OR-INT .
   sort Quaternion .
-  op ____ : Float Float Float Float -> Quaternion [ctor] .
+  op ____ : FloatOrInt FloatOrInt FloatOrInt FloatOrInt -> Quaternion [ctor] .
 endfm
 
 fmod POSE is
@@ -23,7 +121,7 @@ fmod POSE is
   --- position and quaternion
   op {pos:_,qua:_} : Vector3 Quaternion -> Pose [ctor] .
   --- Euler angle wrt Y-axis in Unity or Z-axis in ROS
-  op {pos:_,rota:_} : Vector3 Float -> Pose [ctor] .
+  op {pos:_,rota:_} : Vector3 FloatOrInt -> Pose [ctor] .
 endfm
 
 fmod TWIST is
@@ -33,7 +131,7 @@ fmod TWIST is
   --- linear and angular
   op {lin:_,ang:_} : Vector3 Vector3 -> Twist [ctor] .
   --- Yaw speed
-  op {lin:_,ang:_} : Vector3 Float -> Twist [ctor] .
+  op {lin:_,ang:_} : Vector3 FloatOrInt -> Twist [ctor] .
 endfm
 
 fmod TIME-STAMP is 
@@ -58,23 +156,30 @@ fmod TIME-STAMP is
     (S * 1000 + NS quo 1000000) > I .
 endfm
 
+fmod UUID is
+  pr NAT .
+  sort Uuid .
+  op [_] : Nat -> Uuid [ctor] .
+  op [________________] : Nat Nat Nat Nat Nat Nat Nat Nat
+    Nat Nat Nat Nat Nat Nat Nat Nat -> Uuid [ctor] .
+endfm
+
 fmod GROUND-TRUTH-OBJECT is 
-  pr POSE + TWIST + STRING .
-  pr LIST{Int} . 
+  pr POSE + TWIST + STRING + UUID .
   sort GTObject .
   --- for Ego
-  op {id:_,name:_,pose:_,twist:_,accel:_} : 
-    List{Int} String Pose Twist Twist -> GTObject [ctor] .
+  op {name:_,pose:_,twist:_,accel:_} : 
+    String Pose Twist Twist -> GTObject [ctor] .
   --- for NPCs
   op {id:_,name:_,pose:_,twist:_,accel:_} : 
-    List{Int} String Pose Twist Float -> GTObject [ctor] .
+    Uuid String Pose Twist FloatOrInt -> GTObject [ctor] .
 endfm
 
 fmod CLASSIFICATION is
-  pr FLOAT + NAT .
+  pr FLOAT-OR-INT + NAT .
   sort Class .
   --- class ID and probability
-  op __ : Nat Float -> Class [ctor] .
+  op _->_ : Nat FloatOrInt -> Class [ctor] .
 endfm
 
 view Class from TRIV to CLASSIFICATION is
@@ -85,11 +190,10 @@ fmod CLASS-SET is
 endfm
 
 fmod PERCEPTION-OBJECT is 
-  pr POSE + TWIST + CLASS-SET .
-  pr LIST{Int} . 
+  pr POSE + TWIST + CLASS-SET + UUID .
   sort PObject .
   op {id:_,epro:_,class:[_],pose:_,twist:_,accel:_} : 
-    List{Int} Float Set{Class} Pose Twist Twist -> PObject [ctor] .
+    Uuid FloatOrInt Set{Class} Pose Twist Twist -> PObject [ctor] .
 endfm
 
 fmod OBJECT is
@@ -106,9 +210,10 @@ fmod OBJECT-SET is
 endfm
 
 mod AWSTATE is 
-  pr OBJECT-SET + TIME-STAMP .
+  pr OBJECT-SET .
   sort AWState .
-  op _#{_} : TimeStamp Set{Object} -> AWState .
+  --- op _#{_} : TimeStamp Set{Object} -> AWState [ctor] .
+  op _#{_} : FloatOrInt Set{Object} -> AWState [ctor] .
 
   ops init terminate : -> AWState .
 

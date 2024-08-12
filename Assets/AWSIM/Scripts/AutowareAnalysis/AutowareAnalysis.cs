@@ -23,12 +23,12 @@ namespace AWSIM.AWAnalysis
         {
             //UPDATE_INTERVAL = (int)(1 / Time.fixedDeltaTime / CAPTURE_RATE);
             groundTruthTrace = new GroundTruthTrace(
-                "traces/groundtrust-trace-2.maude",
+                "traces/groundtrust-trace-3.maude",
                 autowareEgoCar);
             groundTruthTrace.Start();
 
             perceptionTrace = new PerceptionTrace(
-                "traces/perception-trace-2.maude");
+                "traces/perception-trace-3.maude");
             perceptionTrace.Start();
         }
 
