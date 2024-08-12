@@ -5,6 +5,7 @@ using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
 using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
+using ROS2;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -340,6 +341,63 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new NullReferenceException("[NPCSim] Could not find an instance of `CustomNPCSpawningManager`. " +
                     "Initialize it with `CustomNPCSpawningManager.Initialize()`");
             }
+        }
+
+        public static void SetEgo(LaneOffsetPosition initialPosition, LaneOffsetPosition goal)
+        {
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(initialPosition.GetLane());
+            Vector3 initPosition = CustomSimUtils.CalculatePosition(
+                spawnLane, initialPosition.GetOffset(), out int waypointIndex);
+            NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, initPosition, waypointIndex);
+            Quaternion poseRotation = Quaternion.LookRotation(new Vector3(spawnPoint.Forward.x,spawnPoint.Forward.z,0));
+
+            var poseMsg = new geometry_msgs.msg.PoseWithCovarianceStamped()
+            {
+                Header = new std_msgs.msg.Header()
+                {
+                    Frame_id = "map",
+                }
+            };
+            poseMsg.Pose = new geometry_msgs.msg.PoseWithCovariance();
+            poseMsg.Pose.Pose.Position.X = initPosition.x;
+            poseMsg.Pose.Pose.Position.Y = initPosition.z;
+            poseMsg.Pose.Pose.Position.Z = 0;
+            poseMsg.Pose.Pose.Orientation.X = poseRotation.x;
+            poseMsg.Pose.Pose.Orientation.Y = poseRotation.y;
+            poseMsg.Pose.Pose.Orientation.Z = poseRotation.z;
+            poseMsg.Pose.Pose.Orientation.W = poseRotation.w;
+
+            var poseMsgHeader = poseMsg as MessageWithHeader;
+            SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
+
+            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>("/initialpose").Publish(poseMsg);
+
+            // goal
+            TrafficLane goalLane = CustomSimUtils.ParseLane(goal.GetLane());
+            Vector3 goalPosition = CustomSimUtils.CalculatePosition(
+                goalLane, goal.GetOffset(), out int waypointIndex2);
+            NPCVehicleSpawnPoint goalPoint = new NPCVehicleSpawnPoint(goalLane, goalPosition, waypointIndex2);
+            Quaternion goalRotation = Quaternion.LookRotation(new Vector3(goalPoint.Forward.x, goalPoint.Forward.z, 0));
+
+            var goalMsg = new geometry_msgs.msg.PoseStamped()
+            {
+                Header = new std_msgs.msg.Header()
+                {
+                    Frame_id = "map",
+                }
+            };
+            goalMsg.Pose.Position.X = goalPosition.x;
+            goalMsg.Pose.Position.Y = goalPosition.z;
+            goalMsg.Pose.Position.Z = 0;
+            goalMsg.Pose.Orientation.X = goalRotation.x;
+            goalMsg.Pose.Orientation.Y = goalRotation.y;
+            goalMsg.Pose.Orientation.Z = goalRotation.z;
+            goalMsg.Pose.Orientation.W = goalRotation.w;
+
+            var goalMsgHeader = goalMsg as MessageWithHeader;
+            SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
+
+            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>("/planning/mission_planning/goal").Publish(goalMsg);
         }
     }
 }
