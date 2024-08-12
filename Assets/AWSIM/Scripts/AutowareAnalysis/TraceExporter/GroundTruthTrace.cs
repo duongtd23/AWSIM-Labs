@@ -46,8 +46,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         {
             // difference between ROS time and Unity time
             var rosTime = SimulatorROS2Node.GetCurrentRosTime();
-            var unityTime = Time.fixedTime;
-            rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9) - unityTime;
+            rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9);
             switch (config.TraceCaptureFrom)
             {
                 case CaptureStartingTime.AW_LOCALIZATION_INITIALIZED:
@@ -76,12 +75,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
         }
 
-        public void FixedUpdate()
+        public void Update()
         {
-            timeNow = Time.fixedTime;
+            timeNow = Time.time;
             if (!ready || fileWritten)
                 return;
-            if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)
+            if (timeNow - timeStart >= CAPTURE_DURATION && !fileWritten)
             {
                 contents += "terminate .\nendm";
                 File.WriteAllText(filePath, contents);

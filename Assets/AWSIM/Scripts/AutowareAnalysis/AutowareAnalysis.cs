@@ -33,13 +33,13 @@ namespace AWSIM.AWAnalysis
         }
 
         // Update is called once per frame
-        void FixedUpdate()
+        void Update()
         {
             // stepCount = (stepCount + 1) % UPDATE_INTERVAL;
             // if (stepCount % UPDATE_INTERVAL != 1)
             //     return;
-            groundTruthTrace.FixedUpdate();
-            perceptionTrace.FixedUpdate();
+            groundTruthTrace.Update();
+            perceptionTrace.Update();
         }
     }
 }

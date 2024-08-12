@@ -65,12 +65,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
         }
 
-        public void FixedUpdate()
+        public void Update()
         {
-            timeNow = Time.fixedTime;
+            timeNow = Time.time;
             if (!ready || fileWritten)
                 return;
-            if (Time.fixedTime - timeStart >= CAPTURE_DURATION && !fileWritten)
+            if (timeNow - timeStart >= CAPTURE_DURATION && !fileWritten)
             {
                 contents += "terminate .\nendm";
                 File.WriteAllText(filePath, contents);
