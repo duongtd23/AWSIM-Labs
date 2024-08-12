@@ -345,11 +345,13 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
-        public static void SetEgo(LaneOffsetPosition initialPosition, LaneOffsetPosition goal)
+        // set initial and goal positions for the Ego
+        // TODO: consider to move to a separate class
+        public static void EgoSetting(EgoSettings ego)
         {
-            TrafficLane spawnLane = CustomSimUtils.ParseLane(initialPosition.GetLane());
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(ego.InitialPosition.GetLane());
             Vector3 initPosition = CustomSimUtils.CalculatePosition(
-                spawnLane, initialPosition.GetOffset(), out int waypointIndex);
+                spawnLane, ego.InitialPosition.GetOffset(), out int waypointIndex);
             Vector3 initFwd = waypointIndex == 0 ?
                 spawnLane.Waypoints[1] - spawnLane.Waypoints[0] :
                 spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
@@ -378,9 +380,9 @@ namespace AWSIM.AWAnalysis.CustomSim
             SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>("/initialpose").Publish(poseMsg);
 
             // goal
-            TrafficLane goalLane = CustomSimUtils.ParseLane(goal.GetLane());
+            TrafficLane goalLane = CustomSimUtils.ParseLane(ego.Goal.GetLane());
             Vector3 goalPosition = CustomSimUtils.CalculatePosition(
-                goalLane, goal.GetOffset(), out int waypointIndex2);
+                goalLane, ego.Goal.GetOffset(), out int waypointIndex2);
             Vector3 goalFwd = waypointIndex2 == 0 ?
                 goalLane.Waypoints[1] - goalLane.Waypoints[0] :
                 goalLane.Waypoints[waypointIndex2] - goalLane.Waypoints[waypointIndex2 - 1];
@@ -407,10 +409,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             {
                 if (msg.State == LocalizationInitializationState.INITIALIZED)
                 {
+                    Debug.Log("[AWAnalysis] Setting goal for Ego...");
                     var goalMsgHeader = goalMsg as MessageWithHeader;
                     SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
                     SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>("/planning/mission_planning/goal").Publish(goalMsg);
-
                 }
             });
         }

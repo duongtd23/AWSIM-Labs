@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using AWSIM_Script.Object;
 
 namespace AWSIM_Script.Object
 {
@@ -11,6 +12,9 @@ namespace AWSIM_Script.Object
         }
 		// list of NPCs
         public List<NPCCar> NPCs { get; set; }
+
+		// Ego initial position and goal
+		public EgoSettings Ego { get; set; }
 
 		// some other config might be added later
     }

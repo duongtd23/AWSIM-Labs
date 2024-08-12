@@ -10,6 +10,7 @@ namespace AWSIM_Script.Parser
 	{
         public const string FUNCTION_RUN = "run";
         public const string FUNCTION_NPC = "NPC";
+        public const string FUNCTION_EGO = "Ego";
 
         private FunctionExpContext functionExpContext;
         public FunctionParser(FunctionExpContext functionExp)

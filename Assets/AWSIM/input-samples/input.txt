@@ -50,8 +50,10 @@ npc3 = NPC("van", "TrafficLane.359", "TrafficLane.229" at 40, route3, delay-move
 
 npc2 = NPC("hatchback", "TrafficLane.240", "TrafficLane.422" at 60, delay-move-until-ego-engaged(1));
 
+ego = Ego("TrafficLane.264", "TrafficLane.267" at 40);
+
 // scenario. We may add some more parameters later
-run([npc1, npc2, npc3]);
+run(ego, [npc1, npc2, npc3]);
 
 // with only one npc
 // run([NPC("hatchback", "TrafficLane.240", "TrafficLane.241")]);

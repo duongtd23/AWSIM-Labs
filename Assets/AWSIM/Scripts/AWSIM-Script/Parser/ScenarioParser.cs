@@ -5,6 +5,7 @@ using AWSIM_Script.Object;
 using AWSIM_Script.Parser.Object;
 using static AWSIMScriptGrammarParser;
 using System.Collections.Generic;
+using Antlr4.Runtime;
 
 namespace AWSIM_Script.Parser
 {
@@ -38,25 +39,83 @@ namespace AWSIM_Script.Parser
 
             if (runFunc.Parameters.Count < 1)
                 throw new InvalidScriptException("Invalid arguments passed for function run: ");
-            if (runFunc.Parameters[0].children == null ||
-                runFunc.Parameters[0].children[0] == null ||
-                !(runFunc.Parameters[0].children[0] is ArrayExpContext))
-                throw new InvalidScriptException("Invalid arguments passed for function run: ");
-
-            List<ExpressionContext> npcsExpContexts = ParserUtils.
-                ParseArray((ArrayExpContext)runFunc.Parameters[0].children[0]);
 
             Scenario scenario = new Scenario();
+            List<ExpressionContext> npcsExpContexts = new List<ExpressionContext>();
+            ParserRuleContext egoFuncExp = FunctionExpContext.EmptyContext;
+
+            // if the first param is NPC list
+            if (runFunc.Parameters[0].children?[0] is ArrayExpContext)
+            {
+                npcsExpContexts = ParserUtils.
+                ParseArray((ArrayExpContext)runFunc.Parameters[0].children[0]);
+            }
+            // if the first param is Ego
+            else if (runFunc.Parameters[0].children?[0] is VariableExpContext)
+            {
+                VariableExpContext varExp = (VariableExpContext)runFunc.Parameters[0].children[0];
+                if (!scenarioScore.Variables.ContainsKey(varExp.GetText()))
+                    throw new InvalidScriptException("Undefined variable: " + varExp.GetText());
+                ExpressionContext tempExp = scenarioScore.Variables[varExp.GetText()];
+                if (tempExp.children == null ||
+                    tempExp.children.Count == 0 ||
+                    !(tempExp.children[0] is FunctionExpContext))
+                    throw new InvalidScriptException("Expected a function defining Ego, but get: "
+                        + tempExp.GetText());
+                egoFuncExp = (FunctionExpContext)tempExp.children[0];
+            }
+            else if (runFunc.Parameters[0].children?[0] is FunctionExpContext)
+            {
+                egoFuncExp = (FunctionExpContext)runFunc.Parameters[0].children[0];
+            }
+            else
+                throw new InvalidScriptException("Invalid arguments passed for function run: ");
+
+            // if the second param is NPC list
+            if (runFunc.Parameters.Count > 1 &&
+                runFunc.Parameters[1].children?[0] is ArrayExpContext)
+            {
+                npcsExpContexts = ParserUtils.
+                ParseArray((ArrayExpContext)runFunc.Parameters[1].children[0]);
+            }
+            else
+                throw new InvalidScriptException("Invalid arguments passed for function run: ");
+
+            // Prase Ego
+            if (egoFuncExp != FunctionExpContext.EmptyContext)
+                RetrieveEgo((FunctionExpContext)egoFuncExp, ref scenario);
+
+            // Parse NPCs
             foreach (ExpressionContext npcExpContext in npcsExpContexts)
             {
-                RetriveNPC(npcExpContext, ref scenario);
+                RetrieveNPC(npcExpContext, ref scenario);
             }
             return scenario;
         }
 
-        private bool RetriveNPC(ExpressionContext npcExpContext, ref Scenario scenario)
+        private bool RetrieveEgo(FunctionExpContext egoFuncExp, ref Scenario scenario)
         {
+            if (egoFuncExp.exception != null)
+                throw new InvalidScriptException("Catch exception: " + egoFuncExp.exception.Message +
+                    " in function " + egoFuncExp.GetText());
+            FunctionScore func = new FunctionParser(egoFuncExp).Parse();
+            if (func.Name != FunctionParser.FUNCTION_EGO)
+                throw new InvalidScriptException("Expected Ego function but get: " + func.Name);
+            if (func.Parameters.Count < 2)
+                throw new InvalidScriptException("Ego function must have at least 2 arguments (initial position and goal): " +
+                    ParserUtils.ToString(func.Parameters));
 
+            // 1st arg: always initial position
+            IPosition initPosition = ParsePosition(func.Parameters[0].children[0]);
+
+            // 2nd arg: always goal
+            IPosition goal = ParsePosition(func.Parameters[1].children[0]);
+            scenario.Ego = new EgoSettings(initPosition, goal);
+            return true;
+        }
+
+        private bool RetrieveNPC(ExpressionContext npcExpContext, ref Scenario scenario)
+        {
             if (npcExpContext.children[0] is VariableExpContext)
             {
                 VariableExpContext varExp = (VariableExpContext)npcExpContext.children[0];
