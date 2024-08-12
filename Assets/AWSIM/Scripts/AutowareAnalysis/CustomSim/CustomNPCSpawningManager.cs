@@ -6,6 +6,8 @@ using AWSIM_Script.Object;
 using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
 using ROS2;
+using autoware_adapi_v1_msgs.msg;
+using Google.Protobuf.WellKnownTypes;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -348,9 +350,12 @@ namespace AWSIM.AWAnalysis.CustomSim
             TrafficLane spawnLane = CustomSimUtils.ParseLane(initialPosition.GetLane());
             Vector3 initPosition = CustomSimUtils.CalculatePosition(
                 spawnLane, initialPosition.GetOffset(), out int waypointIndex);
-            NPCVehicleSpawnPoint spawnPoint = new NPCVehicleSpawnPoint(spawnLane, initPosition, waypointIndex);
-            Quaternion poseRotation = Quaternion.LookRotation(new Vector3(spawnPoint.Forward.x,spawnPoint.Forward.z,0));
+            Vector3 initFwd = waypointIndex == 0 ?
+                spawnLane.Waypoints[1] - spawnLane.Waypoints[0] :
+                spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
+            Quaternion poseRotation = Quaternion.LookRotation(initFwd);
 
+            var mgrsOffset = Environment.Instance.MgrsOffsetPosition;
             var poseMsg = new geometry_msgs.msg.PoseWithCovarianceStamped()
             {
                 Header = new std_msgs.msg.Header()
@@ -359,12 +364,12 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             };
             poseMsg.Pose = new geometry_msgs.msg.PoseWithCovariance();
-            poseMsg.Pose.Pose.Position.X = initPosition.x;
-            poseMsg.Pose.Pose.Position.Y = initPosition.z;
+            poseMsg.Pose.Pose.Position.X = initPosition.z + mgrsOffset.x;
+            poseMsg.Pose.Pose.Position.Y = -initPosition.x + mgrsOffset.y;
             poseMsg.Pose.Pose.Position.Z = 0;
-            poseMsg.Pose.Pose.Orientation.X = poseRotation.x;
-            poseMsg.Pose.Pose.Orientation.Y = poseRotation.y;
-            poseMsg.Pose.Pose.Orientation.Z = poseRotation.z;
+            poseMsg.Pose.Pose.Orientation.X = -poseRotation.z;
+            poseMsg.Pose.Pose.Orientation.Y = poseRotation.x;
+            poseMsg.Pose.Pose.Orientation.Z = -poseRotation.y;
             poseMsg.Pose.Pose.Orientation.W = poseRotation.w;
 
             var poseMsgHeader = poseMsg as MessageWithHeader;
@@ -376,8 +381,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             TrafficLane goalLane = CustomSimUtils.ParseLane(goal.GetLane());
             Vector3 goalPosition = CustomSimUtils.CalculatePosition(
                 goalLane, goal.GetOffset(), out int waypointIndex2);
-            NPCVehicleSpawnPoint goalPoint = new NPCVehicleSpawnPoint(goalLane, goalPosition, waypointIndex2);
-            Quaternion goalRotation = Quaternion.LookRotation(new Vector3(goalPoint.Forward.x, goalPoint.Forward.z, 0));
+            Vector3 goalFwd = waypointIndex2 == 0 ?
+                goalLane.Waypoints[1] - goalLane.Waypoints[0] :
+                goalLane.Waypoints[waypointIndex2] - goalLane.Waypoints[waypointIndex2 - 1];
+            Quaternion goalRotation = Quaternion.LookRotation(goalFwd);
 
             var goalMsg = new geometry_msgs.msg.PoseStamped()
             {
@@ -386,18 +393,26 @@ namespace AWSIM.AWAnalysis.CustomSim
                     Frame_id = "map",
                 }
             };
-            goalMsg.Pose.Position.X = goalPosition.x;
-            goalMsg.Pose.Position.Y = goalPosition.z;
+            goalMsg.Pose = new geometry_msgs.msg.Pose();
+            goalMsg.Pose.Position.X = goalPosition.z + mgrsOffset.x;
+            goalMsg.Pose.Position.Y = -goalPosition.x + mgrsOffset.y;
             goalMsg.Pose.Position.Z = 0;
-            goalMsg.Pose.Orientation.X = goalRotation.x;
-            goalMsg.Pose.Orientation.Y = goalRotation.y;
-            goalMsg.Pose.Orientation.Z = goalRotation.z;
+            goalMsg.Pose.Orientation.X = -goalRotation.z;
+            goalMsg.Pose.Orientation.Y = goalRotation.x;
+            goalMsg.Pose.Orientation.Z = -goalRotation.y;
             goalMsg.Pose.Orientation.W = goalRotation.w;
 
-            var goalMsgHeader = goalMsg as MessageWithHeader;
-            SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
+            SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
+            "/localization/initialization_state", msg =>
+            {
+                if (msg.State == LocalizationInitializationState.INITIALIZED)
+                {
+                    var goalMsgHeader = goalMsg as MessageWithHeader;
+                    SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
+                    SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>("/planning/mission_planning/goal").Publish(goalMsg);
 
-            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>("/planning/mission_planning/goal").Publish(goalMsg);
+                }
+            });
         }
     }
 }

@@ -54,6 +54,9 @@ namespace AWSIM.AWAnalysis.CustomSim
             {
                 CustomNPCSpawningManager.SpawnNPC(npcCar);
             }
+            CustomNPCSpawningManager.SetEgo(
+                new LaneOffsetPosition("TrafficLane.264"),
+                new LaneOffsetPosition("TrafficLane.267", 40));
         }
 
         // a scenario
