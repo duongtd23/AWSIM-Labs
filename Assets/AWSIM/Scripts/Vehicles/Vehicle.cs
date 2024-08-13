@@ -348,8 +348,8 @@ namespace AWSIM
             if (sleep == false)
             {
                 // Update wheel force.
-                var acceleration = AccelerationInput;
-                UpdateWheelsForce(acceleration);
+                var accelerationScalar = AccelerationInput;
+                UpdateWheelsForce(accelerationScalar);
             }
 
             // cache value for next frame.
@@ -368,7 +368,7 @@ namespace AWSIM
                 Speed = Vector3.Dot(velocity, forward);
 
                 // Local acceleration.
-                Vector3 acceleration = (velocity - lastVelocity) / Time.deltaTime;
+                acceleration = (velocity - lastVelocity) / Time.deltaTime;
                 LocalAcceleration = m_transform.InverseTransformDirection(acceleration);
 
                 // Angular velocity.
@@ -482,34 +482,34 @@ namespace AWSIM
                 }
             }
 
-            void UpdateWheelsForce(float acceleration)
+            void UpdateWheelsForce(float accelerationScalar)
             {
                 if (AutomaticShiftInput == Shift.DRIVE)
                 {
                     if (Speed < 0)
                     {
                         var minAcceleration = -Speed / Time.deltaTime;
-                        if (acceleration < minAcceleration)
-                            acceleration = minAcceleration;
+                        if (accelerationScalar < minAcceleration)
+                            accelerationScalar = minAcceleration;
                     }
                 }
                 else if (AutomaticShiftInput == Shift.REVERSE)
                 {
-                    acceleration *= -1;
+                    accelerationScalar *= -1;
 
                     if (Speed > 0)
                     {
                         var maxAcceleration = Speed / Time.deltaTime;
-                        if (acceleration > maxAcceleration)
-                            acceleration = maxAcceleration;
+                        if (accelerationScalar > maxAcceleration)
+                            accelerationScalar = maxAcceleration;
                     }
                 }
                 else
-                    acceleration = 0;
+                    accelerationScalar = 0;
 
                 // Calculates the force applied to all tires.
                 // TODO: More precise straight-line control and turning control.
-                var perWheelAcceleration = acceleration / wheels.Length;
+                var perWheelAcceleration = accelerationScalar / wheels.Length;
 
                 // Update the acceleration output by each wheel.
                 foreach (var wheel in wheels)
@@ -534,5 +534,10 @@ namespace AWSIM
                 Debug.LogWarning("No mesh or collider detected on target location. Please ensure that the target location is on a mesh or collider.");
             }
         }
+
+        public Vector3 Position => lastPosition;
+        public Quaternion Rotation => lastRotation;
+        private Vector3 acceleration;
+        public Vector3 Acceleration => acceleration;
     }
 }

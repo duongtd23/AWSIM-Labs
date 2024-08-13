@@ -130,7 +130,7 @@ fmod TWIST is
   op nilTwist : -> Twist [ctor] .
   --- linear and angular
   op {lin:_,ang:_} : Vector3 Vector3 -> Twist [ctor] .
-  --- Yaw speed
+  --- only Yaw component
   op {lin:_,ang:_} : Vector3 FloatOrInt -> Twist [ctor] .
 endfm
 
@@ -171,8 +171,8 @@ fmod GROUND-TRUTH-OBJECT is
   op {name:_,pose:_,twist:_,accel:_} : 
     String Pose Twist Twist -> GTObject [ctor] .
   --- for NPCs
-  op {id:_,name:_,pose:_,twist:_,accel:_} : 
-    Uuid String Pose Twist FloatOrInt -> GTObject [ctor] .
+  op {name:_,pose:_,twist:_,accel:_} : 
+    String Pose Twist FloatOrInt -> GTObject [ctor] .
 endfm
 
 fmod CLASSIFICATION is

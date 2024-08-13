@@ -405,14 +405,14 @@ namespace AWSIM.AWAnalysis.CustomSim
             goalMsg.Pose.Orientation.W = goalRotation.w;
 
             SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-            "/localization/initialization_state", msg =>
+            TopicName.TOPIC_LOCALIZATION_INITIALIZATION_STATE, msg =>
             {
                 if (msg.State == LocalizationInitializationState.INITIALIZED)
                 {
                     Debug.Log("[AWAnalysis] Setting goal for Ego...");
                     var goalMsgHeader = goalMsg as MessageWithHeader;
                     SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
-                    SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>("/planning/mission_planning/goal").Publish(goalMsg);
+                    SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL).Publish(goalMsg);
                 }
             });
         }

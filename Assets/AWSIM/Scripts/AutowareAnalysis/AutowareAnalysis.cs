@@ -8,12 +8,18 @@ using UnityEngine;
 
 namespace AWSIM.AWAnalysis
 {
+    public class TopicName
+    {
+        public const string TOPIC_LOCALIZATION_INITIALIZATION_STATE = "/localization/initialization_state";
+        public const string TOPIC_API_PERCEPTION_OBJECTS = "/api/perception/objects";
+        public const string TOPIC_MISSON_PLANNING_GOAL = "/planning/mission_planning/goal";
+    }
+
     public class AutowareAnalysis : MonoBehaviour
     {
         public GameObject autowareEgoCar;
-        private GroundTruthTrace groundTruthTrace;
-        private PerceptionTrace perceptionTrace;
-
+        private TraceWriter _traceWriter;
+        
         //private const int CAPTURE_RATE = 10; // Hz
         //private int UPDATE_INTERVAL;
         //private int stepCount = 0;
@@ -22,14 +28,10 @@ namespace AWSIM.AWAnalysis
         void Start()
         {
             //UPDATE_INTERVAL = (int)(1 / Time.fixedDeltaTime / CAPTURE_RATE);
-            groundTruthTrace = new GroundTruthTrace(
-                "traces/groundtrust-trace-3.maude",
-                autowareEgoCar);
-            groundTruthTrace.Start();
-
-            perceptionTrace = new PerceptionTrace(
-                "traces/perception-trace-3.maude");
-            perceptionTrace.Start();
+            _traceWriter = new TraceWriter(
+                "traces/trace3.maude",
+                autowareEgoCar.GetComponent<Vehicle>());
+            _traceWriter.Start();
         }
 
         // Update is called once per frame
@@ -38,8 +40,7 @@ namespace AWSIM.AWAnalysis
             // stepCount = (stepCount + 1) % UPDATE_INTERVAL;
             // if (stepCount % UPDATE_INTERVAL != 1)
             //     return;
-            groundTruthTrace.Update();
-            perceptionTrace.Update();
+            _traceWriter.Update();
         }
     }
 }
