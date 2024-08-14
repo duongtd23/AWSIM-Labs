@@ -218,8 +218,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
             if (classification != "")
                 classification = classification[..^2];
 
-            var tf = obj.Kinematics.Pose;
-            string pose = $"pose: {{pos: {tf.Position.X} {tf.Position.Y} {tf.Position.Z}, qua: {tf.Orientation.X} {tf.Orientation.Y} {tf.Orientation.Z} {tf.Orientation.W}}}";
+            var pos = ROS2Utility.RosMGRSToUnityPosition(obj.Kinematics.Pose.Position);
+            var rot = ROS2Utility.RosToUnityRotation(obj.Kinematics.Pose.Orientation).eulerAngles;
+            string pose = $"pose: {{pos: {pos.x} {pos.y} {pos.z}, qua: {rot.x} {rot.y} {rot.z}}}";
 
             var vel = obj.Kinematics.Twist;
             string twist = $"twist: {{lin: {vel.Linear.X} {vel.Linear.Y} {vel.Linear.Z}, ang: {vel.Angular.X} {vel.Angular.Y} {vel.Angular.Z}}}";
