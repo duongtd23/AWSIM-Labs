@@ -1,0 +1,6 @@
+{
+  "traceFileName": "traces/trace.maude",
+  "captureLength":75,
+  "npcAcceleration": 3,
+  "npcDeceleration": 5
+}

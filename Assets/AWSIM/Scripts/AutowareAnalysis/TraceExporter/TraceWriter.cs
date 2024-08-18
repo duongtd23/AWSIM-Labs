@@ -4,6 +4,7 @@ using UnityEngine;
 using System.IO;
 using AWSIM.AWAnalysis.CustomSim;
 using autoware_adapi_v1_msgs.msg;
+using autoware_perception_msgs.msg;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
@@ -21,14 +22,15 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private bool ready, fileWritten;
         private float timeStart;
         private float timeNow;
-        private Queue<Tuple<double, DynamicObject[]>> objectDetectedMsgs;
+        private Queue<Tuple<double, PredictedObject[]>> objectDetectedMsgs;
         private Tuple<double,string> lastGroundTruthState;
         private Tuple<double,string> preLastGroundTruthState;
+        private float autoOpModeReadTime = -1f;
 
         // ROS time at start
         private double rosTimeAtStart;
 
-        public const int CAPTURE_DURATION = 60;
+        // public const int CAPTURE_DURATION = 60;
 
         public TraceWriter(string filePath, Vehicle egoVehicle)
         {
@@ -36,7 +38,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             this.egoVehicle = egoVehicle;
             this.config = new TraceCaptureConfig(CaptureStartingTime.AW_LOCALIZATION_INITIALIZED);
             contents = TEMPLATE;
-            objectDetectedMsgs = new Queue<Tuple<double, DynamicObject[]>>();
+            objectDetectedMsgs = new Queue<Tuple<double, PredictedObject[]>>();
         }
 
         public TraceWriter(string filePath, Vehicle egoVehicle,
@@ -87,15 +89,15 @@ namespace AWSIM.AWAnalysis.TraceExporter
             timeNow = Time.time;
             if (!ready || fileWritten)
                 return;
-            if (timeNow - timeStart >= CAPTURE_DURATION && !fileWritten)
+            if (timeNow - timeStart >= ConfigLoader.Config().captureLength && !fileWritten)
             {
                 while (objectDetectedMsgs.Count > 0)
                 {
                     var tuple = objectDetectedMsgs.Dequeue();
                     string objectsStr = "";
-                    foreach (var dynamicObject in tuple.Item2)
+                    foreach (var detectedObject in tuple.Item2)
                     {
-                        objectsStr += ", " + DumpDetectedObject(dynamicObject);
+                        objectsStr += ", " + DumpDetectedObject(detectedObject);
                     }
                     if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
                         lastGroundTruthState.Item1 - tuple.Item1)
@@ -113,8 +115,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 } 
                 
                 contents += $"{preLastGroundTruthState.Item2}}} .\n  rl {preLastGroundTruthState.Item2}}}\n  => ";
-                contents += $"{lastGroundTruthState.Item2}}} .\n  rl {lastGroundTruthState.Item2}}}\n  => ";
-                contents += "terminate .\nendm";
+                contents += $"{lastGroundTruthState.Item2}}} .\nendm";
+                // add comments
+                contents += $"\n--- auto mode ready time: {autoOpModeReadTime}";
                 File.WriteAllText(filePath, contents);
                 fileWritten = true;
                 return;
@@ -171,16 +174,24 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 lastGroundTruthState = new Tuple<double, string>(timeStamp, stateStr);
             }
         }
-
+        
         private void SubscribeObjectDetectionMsg()
         {
-            SimulatorROS2Node.CreateSubscription<DynamicObjectArray>(
-                TopicName.TOPIC_API_PERCEPTION_OBJECTS, msg =>
+            SimulatorROS2Node.CreateSubscription<PredictedObjects>(
+                TopicName.TOPIC_PERCEPTION_RECOGNITION_OBJECTS, msg =>
                 {
                     if (msg.Objects.Length > 0)
-                        objectDetectedMsgs.Enqueue(new Tuple<double, DynamicObject[]>(
+                        objectDetectedMsgs.Enqueue(new Tuple<double, PredictedObject[]>(
                             msg.Header.Stamp.Sec + msg.Header.Stamp.Nanosec / Math.Pow(10, 9),
                             msg.Objects));
+                });
+            
+            // log the time when auto ready
+            SimulatorROS2Node.CreateSubscription<OperationModeState>(
+                TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
+                {
+                    if (autoOpModeReadTime < 0)
+                        autoOpModeReadTime = timeNow;
                 });
         }
 
@@ -200,12 +211,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
             return $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}}}";
         }
 
-        private string DumpDetectedObject(DynamicObject obj)
+        private string DumpDetectedObject(PredictedObject obj)
         {
             string uuid = "";
-            for (int i = 0; i < obj.Id.Uuid.Length; i++)
+            for (int i = 0; i < obj.Object_id.Uuid.Length; i++)
             {
-                uuid += $"{(int)obj.Id.Uuid[i]} ";
+                uuid += $"{(int)obj.Object_id.Uuid[i]} ";
             }
             if (uuid != "")
                 uuid = uuid[..^1];
@@ -218,14 +229,14 @@ namespace AWSIM.AWAnalysis.TraceExporter
             if (classification != "")
                 classification = classification[..^2];
 
-            var pos = ROS2Utility.RosMGRSToUnityPosition(obj.Kinematics.Pose.Position);
-            var rot = ROS2Utility.RosToUnityRotation(obj.Kinematics.Pose.Orientation).eulerAngles;
-            string pose = $"pose: {{pos: {pos.x} {pos.y} {pos.z}, qua: {rot.x} {rot.y} {rot.z}}}";
+            var pos = ROS2Utility.RosMGRSToUnityPosition(obj.Kinematics.Initial_pose_with_covariance.Pose.Position);
+            var rot = ROS2Utility.RosToUnityRotation(obj.Kinematics.Initial_pose_with_covariance.Pose.Orientation).eulerAngles;
+            string pose = $"pose: {{pos: {pos.x} {pos.y} {pos.z}, rota: {rot.x} {rot.y} {rot.z}}}";
 
-            var vel = obj.Kinematics.Twist;
+            var vel = obj.Kinematics.Initial_twist_with_covariance.Twist;
             string twist = $"twist: {{lin: {vel.Linear.X} {vel.Linear.Y} {vel.Linear.Z}, ang: {vel.Angular.X} {vel.Angular.Y} {vel.Angular.Z}}}";
 
-            var accel = obj.Kinematics.Accel;
+            var accel = obj.Kinematics.Initial_acceleration_with_covariance.Accel;
             string accelStr = $"accel: {{lin: {accel.Linear.X} {accel.Linear.Y} {accel.Linear.Z}, ang: {accel.Angular.X} {accel.Angular.Y} {accel.Angular.Z}}}";
 
             return $"{{id: [{uuid}], epro: {obj.Existence_probability}, class: [{classification}], {pose}, {twist}, {accelStr}}}";

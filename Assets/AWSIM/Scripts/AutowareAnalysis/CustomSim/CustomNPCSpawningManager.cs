@@ -74,8 +74,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             // only single NPCVehicleConfig is supported for all NPCs
             // TODO: support different NPCVehicleConfig for different NPCs
             NPCVehicleConfig vehicleConfig = NPCVehicleConfig.Default();
-            vehicleConfig.Acceleration = 7f;
-            vehicleConfig.Deceleration = 8f;
+            vehicleConfig.Acceleration = ConfigLoader.Config().npcAcceleration;
+            vehicleConfig.Deceleration = ConfigLoader.Config().npcDeceleration;
             npcVehicleSimulator = new NPCVehicleSimulator(vehicleConfig, vehicleLayerMask, groundLayerMask, 10, autowareEgoCar);
             npcVehicleSpawner = new NPCVehicleSpawner(parentGameObject, new GameObject[] { }, new TrafficLane[] { });
 

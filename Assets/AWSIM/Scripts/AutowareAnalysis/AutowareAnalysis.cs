@@ -13,6 +13,8 @@ namespace AWSIM.AWAnalysis
         public const string TOPIC_LOCALIZATION_INITIALIZATION_STATE = "/localization/initialization_state";
         public const string TOPIC_API_PERCEPTION_OBJECTS = "/api/perception/objects";
         public const string TOPIC_MISSON_PLANNING_GOAL = "/planning/mission_planning/goal";
+        public const string TOPIC_PERCEPTION_RECOGNITION_OBJECTS = "/perception/object_recognition/objects";
+        public const string TOPIC_API_OPERATION_MODE_STATE = "/api/operation_mode/state";
     }
 
     public class AutowareAnalysis : MonoBehaviour
@@ -29,7 +31,7 @@ namespace AWSIM.AWAnalysis
         {
             //UPDATE_INTERVAL = (int)(1 / Time.fixedDeltaTime / CAPTURE_RATE);
             _traceWriter = new TraceWriter(
-                "traces/trace3.maude",
+                ConfigLoader.Config().traceFileName,
                 autowareEgoCar.GetComponent<Vehicle>());
             _traceWriter.Start();
         }

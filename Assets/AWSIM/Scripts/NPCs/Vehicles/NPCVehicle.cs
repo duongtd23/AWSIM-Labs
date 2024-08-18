@@ -434,9 +434,9 @@ namespace AWSIM
         }
 
         // get information
-        public Vector3 Position => lastPosition;
+        public Vector3 Position => rigidbody.position;
         public Vector3 Velocity => lastVelocity;
-        public float EulerAnguleY => lastEulerAnguleY;
+        public float EulerAnguleY => rigidbody.rotation.eulerAngles.y;
         public float YawAngularSpeed => yawAngularSpeed;
         public float Acceleration => acceleration;
         public string ScriptName { get; set; }

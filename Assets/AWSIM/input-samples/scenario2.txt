@@ -1,0 +1,29 @@
+route1 = [
+    "TrafficLane.95" with-speed-limit 4,
+    "TrafficLane.338" with-speed-limit 4,
+    "TrafficLane.143" with-speed-limit 6,
+    "TrafficLane.145" with-speed-limit 4,
+    "TrafficLane.149" with-speed-limit 5
+];
+
+npc1 = NPC("taxi", "TrafficLane.95" at 2, "TrafficLane.149" at 18, route1, delay-move-until-ego-engaged(1));
+
+route2 = [
+    "TrafficLane.96" with-speed-limit 6,
+    "TrafficLane.352" with-speed-limit 4,
+    "TrafficLane.92" with-speed-limit 6
+];
+npc2 = NPC("hatchback", "TrafficLane.96" at 6, "TrafficLane.92" at 20, route2, delay-move-until-ego-engaged(1));
+
+route3 = [
+    "TrafficLane.130" with-speed-limit 4,
+    "TrafficLane.134" with-speed-limit 5,
+    "TrafficLane.139" with-speed-limit 4,
+    "TrafficLane.341" with-speed-limit 4,
+    "TrafficLane.76" with-speed-limit 4
+];
+npc3 = NPC("van", "TrafficLane.130", "TrafficLane.76" at 40, route3, delay-move-until-ego-engaged(1));
+
+ego = Ego("TrafficLane.94", "TrafficLane.150" at 15);
+
+run(ego, [npc1, npc2, npc3]);
