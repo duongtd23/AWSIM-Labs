@@ -539,5 +539,19 @@ namespace AWSIM
         public Quaternion Rotation => lastRotation;
         private Vector3 acceleration;
         public Vector3 Acceleration => acceleration;
+        
+        // reset position and rotation
+        public void SetPosition(Vector3 position)
+        {
+            m_rigidbody.position = position;
+        }
+        public void SetRotation(Vector3 rotation)
+        {
+            m_rigidbody.rotation = Quaternion.LookRotation(rotation);
+        }
+        public void SetRotation(Quaternion rotation)
+        {
+            m_rigidbody.rotation = rotation;
+        }
     }
 }

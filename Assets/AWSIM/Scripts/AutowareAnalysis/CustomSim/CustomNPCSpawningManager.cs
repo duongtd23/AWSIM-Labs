@@ -26,6 +26,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         private TrafficLane[] allTrafficLanes;
 
         private Rigidbody egoRigidbody;
+        private static Vehicle egoVehicle;
 
         private NPCVehicleSimulator npcVehicleSimulator;
         private NPCVehicleSpawner npcVehicleSpawner;
@@ -70,6 +71,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             egoRigidbody = autowareEgoCar.GetComponent<Rigidbody>();
             if (egoRigidbody == null)
                 throw new UnityException("[NPCSim] Cannot find rigidbody of the ego vehicle");
+            egoVehicle = autowareEgoCar.GetComponent<Vehicle>();
 
             // only single NPCVehicleConfig is supported for all NPCs
             // TODO: support different NPCVehicleConfig for different NPCs
@@ -356,7 +358,9 @@ namespace AWSIM.AWAnalysis.CustomSim
                 spawnLane.Waypoints[1] - spawnLane.Waypoints[0] :
                 spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
             Quaternion poseRotation = Quaternion.LookRotation(initFwd);
-
+            egoVehicle.SetPosition(initPosition);
+            egoVehicle.SetRotation(poseRotation);
+            
             var mgrsOffset = Environment.Instance.MgrsOffsetPosition;
             var poseMsg = new geometry_msgs.msg.PoseWithCovarianceStamped()
             {
