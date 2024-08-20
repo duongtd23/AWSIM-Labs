@@ -18,6 +18,7 @@ namespace AWSIM.AWAnalysis
         public const string TOPIC_PERCEPTION_RECOGNITION_OBJECTS = "/perception/object_recognition/objects";
         public const string TOPIC_API_OPERATION_MODE_STATE = "/api/operation_mode/state";
         public const string TOPIC_API_ROUTING_STATE = "/api/routing/state";
+        public const string TOPIC_AUTOWARE_ENGAGE = "/autoware/engage";
     }
 
     public class AutowareAnalysis : MonoBehaviour

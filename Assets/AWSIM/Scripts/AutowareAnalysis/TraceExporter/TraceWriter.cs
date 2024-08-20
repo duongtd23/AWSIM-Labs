@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using System.IO;
 using AWSIM.AWAnalysis.CustomSim;
 using autoware_adapi_v1_msgs.msg;
 using autoware_perception_msgs.msg;
+using autoware_vehicle_msgs.msg;
+using ROS2;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
@@ -20,7 +23,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
         // inner use
         private string contents;
         private bool ready, fileWritten;
-        private float timeStart;
         private float timeNow;
         private Queue<Tuple<double, PredictedObject[]>> objectDetectedMsgs;
         private Tuple<double,string> lastGroundTruthState;
@@ -30,6 +32,10 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private float autoOpModeReadyTime = -1f;
 
         private bool _egoGoalArrived;
+        
+        ISubscription<OperationModeState> opModeSubscriber;
+        ISubscription<RouteState> routeStateSubscriber;
+        ISubscription<LocalizationInitializationState> localizationInitStateSubscriber;
 
         // ROS time at start
         // When AWSIM starts after Autoware, it is 0.
@@ -62,13 +68,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 case CaptureStartingTime.AW_LOCALIZATION_INITIALIZED:
                     try
                     {
-                        SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
+                        localizationInitStateSubscriber = SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
                         TopicName.TOPIC_LOCALIZATION_INITIALIZATION_STATE, msg =>
                         {
                             if (msg.State == LocalizationInitializationState.INITIALIZED)
                             {
                                 ready = true;
-                                timeStart = timeNow;
                                 SubscribeRosEvents();
                             }
                         });
@@ -81,7 +86,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     break;
                 case CaptureStartingTime.AWSIM_STARTED:
                     ready = true;
-                    timeStart = 0;
                     SubscribeRosEvents();
                     break;
             }
@@ -177,6 +181,18 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 preLastGroundTruthState = lastGroundTruthState;
                 lastGroundTruthState = new Tuple<double, string>(timeStamp, stateStr);
             }
+
+            UnsubscribeRosEvents();
+        }
+
+        private void UnsubscribeRosEvents()
+        {
+            if (localizationInitStateSubscriber != null && !localizationInitStateSubscriber.IsDisposed && ready)
+                SimulatorROS2Node.RemoveSubscription<LocalizationInitializationState>(localizationInitStateSubscriber);
+            if (opModeSubscriber != null && !opModeSubscriber.IsDisposed && autoOpModeReadyTime > 0)
+                SimulatorROS2Node.RemoveSubscription<OperationModeState>(opModeSubscriber);
+            if (routeStateSubscriber != null && !routeStateSubscriber.IsDisposed && _egoGoalArrived)
+                SimulatorROS2Node.RemoveSubscription<RouteState>(routeStateSubscriber);
         }
 
         // start capturing traces, and also register various ROS events
@@ -193,15 +209,21 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 });
             
             // log the time when autonomous operation mode becomes ready
-            SimulatorROS2Node.CreateSubscription<OperationModeState>(
+            opModeSubscriber = SimulatorROS2Node.CreateSubscription<OperationModeState>(
                 TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
                 {
                     if (autoOpModeReadyTime < 0)
+                    {
                         autoOpModeReadyTime = timeNow;
+                        var engageMsg = new Engage();
+                        engageMsg.Engage_ = true;
+                        SimulatorROS2Node.CreatePublisher<Engage>(
+                            TopicName.TOPIC_AUTOWARE_ENGAGE).Publish(engageMsg);
+                    }
                 });
 
             // log when the Ego vehicle arrives its goal
-            SimulatorROS2Node.CreateSubscription<RouteState>(
+            routeStateSubscriber = SimulatorROS2Node.CreateSubscription<RouteState>(
                 TopicName.TOPIC_API_ROUTING_STATE, msg =>
                 {
                     if (msg.State == RouteState.ARRIVED)
