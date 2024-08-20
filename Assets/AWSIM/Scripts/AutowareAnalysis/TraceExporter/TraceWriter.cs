@@ -204,7 +204,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
             SimulatorROS2Node.CreateSubscription<RouteState>(
                 TopicName.TOPIC_API_ROUTING_STATE, msg =>
                 {
-                    _egoGoalArrived = true;
+                    if (msg.State == RouteState.ARRIVED)
+                        _egoGoalArrived = true;
                 });
         }
 
