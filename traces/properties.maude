@@ -1,80 +1,119 @@
-in groundtrust-trace-test.maude .
+in scenario2.maude .
 
---- search in TRACE : init =>! S:AWState .
---- eof
 in model-checker .
 
-mod PROPERTIES is
+mod PROPOSITIONS is
   pr TRACE .
   inc SATISFACTION .
   subsort AWState < State .
   var OBJs : Set{Object} .
-  vars T T2 : TimeStamp .
-  vars ID ID2 : List{Int} .
-  --- var NAME : Name .
   vars POSE POSE2 : Pose .
   vars TWIST ACCEL TWIST2 ACCEL2 : Twist .
-  var PROP : Prop .
-  vars X Y Z SPEED DIS : Float .
-  vars V V2 V3 V4 : Vector3 .
+  vars X Y Z SPEED DIS X2 T T2 Y2 DELAY : FloatOrInt .
+  vars V V2 V3 V4 P P2 : Vector3 .
   vars Q Q2 : Quaternion .
   vars STR STR2 : String .
-  vars I I2 : Int .
+  vars AWST : AWState .
+  var PROP : Prop .
 
-  op egoSpeedLessThan : Float -> Prop .
-  op egoNPCDistanceLessThan : Float -> Prop . 
-  op npcSpeedLessThan : Float -> Prop .
-  op diffSpeedLessThan : String String Float -> Prop .
-  ops timeLessThan timeGreaterThan : Int -> Prop .
+  op pos-diff(_,_)<_ : String String FloatOrInt -> Prop .
+  op pos-diff(_,_)>_ : String String FloatOrInt -> Prop .
+  op pos-diff(_,_)<=_ : String String FloatOrInt -> Prop .
+  op pos-diff(_,_)>=_ : String String FloatOrInt -> Prop .
+  op speed(_)<_ : String FloatOrInt -> Prop .
+  op speed(_)>_ : String FloatOrInt -> Prop .
+  op speed(_)<=_ : String FloatOrInt -> Prop .
+  op speed(_)>=_ : String FloatOrInt -> Prop .
+  op timeStamp`<_ : FloatOrInt -> Prop .
+  op timeStamp`>_ : FloatOrInt -> Prop .
+  op timeStamp`<=_ : FloatOrInt -> Prop .
+  op timeStamp`>=_ : FloatOrInt -> Prop .
+  --- NPC name and position distance difference
+  op perp-pos-diff(_)<_ : String FloatOrInt -> Prop .
+  op perp-pos-diff(_)<=_ : String FloatOrInt -> Prop .
+  op perp-pos-diff(_)>_ : String FloatOrInt -> Prop .
+  op perp-pos-diff(_)>=_ : String FloatOrInt -> Prop .
 
-  ceq T # {{id: ID, name: "ego", pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, OBJs}
-      |= egoSpeedLessThan(SPEED) = true
-    if (magnitude(V) < SPEED) .
+  eq AWST |= timeStamp < T = timeStamp(AWST) < T .
+  eq AWST |= timeStamp > T = timeStamp(AWST) > T .
+  eq AWST |= timeStamp <= T = timeStamp(AWST) <= T .
+  eq AWST |= timeStamp >= T = timeStamp(AWST) >= T .
+
+  ceq AWST |= speed(STR) < X = true
+    if gtSpeed(AWST, STR) < X .
+  ceq AWST |= speed(STR) > X = true
+    if gtSpeed(AWST, STR) > X .
+  ceq AWST |= speed(STR) <= X = true
+    if gtSpeed(AWST, STR) <= X .
+  ceq AWST |= speed(STR) >= X = true
+    if gtSpeed(AWST, STR) >= X .
+
+  ceq AWST |= pos-diff(STR, STR2) < X = true
+    if magnitudeIgnoreY(pos-diff(AWST, STR, STR2)) < X .
+  ceq AWST |= pos-diff(STR, STR2) > X = true
+    if magnitudeIgnoreY(pos-diff(AWST, STR, STR2)) > X .
+  ceq AWST |= pos-diff(STR, STR2) <= X = true
+    if magnitudeIgnoreY(pos-diff(AWST, STR, STR2)) <= X .
+  ceq AWST |= pos-diff(STR, STR2) >= X = true
+    if magnitudeIgnoreY(pos-diff(AWST, STR, STR2)) >= X .
+
+  ceq AWST |= perp-pos-diff(STR) < X = true
+    if magnitudeIgnoreY(perp-pos-diff(AWST, STR)) < X .
+  ceq AWST |= perp-pos-diff(STR) > X = true
+    if magnitudeIgnoreY(perp-pos-diff(AWST, STR)) > X .
+  ceq AWST |= perp-pos-diff(STR) <= X = true
+    if magnitudeIgnoreY(perp-pos-diff(AWST, STR)) <= X .
+  ceq AWST |= perp-pos-diff(STR) >= X = true
+    if magnitudeIgnoreY(perp-pos-diff(AWST, STR)) >= X .
   
-  ceq T  # {{id: ID, name: "ego", pose: {pos: V, qua: Q}, twist: TWIST, accel: ACCEL}, 
-            {id: ID2, name: STR, pose: {pos: V2, qua: Q2}, twist: TWIST2, accel: ACCEL2} ,
-            OBJs}
-      |= egoNPCDistanceLessThan(DIS) = true
-    if STR =/= "ego" /\
-       (distance(V, V2) < DIS) .
-      
-  ceq T # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, OBJs}
-      |= npcSpeedLessThan(SPEED) = true
-    if STR =/= "ego" /\
-       (magnitude(V) < SPEED) .
-
-  ceq T  # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, 
-            {id: ID2, name: STR2, pose: POSE2, twist: {lin: V3, ang: V4}, accel: ACCEL2} ,
-            OBJs}
-      |= diffSpeedLessThan(STR,STR2,SPEED) = true
-    if (distance(V, V3) < SPEED) .
-
-  ceq T # {OBJs} |= timeLessThan(I) = true
-    if T < I .
-  ceq T # {OBJs} |= timeGreaterThan(I) = true
-    if T > I .
-
-  eq terminate |= PROP = true .
+  ceq AWST |= PROP = true if AWST == termination .
   eq T # {OBJs} |= PROP = false [owise] .
 endm
 
 mod PROPERTIES-CHECK is
-  inc PROPERTIES .
+  inc PROPOSITIONS .
   inc MODEL-CHECKER .
   inc LTL-SIMPLIFIER .
-  ops property1 p2 : -> Formula .
-  
-  --- when the distance between ego and an NPC < 20m, ego's speed should be less than 10m/s
-  eq property1 = [] (egoNPCDistanceLessThan(20.0) -> egoSpeedLessThan(6.0)) .
-  eq p2 = [] (timeLessThan(65000) -> diffSpeedLessThan("ego", "Taxi(Clone)_0", 2.0)) .
 
-  --- E.g.,
-  --- [] (egoNPCDistanceLessThan(100) -> detectedBoundingBox-precise(90%))
+  op next : Formula Nat -> Formula .
+  --- op perp-pos-diff'(_)<_ : String FloatOrInt -> Formula .
+  --- op perp-pos-diff'(_,_)<_ : String Nat FloatOrInt -> Formula .
+  op nextIterAux : Nat Formula -> Formula .
+  
+  var OBJs : Set{Object} .
+  vars X Y Z T T2 DELAY : FloatOrInt .
+  vars STR STR2 : String .
+  vars AWST : AWState .
+  vars N : Nat .
+  var F : Formula .
+
+  eq next(F, 0) = F .
+  eq next(F, s(N)) = nextIterAux(s(N), F) \/ next(F, N) .
+
+  eq nextIterAux(s(N), F) = O nextIterAux(N, F) .
+  eq nextIterAux(0, F) = F .
+
+  ops p1 p2 p3 p4 : -> Formula .
+
+  eq p1 = [] (pos-diff("ego", "npc1") > 10) .
+
+  --- when the distance between ego and an NPC < 20m, ego's speed should be less than 10m/s
+  eq p2 = [] (pos-diff("ego", "npc1") < 20 -> speed("ego") < 3) .
+  eq p3 = [] (pos-diff("ego", "npc1") < 10 -> perp-pos-diff("npc1") < 500) .
+
+  ops temp temp2 temp3 : -> AWState .
 endm
 
-search [1] in PROPERTIES : init =>* T  # {{id: ID, name: STR, pose: POSE, twist: {lin: V, ang: V2}, accel: ACCEL}, 
-            {id: ID2, name: STR2, pose: POSE2, twist: {lin: V3, ang: V4}, accel: ACCEL2} ,
-            OBJs}
-    such that T < 65000 /\
-      distance(V, V3) > 2.0 .
-red in PROPERTIES-CHECK : modelCheck(init, p2) .
+***(
+red in PROPERTIES-CHECK : modelCheck(init, <>
+  (timeStamp > 10 /\ pos-diff("ego", "npc1") <= 40)) .
+eof
+)
+
+red in PROPERTIES-CHECK : modelCheck(init, [] 
+  ((timeStamp >= 11.5 /\ timeStamp <= 70 /\ pos-diff("ego", "npc1") <= 50) 
+    -> next(perp-pos-diff("npc1") < 3, 8))) .
+red in PROPERTIES-CHECK : modelCheck(init, [] 
+  ((timeStamp >= 12 /\ timeStamp <= 60 /\ pos-diff("ego", "npc1") <= 20) 
+    -> next(perp-pos-diff("npc1") < 2.5, 10))) .
+eof

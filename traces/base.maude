@@ -1,3 +1,9 @@
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op maybe{X} : -> Maybe{X} [ctor] .
+endfm
+
 fmod FLOAT-RENAME is
   pr FLOAT * (
     op -_ : Float -> Float to -f_,
@@ -8,6 +14,7 @@ fmod FLOAT-RENAME is
     op _rem_ : [Float] [Float] -> [Float] to _remf_,
     op _^_ : [Float] [Float] -> [Float] to _^f_,
     op abs : Float -> Float to absf,
+    op sqrt : [Float] -> [Float] to sqrtf,
     op floor : Float -> Float to floorf,
     op ceiling : Float -> Float to ceilingf,
     op min : Float Float -> Float to minf,
@@ -72,40 +79,59 @@ fmod FLOAT-OR-INT is
   sort FloatOrInt .
   subsorts Float Int < FloatOrInt .
 
-  op _+._ : FloatOrInt FloatOrInt -> Float [assoc comm prec 33] .
-  op _-._ : FloatOrInt FloatOrInt -> Float [prec 33 gather (E e)] .
-  op _*._ : FloatOrInt FloatOrInt -> Float [assoc comm prec 31] .
+  op fvalue : FloatOrInt -> Float .
+  --- op -_ : FloatOrInt -> Float [ditto] .
+  op _+_ : FloatOrInt FloatOrInt -> Float [ditto] .
+  op _-_ : FloatOrInt FloatOrInt -> Float [ditto] .
+  op _*_ : FloatOrInt FloatOrInt -> Float [ditto] .
+  op _/_ : [FloatOrInt] [FloatOrInt] -> [Float] [ditto] .
+  op _<_ : FloatOrInt FloatOrInt -> Bool [ditto] .
+  op _>_ : FloatOrInt FloatOrInt -> Bool [ditto] .
+  op _<=_ : FloatOrInt FloatOrInt -> Bool [ditto] .
+  op _>=_ : FloatOrInt FloatOrInt -> Bool [ditto] .
+  op abs : FloatOrInt -> Float [ditto] .
+  op sqrt : FloatOrInt -> Float .
 
   vars I I2 : Int .
   vars F F2 : Float .
   vars FI FI2 : FloatOrInt .
-  
-  eq I +. F = float(I) +f F .
-  eq F +. I = F +f float(I) .
-  eq I +. I2 = float(I) +f float(I2) .
-  eq F +. F2 = F +f F2 .
 
-  eq I -. F = float(I) -f F .
-  eq F -. I = F -f float(I) .
-  eq I -. I2 = float(I) -f float(I2) .
-  eq F -. F2 = F -f F2 .
+  eq fvalue(I) = float(I) .
+  eq fvalue(F) = F .
 
-  eq I *. F = float(I) *f F .
-  eq F *. I = F *f float(I) .
-  eq I *. I2 = float(I) *f float(I2) .
-  eq F *. F2 = F *f F2 .
+  --- eq -(FI) = -f(fvalue(FI)) .
+  eq FI + FI2 = fvalue(FI) +f fvalue(FI2) .
+  eq FI - FI2 = fvalue(FI) -f fvalue(FI2) .
+  eq FI * FI2 = fvalue(FI) *f fvalue(FI2) .
+  eq FI / FI2 = fvalue(FI) /f fvalue(FI2) .
+  eq FI < FI2 = fvalue(FI) <f fvalue(FI2) .
+  eq FI <= FI2 = fvalue(FI) <=f fvalue(FI2) .
+  eq FI > FI2 = fvalue(FI) >f fvalue(FI2) .
+  eq FI >= FI2 = fvalue(FI) >=f fvalue(FI2) .
+  eq abs(FI) = absf(fvalue(FI)) .
+  eq sqrt(FI) = sqrtf(fvalue(FI)) .
 endfm
 
 fmod VECTOR3 is 
   pr FLOAT-OR-INT .
   sort Vector3 .
   op ___ : FloatOrInt FloatOrInt FloatOrInt -> Vector3 [ctor] .
+
+  op _-_ : Vector3 Vector3 -> Vector3 [prec 33 gather (E e)] .
+  op _+_ : Vector3 Vector3 -> Vector3 [assoc comm prec 33] .
   op magnitude : Vector3 -> Float .
   op distance : Vector3 Vector3 -> Float .
+  op magnitudeIgnoreY : Vector3 -> Float .
+  op distanceIgnoreY : Vector3 Vector3 -> Float .
+  
   vars X Y Z X2 Y2 Z2 : FloatOrInt .
-  eq magnitude(X Y Z) = sqrt(X *. X +. Y *. Y +. Z *. Z) .
-  eq distance(X Y Z, X2 Y2 Z2) =
-    magnitude((X -. X2) (Y -. Y2) (Z -. Z2)) .
+  vars V V2 : Vector3 .
+  eq ((X Y Z) + (X2 Y2 Z2)) = (X + X2) (Y + Y2) (Z + Z2) .
+  eq ((X Y Z) - (X2 Y2 Z2)) = (X - X2) (Y - Y2) (Z - Z2) .
+  eq magnitude(X Y Z) = sqrt(X * X + Y * Y + Z * Z) .
+  eq distance(V, V2) = magnitude(V - V2) .
+  eq magnitudeIgnoreY(X Y Z) = sqrt(X * X + Z * Z) .
+  eq distanceIgnoreY(V, V2) = magnitudeIgnoreY(V - V2) .
 endfm
 
 fmod QUATERNION is 
@@ -118,9 +144,11 @@ fmod POSE is
   pr VECTOR3 + QUATERNION .
   sort Pose .
   op nilPose : -> Pose [ctor] .
-  --- position and quaternion
+  --- position and quaternion, for ego
   op {pos:_,qua:_} : Vector3 Quaternion -> Pose [ctor] .
-  --- Euler angle wrt Y-axis in Unity or Z-axis in ROS
+  --- position and euler angles, for percepted NPCs
+  op {pos:_,rota:_} : Vector3 Vector3 -> Pose [ctor] .
+  --- Euler angle wrt Y-axis in Unity or Z-axis in ROS, for ground trust NPCs
   op {pos:_,rota:_} : Vector3 FloatOrInt -> Pose [ctor] .
 endfm
 
@@ -132,28 +160,6 @@ fmod TWIST is
   op {lin:_,ang:_} : Vector3 Vector3 -> Twist [ctor] .
   --- only Yaw component
   op {lin:_,ang:_} : Vector3 FloatOrInt -> Twist [ctor] .
-endfm
-
-fmod TIME-STAMP is 
-  pr INT .
-  sort TimeStamp .
-  --- second and nanosecond
-  op time : Int Int -> TimeStamp [ctor] .
-  ops _<_ _>_ : TimeStamp TimeStamp -> Bool .
-  ops _<_ _>_ : TimeStamp Int -> Bool .
-  vars S S2 NS NS2 I : Int .
-  eq time(S,NS) < time(S2,NS2) =
-    S < S2 or
-    (S == S2 and NS < NS2) .
-  eq time(S,NS) > time(S2,NS2) =
-    S > S2 or
-    (S == S2 and NS > NS2) .
-  --- I is in milliseconds
-  eq time(S,NS) < I =
-    (S * 1000 + NS quo 1000000) < I .
-  --- I is in milliseconds
-  eq time(S,NS) > I =
-    (S * 1000 + NS quo 1000000) > I .
 endfm
 
 fmod UUID is
@@ -189,7 +195,7 @@ fmod CLASS-SET is
   pr SET{Class} .
 endfm
 
-fmod PERCEPTION-OBJECT is 
+fmod PERCEPTION-OBJECT is
   pr POSE + TWIST + CLASS-SET + UUID .
   sort PObject .
   op {id:_,epro:_,class:[_],pose:_,twist:_,accel:_} : 
@@ -209,23 +215,136 @@ fmod OBJECT-SET is
   pr SET{Object} .
 endfm
 
+view Vector3 from TRIV to VECTOR3 is
+  sort Elt to Vector3 .
+endv
+view FloatOrInt from TRIV to FLOAT-OR-INT is
+  sort Elt to FloatOrInt .
+endv
+fmod FLOAT-AND-NULL is
+  pr MAYBE{FloatOrInt} * (op maybe{FloatOrInt} to nullFloat) .
+  op _<_ : Maybe{FloatOrInt} FloatOrInt -> Bool [ditto] .
+  op _>_ : Maybe{FloatOrInt} FloatOrInt -> Bool [ditto] .
+  op _<=_ : Maybe{FloatOrInt} FloatOrInt -> Bool [ditto] .
+  op _>=_ : Maybe{FloatOrInt} FloatOrInt -> Bool [ditto] .
+
+  vars FI FI2 : FloatOrInt .
+  eq nullFloat < FI = false .
+  eq nullFloat > FI = false .
+  eq nullFloat <= FI = false .
+  eq nullFloat >= FI = false .
+endfm
+
+fmod VECTOR3-AND-NULL is
+  pr FLOAT-AND-NULL .
+  pr MAYBE{Vector3} * (op maybe{Vector3} to nullVector3) .
+  op magnitude : Maybe{Vector3} -> Maybe{FloatOrInt} .
+  eq magnitude(nullVector3) = nullFloat .
+endfm
+
 mod AWSTATE is 
   pr OBJECT-SET .
+  pr FLOAT-AND-NULL + VECTOR3-AND-NULL .
   sort AWState .
-  --- op _#{_} : TimeStamp Set{Object} -> AWState [ctor] .
   op _#{_} : FloatOrInt Set{Object} -> AWState [ctor] .
 
-  ops init terminate : -> AWState .
+  op init : -> AWState .
+  op termination : -> AWState .
+  rl AWST:AWState => termination .
 
-  rl terminate => terminate .
+  op position : Pose -> Vector3 .
+  op rotation : Pose -> Vector3 .
+  op velocity : Twist -> Vector3 .
+
+  op timeStamp : AWState -> FloatOrInt .
+
+  --- ground truth position, velocity, acceleration
+  op gtPos : AWState String -> Maybe{Vector3} .
+  op gtVel : AWState String -> Maybe{Vector3} .
+  op gtSpeed : AWState String -> Maybe{FloatOrInt} .
+  op gtAccel : AWState String -> Maybe{Vector3} .
+
+  --- perception position
+  op perpPos : AWState String -> Maybe{Vector3} .
+
+  --- ground truth position difference
+  op pos-diff : AWState String String -> Maybe{Vector3} .
+
+  --- difference between ground truth position and perception position
+  op perp-pos-diff : AWState String -> Maybe{Vector3} .
+
+  var OBJs : Set{Object} .
+  vars POSE POSE2 : Pose .
+  vars TWIST ACCEL TWIST2 ACCEL2 : Twist .
+  vars X Y Z SPEED DIS X2 T T2 Y2 PROB : FloatOrInt .
+  vars F F2 : Float .
+  vars V V2 V3 V4 P P2 : Vector3 .
+  vars Q Q2 : Quaternion .
+  vars STR STR2 : String .
+  vars AWST : AWState .
+  vars UUID : Uuid .
+  vars CLS : Set{Class} .
+  vars POBJ : PObject .
+
+  eq position({pos: P, qua: Q}) = P .
+  eq position({pos: P, rota: V}) = P .
+  eq position({pos: P, rota: X}) = P .
+  eq velocity({lin: V, ang: V2}) = V .
+  eq velocity({lin: V, ang: X}) = V .
+
+  eq timeStamp(T # {OBJs}) = T .
+
+  eq gtPos(
+    T # {{name: STR, pose: POSE, twist: TWIST, accel: ACCEL}, OBJs},
+    STR) = position(POSE) .
+  eq gtPos(
+    T # {{name: STR, pose: POSE, twist: TWIST, accel: X}, OBJs},
+    STR) = position(POSE) .
+  eq gtPos(AWST, STR) = nullVector3 [owise] .
+
+  eq gtVel(
+    T # {{name: STR, pose: POSE, twist: TWIST, accel: ACCEL}, OBJs},
+    STR) = velocity(TWIST) .
+  eq gtVel(
+    T # {{name: STR, pose: POSE, twist: TWIST, accel: X}, OBJs},
+    STR) = velocity(TWIST) .
+  eq gtVel(AWST, STR) = nullVector3 [owise] .
+
+  eq gtSpeed(AWST,STR) = magnitude(gtVel(AWST,STR)) .
+
+  ceq perpPos(
+    T # {{name: STR, pose: POSE2, twist: TWIST2, accel: X2}, OBJs},
+    STR) = position(POSE)
+    if {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL} :=
+      nearestPos(position(POSE2),OBJs) .
+  eq perpPos(AWST, STR) = nullVector3 [owise] .
+
+  ceq pos-diff(AWST, STR, STR2) = (P - P2)
+    if P  := gtPos(AWST,STR) /\
+       P2 := gtPos(AWST,STR2) .
+  eq pos-diff(AWST, STR, STR2) = nullVector3 [owise] .
+
+  ceq perp-pos-diff(AWST, STR) = (P - P2)
+    if P := gtPos(AWST, STR) /\
+      P2 := perpPos(AWST, STR) .
+  eq perp-pos-diff(AWST, STR) = nullVector3 [owise] .
+
+  --- inner computation
+  --- return single element if found, otherwise, empty set
+  op nearestPos : Vector3 Set{Object} -> Set{Object} .
+  op nearestPos : Vector3 Set{Object} Float PObject -> Set{Object} .
+  eq nearestPos(P, empty) = empty .
+  eq nearestPos(P, 
+    ({id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}, OBJs)) =
+    nearestPos(P, OBJs, distance(P, position(POSE)), 
+        {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}) .
+  ceq nearestPos(P, 
+      ({id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}, OBJs),
+      F, POBJ) = 
+      if F2 < F
+      then nearestPos(P, OBJs, F2, {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL})
+      else nearestPos(P, OBJs, F, POBJ)
+      fi 
+    if F2 := distance(P, position(POSE)) .
+  eq nearestPos(P, OBJs, F, POBJ) = POBJ [owise] .
 endm
-
-
---- view AWState from TRIV to AWSTATE is
----   sort Elt to AWState .
---- endv
-
---- red in VECTOR3 : < 1.3, -2.3, -4.0 > .
---- red in POSE : pos: < 1.3, -2.3, -4.0 >, qua: < 0.0, 1.0, 0.0, -0.2 > .
---- red in TWIST : lin: < 1.3, -2.3, -4.0 >, ang: < 0.0, 1.0, -0.2 > .
-
