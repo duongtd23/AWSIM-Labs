@@ -25,12 +25,16 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private Queue<Tuple<double, PredictedObject[]>> objectDetectedMsgs;
         private Tuple<double,string> lastGroundTruthState;
         private Tuple<double,string> preLastGroundTruthState;
-        private float autoOpModeReadTime = -1f;
+
+        // time when autonomous operation mode becomes ready
+        private float autoOpModeReadyTime = -1f;
+
+        private bool _egoGoalArrived;
 
         // ROS time at start
+        // When AWSIM starts after Autoware, it is 0.
+        // When AWSIM starts before Autoware, rosTimeAtStart > 0.
         private double rosTimeAtStart;
-
-        // public const int CAPTURE_DURATION = 60;
 
         public TraceWriter(string filePath, Vehicle egoVehicle)
         {
@@ -65,8 +69,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             {
                                 ready = true;
                                 timeStart = timeNow;
-                                Debug.Log("[AWAnalysis] Start capturing trace");
-                                SubscribeObjectDetectionMsg();
+                                SubscribeRosEvents();
                             }
                         });
                     }
@@ -79,7 +82,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 case CaptureStartingTime.AWSIM_STARTED:
                     ready = true;
                     timeStart = 0;
-                    SubscribeObjectDetectionMsg();
+                    SubscribeRosEvents();
                     break;
             }
         }
@@ -89,7 +92,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             timeNow = Time.time;
             if (!ready || fileWritten)
                 return;
-            if (timeNow - timeStart >= ConfigLoader.Config().captureLength && !fileWritten)
+            if (_egoGoalArrived && !fileWritten)
             {
                 while (objectDetectedMsgs.Count > 0)
                 {
@@ -117,8 +120,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 contents += $"{preLastGroundTruthState.Item2}}} .\n  rl {preLastGroundTruthState.Item2}}}\n  => ";
                 contents += $"{lastGroundTruthState.Item2}}} .\nendm";
                 // add comments
-                contents += $"\n--- auto mode ready time: {autoOpModeReadTime}";
+                contents += $"\n--- auto mode ready time: {autoOpModeReadyTime}";
                 File.WriteAllText(filePath, contents);
+                Debug.Log($"[AWAnalysis] Trace was written to {filePath}");
                 fileWritten = true;
                 return;
             }
@@ -174,9 +178,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 lastGroundTruthState = new Tuple<double, string>(timeStamp, stateStr);
             }
         }
-        
-        private void SubscribeObjectDetectionMsg()
+
+        // start capturing traces, and also register various ROS events
+        private void SubscribeRosEvents()
         {
+            Debug.Log("[AWAnalysis] Start capturing trace");
             SimulatorROS2Node.CreateSubscription<PredictedObjects>(
                 TopicName.TOPIC_PERCEPTION_RECOGNITION_OBJECTS, msg =>
                 {
@@ -186,12 +192,19 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             msg.Objects));
                 });
             
-            // log the time when auto ready
+            // log the time when autonomous operation mode becomes ready
             SimulatorROS2Node.CreateSubscription<OperationModeState>(
                 TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
                 {
-                    if (autoOpModeReadTime < 0)
-                        autoOpModeReadTime = timeNow;
+                    if (autoOpModeReadyTime < 0)
+                        autoOpModeReadyTime = timeNow;
+                });
+
+            // log when the Ego vehicle arrives its goal
+            SimulatorROS2Node.CreateSubscription<RouteState>(
+                TopicName.TOPIC_API_ROUTING_STATE, msg =>
+                {
+                    _egoGoalArrived = true;
                 });
         }
 

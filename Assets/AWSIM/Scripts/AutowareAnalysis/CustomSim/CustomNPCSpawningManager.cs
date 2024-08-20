@@ -245,7 +245,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static NPCVehicle SpawnNPCAndDelayMovement(NPCCar npcCar)
         {
             if (npcCar.SpawnDelayOption == null || npcCar.SpawnDelayOption.ActionDelayed != DelayedAction.MOVING)
-                throw new CustomSimException("[CustomSim]: Invalid NPCSpawnDelay paramater.");
+                throw new CustomSimException("[AWAnalysis]: Invalid NPCSpawnDelay paramater.");
 
             // spawn NPC
             NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex, npcCar.Name);

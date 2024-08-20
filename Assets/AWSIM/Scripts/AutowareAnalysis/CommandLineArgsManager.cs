@@ -9,6 +9,7 @@ namespace AWSIM.AWAnalysis
     {
         // all arguments
         public const string SCRIPT_ARG = "-script";
+        public const string TRACE_SAVING_PATH_ARG = "-output";
         public const string PERCEPTION_ANALYSIS_ENABLE_ARG = "-perception_analysis";
 
         // singleton instance
@@ -39,9 +40,10 @@ namespace AWSIM.AWAnalysis
                     string enableValue = ExtractArgValue(arguments, ref i, PERCEPTION_ANALYSIS_ENABLE_ARG);
                     args.Add(PERCEPTION_ANALYSIS_ENABLE_ARG, enableValue);
                 }
-                else 
+                else if (arguments[i].StartsWith(TRACE_SAVING_PATH_ARG))
                 {
-                    // Debug.LogError("[AWAnalysis] Cannot parse argument " + arguments[i]);
+                    string scriptValue = ExtractArgValue(arguments, ref i, TRACE_SAVING_PATH_ARG);
+                    args.Add(TRACE_SAVING_PATH_ARG, scriptValue);
                 }
             }
         }
@@ -105,6 +107,20 @@ namespace AWSIM.AWAnalysis
                 return true;            
             }
         }
-    }
 
+        public static bool GetTraceSavingPathArg(out string outputFilePath)
+        {
+            Dictionary<string, string> _args = Instance().args;
+            if (!_args.ContainsKey(TRACE_SAVING_PATH_ARG))
+            {
+                outputFilePath = "";
+                return false;
+            }
+            else
+            {
+                outputFilePath = _args[TRACE_SAVING_PATH_ARG];
+                return true;
+            }
+        }
+    }
 }

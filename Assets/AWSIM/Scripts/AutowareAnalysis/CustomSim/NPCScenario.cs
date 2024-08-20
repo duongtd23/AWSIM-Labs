@@ -38,7 +38,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
             if (!argDefined)
-                Debug.LogError("[CustomSim] Input script is not given. " +
+                Debug.LogError("[AWAnalysis] Input script is not given. " +
                     "Specify it by argument `-script <path-to-script-file>`.");
             else
             {
