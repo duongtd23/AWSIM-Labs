@@ -249,8 +249,7 @@ mod AWSTATE is
   op _#{_} : FloatOrInt Set{Object} -> AWState [ctor] .
 
   op init : -> AWState .
-  op termination : -> AWState .
-  rl AWST:AWState => termination .
+  op autoModeReadyTime : -> FloatOrInt .
 
   op position : Pose -> Vector3 .
   op rotation : Pose -> Vector3 .
@@ -285,6 +284,7 @@ mod AWSTATE is
   vars UUID : Uuid .
   vars CLS : Set{Class} .
   vars POBJ : PObject .
+  vars N N2 : Nat .
 
   eq position({pos: P, qua: Q}) = P .
   eq position({pos: P, rota: V}) = P .
@@ -316,7 +316,7 @@ mod AWSTATE is
     T # {{name: STR, pose: POSE2, twist: TWIST2, accel: X2}, OBJs},
     STR) = position(POSE)
     if {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL} :=
-      nearestPos(position(POSE2),OBJs) .
+      nearestVehicle(position(POSE2),OBJs) .
   eq perpPos(AWST, STR) = nullVector3 [owise] .
 
   ceq pos-diff(AWST, STR, STR2) = (P - P2)
@@ -329,22 +329,50 @@ mod AWSTATE is
       P2 := perpPos(AWST, STR) .
   eq perp-pos-diff(AWST, STR) = nullVector3 [owise] .
 
-  --- inner computation
-  --- return single element if found, otherwise, empty set
-  op nearestPos : Vector3 Set{Object} -> Set{Object} .
-  op nearestPos : Vector3 Set{Object} Float PObject -> Set{Object} .
-  eq nearestPos(P, empty) = empty .
-  eq nearestPos(P, 
+***(
+ * inner computation
+)
+  --- given a position, find nearest detected object
+  --- returns single object if it exists, otherwise, empty set
+  op nearestVehicle : Vector3 Set{Object} -> Set{Object} .
+  op nearestVehicle : Vector3 Set{Object} Float PObject -> Set{Object} .
+  eq nearestVehicle(P, empty) = empty .
+  eq nearestVehicle(P, 
     ({id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}, OBJs)) =
-    nearestPos(P, OBJs, distance(P, position(POSE)), 
+    nearestVehicle(P, OBJs, distance(P, position(POSE)), 
         {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}) .
-  ceq nearestPos(P, 
+  ceq nearestVehicle(P, 
       ({id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL}, OBJs),
       F, POBJ) = 
-      if F2 < F
-      then nearestPos(P, OBJs, F2, {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL})
-      else nearestPos(P, OBJs, F, POBJ)
+      if F2 < F and isVehicleClass(CLS)
+      then nearestVehicle(P, OBJs, F2, {id: UUID, epro: PROB, class: [CLS], pose: POSE, twist: TWIST, accel: ACCEL})
+      else nearestVehicle(P, OBJs, F, POBJ)
       fi 
     if F2 := distance(P, position(POSE)) .
-  eq nearestPos(P, OBJs, F, POBJ) = POBJ [owise] .
+  eq nearestVehicle(P, OBJs, F, POBJ) = POBJ [owise] .
+
+  --- check if vehicle is detected in classification 
+  op isVehicleClass : Set{Class} -> Bool .
+  ceq isVehicleClass((N -> X, CLS)) = true
+    if N <= VEHICLE-CLASS-MAX /\ N >= VEHICLE-CLASS-MIN /\
+       X >= CLASSIFICATION-THRESHOLD .
+  eq isVehicleClass(CLS) = false [owise] .
+
+  --- check if pedestrian is detected in classification 
+  op isPedestrianClass : Set{Class} -> Bool .
+  ceq isPedestrianClass((N -> X, CLS)) = true
+    if N == PEDESTRIAN-CLASS /\
+       X >= CLASSIFICATION-THRESHOLD .
+  eq isPedestrianClass(CLS) = false [owise] .
+
+***(
+ * constants
+)
+  ops UNKNOW-CLASS PEDESTRIAN-CLASS VEHICLE-CLASS-MIN VEHICLE-CLASS-MAX : -> Nat .
+  eq UNKNOW-CLASS = 0 .
+  eq PEDESTRIAN-CLASS = 7 .
+  eq VEHICLE-CLASS-MIN = 1 .
+  eq VEHICLE-CLASS-MAX = 6 .
+  op CLASSIFICATION-THRESHOLD : -> Float .
+  eq CLASSIFICATION-THRESHOLD = 0.1 .
 endm
