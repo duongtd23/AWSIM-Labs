@@ -122,9 +122,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 } 
                 
                 contents += $"{preLastGroundTruthState.Item2}}} .\n  rl {preLastGroundTruthState.Item2}}}\n  => ";
-                contents += $"{lastGroundTruthState.Item2}}} .\nendm";
-                // add comments
-                contents += $"\n--- auto mode ready time: {autoOpModeReadyTime}";
+                contents += $"{lastGroundTruthState.Item2}}} .\n";
+                // loop rule
+                contents += $"  rl {lastGroundTruthState.Item2}}} \n  => {lastGroundTruthState.Item2}}} .\n";
+                // write autonomous mode ready time
+                contents += $"  eq autoModeReadyTime = {autoOpModeReadyTime} .\nendm";
                 File.WriteAllText(filePath, contents);
                 Debug.Log($"[AWAnalysis] Trace was written to {filePath}");
                 fileWritten = true;
@@ -167,8 +169,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
             List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
             npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
-            // A closing bracket is missing.
-            // stateStr += "}";
 
             if (preLastGroundTruthState == null)
                 preLastGroundTruthState = new Tuple<double, string>(timeStamp, stateStr);
