@@ -66,9 +66,8 @@ namespace AWSIM.TrafficSimulation
             var distanceToStopPointByFrontVehicle = onlyGreaterThan(state.DistanceToFrontVehicle - MinFrontVehicleDistance, -MinFrontVehicleDistance);
             var distanceToStopPointByTrafficLight = CalculateTrafficLightDistance(state, suddenStopDistance);
             var distanceToStopPointByRightOfWay = CalculateYieldingDistance(state);
-            var distanceToStopPointByGoal = CalculateGoalDistance(state);
-            var distanceToStopPoint = Mathf.Min(distanceToStopPointByFrontVehicle, distanceToStopPointByTrafficLight, distanceToStopPointByRightOfWay,
-                distanceToStopPointByGoal);
+            var distanceToGoal = CalculateGoalDistance(state);
+            var distanceToStopPoint = Mathf.Min(distanceToStopPointByFrontVehicle, distanceToStopPointByTrafficLight, distanceToStopPointByRightOfWay);
 
             state.IsStoppedByFrontVehicle = false;
             if (distanceToStopPointByFrontVehicle <= stopDistance)
@@ -80,9 +79,9 @@ namespace AWSIM.TrafficSimulation
                 state.SpeedMode = NPCVehicleSpeedMode.ABSOLUTE_STOP;
             else if (distanceToStopPoint <= suddenStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.SUDDEN_STOP;
-            else if (distanceToStopPoint <= stopDistance)
+            else if (distanceToStopPoint <= stopDistance || distanceToGoal < stopDistance - 3 * MinStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.STOP;
-            else if (distanceToStopPoint <= slowDownDistance || state.IsTurning)
+            else if (distanceToStopPoint <= slowDownDistance || state.IsTurning || distanceToGoal < stopDistance + MinStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.SLOW;
             else
                 state.SpeedMode = NPCVehicleSpeedMode.NORMAL;

@@ -1724,7 +1724,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1743169422}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.5091954
+  m_Size: 0.529885
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -2028,7 +2028,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7800869322880189815, guid: c7276496f3d93284c9ac668faf9a39c6, type: 3}
       propertyPath: frameId
-      value: object_detection_camera0
+      value: base_link
       objectReference: {fileID: 0}
     - target: {fileID: 7800869322880189815, guid: c7276496f3d93284c9ac668faf9a39c6, type: 3}
       propertyPath: imageTopic

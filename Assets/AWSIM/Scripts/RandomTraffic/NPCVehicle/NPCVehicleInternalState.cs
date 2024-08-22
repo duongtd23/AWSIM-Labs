@@ -264,7 +264,7 @@ namespace AWSIM.TrafficSimulation
         /// <returns></returns>
         public float DistanceHasGoneOnLane()
         {
-            Vector3 position = FrontCenterPosition;
+            Vector3 position = Position;
             position.y = 0f;
             float distanceGone = 0;
             for (int i = 0; i < WaypointIndex - 1; i++)
