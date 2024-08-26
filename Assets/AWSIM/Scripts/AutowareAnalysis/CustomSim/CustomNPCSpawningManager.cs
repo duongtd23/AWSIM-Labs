@@ -7,7 +7,6 @@ using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
 using ROS2;
 using autoware_adapi_v1_msgs.msg;
-using Google.Protobuf.WellKnownTypes;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -45,6 +44,10 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         // all NPC vehicles spawned
         private List<NPCVehicle> npcs;
+        
+        // for ego settings
+        private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
+        private tier4_planning_msgs.msg.VelocityLimit _maxVelMsg;
 
         private CustomNPCSpawningManager(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
@@ -76,8 +79,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             // only single NPCVehicleConfig is supported for all NPCs
             // TODO: support different NPCVehicleConfig for different NPCs
             NPCVehicleConfig vehicleConfig = NPCVehicleConfig.Default();
-            vehicleConfig.Acceleration = ConfigLoader.Config().npcAcceleration;
-            vehicleConfig.Deceleration = ConfigLoader.Config().npcDeceleration;
+            vehicleConfig.Acceleration = ConfigLoader.Config().NpcAcceleration;
+            vehicleConfig.Deceleration = ConfigLoader.Config().NpcDeceleration;
             npcVehicleSimulator = new NPCVehicleSimulator(vehicleConfig, vehicleLayerMask, groundLayerMask, 10, autowareEgoCar);
             npcVehicleSpawner = new NPCVehicleSpawner(parentGameObject, new GameObject[] { }, new TrafficLane[] { });
 
@@ -130,6 +133,12 @@ namespace AWSIM.AWAnalysis.CustomSim
 
                 npcVehicleSimulator.StepOnce(Time.fixedDeltaTime);
                 UpdateDelayingNPCs();
+
+                if (_maxVelPublisher != null && _maxVelMsg != null)
+                {
+                    Debug.Log("[AWAnalysis] Setting max velocity...");
+                    _maxVelPublisher.Publish(_maxVelMsg);
+                }
             }
         }
 
@@ -381,7 +390,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             var poseMsgHeader = poseMsg as MessageWithHeader;
             SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
 
-            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>("/initialpose").Publish(poseMsg);
+            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>(TopicName.TOPIC_INITIAL_POSE).Publish(poseMsg);
 
             // goal
             TrafficLane goalLane = CustomSimUtils.ParseLane(ego.Goal.GetLane());
@@ -419,6 +428,24 @@ namespace AWSIM.AWAnalysis.CustomSim
                     SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL).Publish(goalMsg);
                 }
             });
+            
+            // setting max velocity
+            if (ego.MaxVelocity > 0.0)
+            {
+                var maxVelMsg = new tier4_planning_msgs.msg.VelocityLimit();
+                maxVelMsg.Max_velocity = (float)(ego.MaxVelocity / 3.6);
+                maxVelMsg.Use_constraints = false;
+                maxVelMsg.Constraints = new tier4_planning_msgs.msg.VelocityLimitConstraints();
+                maxVelMsg.Constraints.Max_jerk = 0;
+                maxVelMsg.Constraints.Min_jerk = 0;
+                maxVelMsg.Constraints.Min_acceleration = 0;
+                maxVelMsg.Sender = "";
+                Manager()._maxVelPublisher = 
+                    SimulatorROS2Node.CreatePublisher<tier4_planning_msgs.msg.VelocityLimit>(
+                    TopicName.TOPIC_MAX_VELOCITY);
+                Manager()._maxVelPublisher.Publish(maxVelMsg);
+                Manager()._maxVelMsg = maxVelMsg;
+            }
         }
     }
 }

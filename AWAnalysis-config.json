@@ -1,6 +1,6 @@
 {
-  "traceFileName": "traces/trace.maude",
-  "captureLength":75,
-  "npcAcceleration": 3,
-  "npcDeceleration": 5
+  "NpcAcceleration": 3,
+  "NpcDeceleration": 5,
+  "MaxDistanceVisibleonCamera": 130,
+  "DelaySendingEngageCmd": 1.5
 }

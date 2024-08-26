@@ -15,7 +15,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
     public enum CaptureStartingTime
     {
-        AW_LOCALIZATION_INITIALIZED, // when Autoware localization is initialized, default
+	    AW_AUTO_MODE_READY, // when Autoware autonomous mode becomes ready, default
+        AW_LOCALIZATION_INITIALIZED, // when Autoware localization is initialized
         AWSIM_STARTED // when AWSIM is started
     }
 }

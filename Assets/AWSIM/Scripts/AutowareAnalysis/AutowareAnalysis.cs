@@ -19,11 +19,21 @@ namespace AWSIM.AWAnalysis
         public const string TOPIC_API_OPERATION_MODE_STATE = "/api/operation_mode/state";
         public const string TOPIC_API_ROUTING_STATE = "/api/routing/state";
         public const string TOPIC_AUTOWARE_ENGAGE = "/autoware/engage";
+        public const string TOPIC_PERCEPTION_CAMERA_OBJECTS = "/perception/object_recognition/detection/rois0";
+        public const string TOPIC_INITIAL_POSE = "/initialpose";
+        public const string TOPIC_MAX_VELOCITY = "/planning/scenario_planning/max_velocity";
+    }
+
+    public enum PerceptionMode
+    {
+        LIDAR, // default
+        CAMERA_LIDAR_FUSION
     }
 
     public class AutowareAnalysis : MonoBehaviour
     {
         public GameObject autowareEgoCar;
+        public Camera sensorCamera;
         private TraceWriter _traceWriter;
         
         // Start is called before the first frame update
@@ -35,14 +45,17 @@ namespace AWSIM.AWAnalysis
                     "Specify it by argument `-output <path-to-save-trace-file>`.");
             else
             {
+                PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();
                 _traceWriter = new TraceWriter(outputFilePath,
-                    autowareEgoCar.GetComponent<Vehicle>());
+                    autowareEgoCar.GetComponent<Vehicle>(),
+                    sensorCamera,
+                    perceptionMode);
                 _traceWriter.Start();
             }
         }
 
         // Update is called once per frame
-        void Update()
+        void FixedUpdate()
         {
             _traceWriter?.Update();
         }

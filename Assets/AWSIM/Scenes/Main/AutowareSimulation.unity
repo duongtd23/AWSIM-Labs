@@ -1724,7 +1724,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1743169422}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.529885
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -3430,7 +3430,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 717467357}
-  - component: {fileID: 717467355}
   - component: {fileID: 717467358}
   - component: {fileID: 717467359}
   - component: {fileID: 717467360}
@@ -3441,20 +3440,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &717467355
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 717467354}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 722c56259d5982a0cbdc828dc43d7a02, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sensorCamera: {fileID: 344861285}
-  autowareEgoCar: {fileID: 897708388}
 --- !u!4 &717467357
 Transform:
   m_ObjectHideFlags: 0
@@ -3520,6 +3505,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   autowareEgoCar: {fileID: 897708388}
+  sensorCamera: {fileID: 344861285}
 --- !u!1 &770863574
 GameObject:
   m_ObjectHideFlags: 0

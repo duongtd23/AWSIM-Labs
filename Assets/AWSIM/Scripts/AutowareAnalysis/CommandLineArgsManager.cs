@@ -10,7 +10,7 @@ namespace AWSIM.AWAnalysis
         // all arguments
         public const string SCRIPT_ARG = "-script";
         public const string TRACE_SAVING_PATH_ARG = "-output";
-        public const string PERCEPTION_ANALYSIS_ENABLE_ARG = "-perception_analysis";
+        public const string PERCEPTION_MODE_ARG = "-perception_mode";
 
         // singleton instance
         private static CommandLineArgsManager instance;
@@ -35,15 +35,15 @@ namespace AWSIM.AWAnalysis
                     string scriptValue = ExtractArgValue(arguments, ref i, SCRIPT_ARG);
                     args.Add(SCRIPT_ARG, scriptValue);
                 }
-                else if (arguments[i].StartsWith(PERCEPTION_ANALYSIS_ENABLE_ARG))
+                else if (arguments[i].StartsWith(PERCEPTION_MODE_ARG))
                 {
-                    string enableValue = ExtractArgValue(arguments, ref i, PERCEPTION_ANALYSIS_ENABLE_ARG);
-                    args.Add(PERCEPTION_ANALYSIS_ENABLE_ARG, enableValue);
+                    string mode = ExtractArgValue(arguments, ref i, PERCEPTION_MODE_ARG);
+                    args.Add(PERCEPTION_MODE_ARG, mode);
                 }
                 else if (arguments[i].StartsWith(TRACE_SAVING_PATH_ARG))
                 {
-                    string scriptValue = ExtractArgValue(arguments, ref i, TRACE_SAVING_PATH_ARG);
-                    args.Add(TRACE_SAVING_PATH_ARG, scriptValue);
+                    string filePath = ExtractArgValue(arguments, ref i, TRACE_SAVING_PATH_ARG);
+                    args.Add(TRACE_SAVING_PATH_ARG, filePath);
                 }
             }
         }
@@ -67,8 +67,7 @@ namespace AWSIM.AWAnalysis
                 {
                     return remainStr.Substring(1);
                 }
-                else
-                    throw new CustomSimException("Cannot parse argument " + arguments[index]);
+                throw new CustomSimException("Cannot parse argument " + arguments[index]);
             }
         }
 
@@ -80,32 +79,16 @@ namespace AWSIM.AWAnalysis
                 scriptFilePath = "";
                 return false;
             }
-            else 
-            {
-                scriptFilePath = _args[SCRIPT_ARG];
-                return true;            
-            }
+            scriptFilePath = _args[SCRIPT_ARG];
+            return true;            
         }
 
-        public static bool GetPerceptionAnalysisFlag(out bool enabled)
+        public static PerceptionMode GetPerceptionModeArg()
         {
             Dictionary<string,string> _args = Instance().args;
-            if (!_args.ContainsKey(PERCEPTION_ANALYSIS_ENABLE_ARG))
-            {
-                enabled = false;
-                return false;
-            }
-            else 
-            {
-                string flag = _args[PERCEPTION_ANALYSIS_ENABLE_ARG];
-                if (flag.ToLower() == "true")
-                    enabled = true;
-                else if (flag.ToLower() == "false")
-                    enabled = false;
-                else
-                    throw new CustomSimException("Cannot parse value of argument -perception_analysis: " + flag);
-                return true;            
-            }
+            if (_args.ContainsKey(PERCEPTION_MODE_ARG) && _args[PERCEPTION_MODE_ARG].ToLower() == "camera_lidar_fusion")
+                return PerceptionMode.CAMERA_LIDAR_FUSION;
+            return PerceptionMode.LIDAR;
         }
 
         public static bool GetTraceSavingPathArg(out string outputFilePath)
@@ -116,11 +99,8 @@ namespace AWSIM.AWAnalysis
                 outputFilePath = "";
                 return false;
             }
-            else
-            {
-                outputFilePath = _args[TRACE_SAVING_PATH_ARG];
-                return true;
-            }
+            outputFilePath = _args[TRACE_SAVING_PATH_ARG];
+            return true;
         }
     }
 }

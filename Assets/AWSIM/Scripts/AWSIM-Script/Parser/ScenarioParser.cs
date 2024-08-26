@@ -111,6 +111,20 @@ namespace AWSIM_Script.Parser
             // 2nd arg: always goal
             IPosition goal = ParsePosition(func.Parameters[1].children[0]);
             scenario.Ego = new EgoSettings(initPosition, goal);
+            
+            // 3rd arg (optional): max velocity
+            if (func.Parameters.Count > 2)
+            {
+                if (func.Parameters[2].children[0] is NumberExpContext)
+                {
+                    var speed = ParserUtils.ParseNumberExp((NumberExpContext)func.Parameters[2].children[0]);
+                    scenario.Ego.MaxVelocity = speed;
+                    Debug.Log("Test: " + speed);
+                }
+                else
+                    throw new InvalidScriptException("Expected desired max velocity for Ego, but get: " + func.Parameters[2]);
+            }
+            
             return true;
         }
 

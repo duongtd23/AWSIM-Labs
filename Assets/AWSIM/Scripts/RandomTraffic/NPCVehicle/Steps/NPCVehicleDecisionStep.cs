@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -75,13 +76,15 @@ namespace AWSIM.TrafficSimulation
                 state.IsStoppedByFrontVehicle = true;
             }
 
-            if (distanceToStopPoint <= absoluteStopDistance)
+            if (distanceToStopPoint <= absoluteStopDistance || distanceToGoal <= absoluteStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.ABSOLUTE_STOP;
-            else if (distanceToStopPoint <= suddenStopDistance)
+            else if (distanceToStopPoint <= suddenStopDistance || distanceToGoal <= suddenStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.SUDDEN_STOP;
-            else if (distanceToStopPoint <= stopDistance || distanceToGoal < stopDistance - 3 * MinStopDistance)
+            else if (distanceToStopPoint <= stopDistance || 
+                     distanceToGoal <= stopDistance - 2 * MinStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.STOP;
-            else if (distanceToStopPoint <= slowDownDistance || state.IsTurning || distanceToGoal < stopDistance + MinStopDistance)
+            else if (distanceToStopPoint <= slowDownDistance || state.IsTurning || 
+                     distanceToGoal <= stopDistance + 2 * MinStopDistance)
                 state.SpeedMode = NPCVehicleSpeedMode.SLOW;
             else
                 state.SpeedMode = NPCVehicleSpeedMode.NORMAL;
@@ -165,9 +168,21 @@ namespace AWSIM.TrafficSimulation
         private static float CalculateGoalDistance(NPCVehicleInternalState state)
         {
             var distanceToGoal = float.MaxValue;
-            if (state.Goal != null && state.Goal.GetLane() == state.CurrentFollowingLane.name)
-                distanceToGoal = state.Goal.GetOffset() -
-                    state.DistanceHasGoneOnLane();
+            if (state.Goal != null)
+            {
+                TrafficLane goalLane = CustomSimUtils.ParseLane(state.Goal.GetLane());
+                if (goalLane == state.CurrentFollowingLane)
+                    distanceToGoal = state.Goal.GetOffset() - state.DistanceHasGoneOnLane();
+                else if (goalLane.PrevLanes.Contains(state.CurrentFollowingLane))
+                {
+                    return state.CurrentFollowingLane.TotalLength() - state.DistanceHasGoneOnLane() +
+                           state.Goal.GetOffset();
+                }
+                else if (goalLane.NextLanes.Contains(state.CurrentFollowingLane))
+                {
+                    return -(state.DistanceHasGoneOnLane() + goalLane.TotalLength() - state.Goal.GetOffset());
+                }
+            }
             return distanceToGoal;
         }
     }

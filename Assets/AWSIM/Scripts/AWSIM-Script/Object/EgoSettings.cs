@@ -9,7 +9,14 @@ namespace AWSIM_Script.Object
             InitialPosition = init;
             Goal = goal;
 		}
+        public EgoSettings(IPosition init, IPosition goal, float maxVelocity)
+			:this(init, goal)
+        {
+	        MaxVelocity = maxVelocity;
+        }
         public IPosition InitialPosition { get; set; }
         public IPosition Goal { get; set; }
+        
+        public float MaxVelocity { get; set; }
     }
 }

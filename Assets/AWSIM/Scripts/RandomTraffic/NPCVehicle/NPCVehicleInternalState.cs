@@ -259,7 +259,9 @@ namespace AWSIM.TrafficSimulation
         }
 
         /// <summary>
-        /// calculate the distance has gone on the current lane
+        /// calculate the distance has gone on the current lane, i.e., CurrentFollowingLane
+        /// when the position of the vehicle behind the start point of the lane,
+        /// returns a minus value
         /// </summary>
         /// <returns></returns>
         public float DistanceHasGoneOnLane()
@@ -267,6 +269,10 @@ namespace AWSIM.TrafficSimulation
             Vector3 position = Position;
             position.y = 0f;
             float distanceGone = 0;
+            if (ReallyOnlane())
+            {
+                return -Vector3.Distance(position, CurrentFollowingLane.Waypoints[0]);
+            }
             for (int i = 0; i < WaypointIndex - 1; i++)
             {
                 distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[i], CurrentFollowingLane.Waypoints[i + 1]);
@@ -274,6 +280,25 @@ namespace AWSIM.TrafficSimulation
             int lastWaypointIndex = WaypointIndex - 1 >= 0 ? WaypointIndex - 1 : 0;
             distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[lastWaypointIndex], position);
             return distanceGone;
+        }
+
+        /// <summary>
+        /// check if the Position of the vehicle is really on CurrentFollowingLane.
+        /// Note that there exists the case when
+        ///  the front point approach the ending of lane l1 with distance less than 1m,
+        ///  the CurrentFollowingLane will be set to the next lane, say l2, of l1.
+        ///  So in such a case, the position of the vehicle is behind the CurrentFollowingLane
+        /// </summary>
+        /// <returns></returns>
+        public bool ReallyOnlane()
+        {
+            if (WaypointIndex > 1)
+                return true;
+            var position = Position;
+            position.y = 0f;
+            Vector3 laneStartingPoint = CurrentFollowingLane.Waypoints[0];
+            laneStartingPoint.y = 0f;
+            return Vector3.Dot(Forward, laneStartingPoint - position) < 0f;
         }
 
         // goal, defined as a pair of lane name and distance (from the starting point)
