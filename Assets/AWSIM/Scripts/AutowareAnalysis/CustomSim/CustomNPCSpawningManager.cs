@@ -166,7 +166,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                     List<string> route = npcCar.Route();
                     var routeLanes = CustomSimUtils.ParseLanes(route);
                     npcVehicleSimulator.Register(npcVehicle, routeLanes,
-                        waypointIndex, npcCar.RouteAndSpeeds(), CustomSimUtils.ValidateGoal(npcCar.Goal));
+                        waypointIndex, npcCar.RouteAndSpeeds(), CustomSimUtils.ValidateGoal(npcCar.Goal),
+                        npcCar.Config);
                     removeAfter.Add(npcVehicle);
                 }
             }
@@ -246,7 +247,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             // set route
             var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
             Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds,
-                CustomSimUtils.ValidateGoal(goal));
+                CustomSimUtils.ValidateGoal(goal),
+                npcConfig);
             return npc;
         }
 

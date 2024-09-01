@@ -3,19 +3,20 @@ namespace AWSIM_Script.Object
     public enum RelativePositionSide
     {
         LEFT,
-        RIGHT
+        RIGHT,
+        FORWARD
     }
     // a relative position with respect to another IPosition
     // optionally in front or behind $offset m
     public class RelativePosition : IPosition
     {
-        private IPosition root;
+        private IPosition referencePosition;
         private RelativePositionSide side;
         private float longitudinalOffset;
 
-        public RelativePosition(IPosition root, RelativePositionSide side, float longitudinalOffset = 0)
+        public RelativePosition(IPosition referencePosition, RelativePositionSide side, float longitudinalOffset = 0)
         {
-            this.root = root;
+            this.referencePosition = referencePosition;
             this.side = side;
             this.longitudinalOffset = longitudinalOffset;
         }

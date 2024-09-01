@@ -6,7 +6,8 @@ namespace AWSIM_Script.Object
 	{
         // this value will be replaced by the speed limit of the coressponding lane
         public const float DUMMY_SPEED = -1;
-
+        
+        private NPCConfig(){}
         public NPCConfig(List<string> route)
         {
             RouteAndSpeeds = new Dictionary<string, float>();
@@ -39,7 +40,16 @@ namespace AWSIM_Script.Object
             return new List<string>(RouteAndSpeeds.Keys);
         }
 
-        // in future, may consider adding acceleration and deacceleration rates
+        public const float DUMMY_ACCELERATION = 0;
+        public const float DUMMY_DECELERATION = 0;
+        public float Acceleration { get; set; } = DUMMY_ACCELERATION;
+        public float Deceleration { get; set; } = DUMMY_DECELERATION;
+        public bool AggresiveDrive { get; set; }
+
+        public static NPCConfig DummyConfigWithoutRoute()
+        {
+            return new NPCConfig();
+        }
     }
 }
 

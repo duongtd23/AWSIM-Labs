@@ -269,7 +269,7 @@ namespace AWSIM.TrafficSimulation
             Vector3 position = Position;
             position.y = 0f;
             float distanceGone = 0;
-            if (ReallyOnlane())
+            if (!ReallyOnlane())
             {
                 return -Vector3.Distance(position, CurrentFollowingLane.Waypoints[0]);
             }
@@ -305,13 +305,17 @@ namespace AWSIM.TrafficSimulation
         private IPosition goal;
         public IPosition Goal => goal;
         public bool GoalArrived { get; set; }
+        
+        // custom config
+        public NPCConfig CustomConfig { get; set; }
 
         public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
-            Dictionary<string, float> desiredSpeed, IPosition goal, int waypointIndex = 0)
+            Dictionary<string, float> desiredSpeed, IPosition goal, NPCConfig customConfig, int waypointIndex = 0)
         {
             var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
             state.desiredSpeed = desiredSpeed;
             state.goal = goal;
+            state.CustomConfig = customConfig;
             return state;
         }
     }

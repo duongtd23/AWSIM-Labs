@@ -1,0 +1,10 @@
+route1 = [
+    "TrafficLane.285" with-speed-limit 14,
+    "TrafficLane.32" with-speed-limit 15
+];
+
+npc1 = NPC("hatchback", "TrafficLane.285" at 12, "TrafficLane.32" at 120, route1, [deceleration(15),
+                                                                                   aggressive-driving]);
+ego = Ego("TrafficLane.285" at 4, "TrafficLane.32" at 150);
+
+run(ego, [npc1]);

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
@@ -59,9 +60,12 @@ namespace AWSIM.TrafficSimulation
                 return;
             }
 
+            var normalDeceleration = config.Deceleration;
+            if (state.CustomConfig.Deceleration != NPCConfig.DUMMY_DECELERATION)
+                normalDeceleration = state.CustomConfig.Deceleration;
             var absoluteStopDistance = CalculateStoppableDistance(state.Speed, config.AbsoluteDeceleration) + MinStopDistance;
             var suddenStopDistance = CalculateStoppableDistance(state.Speed, config.SuddenDeceleration) + 2 * MinStopDistance;
-            var stopDistance = CalculateStoppableDistance(state.Speed, config.Deceleration) + 3 * MinStopDistance;
+            var stopDistance = CalculateStoppableDistance(state.Speed, normalDeceleration) + 3 * MinStopDistance;
             var slowDownDistance = stopDistance + 4 * MinStopDistance;
 
             var distanceToStopPointByFrontVehicle = onlyGreaterThan(state.DistanceToFrontVehicle - MinFrontVehicleDistance, -MinFrontVehicleDistance);
@@ -76,18 +80,29 @@ namespace AWSIM.TrafficSimulation
                 state.IsStoppedByFrontVehicle = true;
             }
 
-            if (distanceToStopPoint <= absoluteStopDistance || distanceToGoal <= absoluteStopDistance)
-                state.SpeedMode = NPCVehicleSpeedMode.ABSOLUTE_STOP;
-            else if (distanceToStopPoint <= suddenStopDistance || distanceToGoal <= suddenStopDistance)
-                state.SpeedMode = NPCVehicleSpeedMode.SUDDEN_STOP;
-            else if (distanceToStopPoint <= stopDistance || 
-                     distanceToGoal <= stopDistance - 2 * MinStopDistance)
-                state.SpeedMode = NPCVehicleSpeedMode.STOP;
-            else if (distanceToStopPoint <= slowDownDistance || state.IsTurning || 
-                     distanceToGoal <= stopDistance + 2 * MinStopDistance)
-                state.SpeedMode = NPCVehicleSpeedMode.SLOW;
+            if (state.CustomConfig.AggresiveDrive)
+            {
+                stopDistance = CalculateStoppableDistance(state.Speed, normalDeceleration);
+                if (distanceToStopPoint <= stopDistance + MinStopDistance || distanceToGoal <= stopDistance + 0.5f)
+                    state.SpeedMode = NPCVehicleSpeedMode.STOP;
+                else
+                    state.SpeedMode = NPCVehicleSpeedMode.NORMAL;
+            }
             else
-                state.SpeedMode = NPCVehicleSpeedMode.NORMAL;
+            {
+                if (distanceToStopPoint <= absoluteStopDistance || distanceToGoal <= absoluteStopDistance)
+                    state.SpeedMode = NPCVehicleSpeedMode.ABSOLUTE_STOP;
+                else if (distanceToStopPoint <= suddenStopDistance || distanceToGoal <= suddenStopDistance)
+                    state.SpeedMode = NPCVehicleSpeedMode.SUDDEN_STOP;
+                else if (distanceToStopPoint <= stopDistance ||
+                         distanceToGoal <= stopDistance - 2 * MinStopDistance)
+                    state.SpeedMode = NPCVehicleSpeedMode.STOP;
+                else if (distanceToStopPoint <= slowDownDistance || state.IsTurning ||
+                         distanceToGoal <= stopDistance + 2 * MinStopDistance)
+                    state.SpeedMode = NPCVehicleSpeedMode.SLOW;
+                else
+                    state.SpeedMode = NPCVehicleSpeedMode.NORMAL;
+            }
         }
 
         private static float CalculateTrafficLightDistance(NPCVehicleInternalState state, float suddenStopDistance)
@@ -183,6 +198,7 @@ namespace AWSIM.TrafficSimulation
                     return -(state.DistanceHasGoneOnLane() + goalLane.TotalLength() - state.Goal.GetOffset());
                 }
             }
+            // Debug.Log($"Distance to goal is {distanceToGoal}");
             return distanceToGoal;
         }
     }

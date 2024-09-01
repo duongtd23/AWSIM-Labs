@@ -35,7 +35,7 @@ using ParserRuleContext = Antlr4.Runtime.ParserRuleContext;
 [System.CLSCompliant(false)]
 public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVisitor<Result>, IAWSIMScriptGrammarVisitor<Result> {
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.scenario"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.positionExp"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -43,9 +43,9 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitScenario([NotNull] AWSIMScriptGrammarParser.ScenarioContext context) { return VisitChildren(context); }
+	public virtual Result VisitPositionExp([NotNull] AWSIMScriptGrammarParser.PositionExpContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.statement"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.roadExp"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -53,9 +53,9 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitStatement([NotNull] AWSIMScriptGrammarParser.StatementContext context) { return VisitChildren(context); }
+	public virtual Result VisitRoadExp([NotNull] AWSIMScriptGrammarParser.RoadExpContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.assignmentStm"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.configExp"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -63,17 +63,7 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitAssignmentStm([NotNull] AWSIMScriptGrammarParser.AssignmentStmContext context) { return VisitChildren(context); }
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.expression"/>.
-	/// <para>
-	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
-	/// on <paramref name="context"/>.
-	/// </para>
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	public virtual Result VisitExpression([NotNull] AWSIMScriptGrammarParser.ExpressionContext context) { return VisitChildren(context); }
+	public virtual Result VisitConfigExp([NotNull] AWSIMScriptGrammarParser.ConfigExpContext context) { return VisitChildren(context); }
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.functionExp"/>.
 	/// <para>
@@ -85,16 +75,6 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// <return>The visitor result.</return>
 	public virtual Result VisitFunctionExp([NotNull] AWSIMScriptGrammarParser.FunctionExpContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.argumentList"/>.
-	/// <para>
-	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
-	/// on <paramref name="context"/>.
-	/// </para>
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	public virtual Result VisitArgumentList([NotNull] AWSIMScriptGrammarParser.ArgumentListContext context) { return VisitChildren(context); }
-	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.arrayExp"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
@@ -105,7 +85,7 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// <return>The visitor result.</return>
 	public virtual Result VisitArrayExp([NotNull] AWSIMScriptGrammarParser.ArrayExpContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.positionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.argumentList"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -113,9 +93,9 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitPositionExp([NotNull] AWSIMScriptGrammarParser.PositionExpContext context) { return VisitChildren(context); }
+	public virtual Result VisitArgumentList([NotNull] AWSIMScriptGrammarParser.ArgumentListContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.lanePositionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.assignmentStm"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -123,17 +103,7 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitLanePositionExp([NotNull] AWSIMScriptGrammarParser.LanePositionExpContext context) { return VisitChildren(context); }
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.routeExp"/>.
-	/// <para>
-	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
-	/// on <paramref name="context"/>.
-	/// </para>
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	public virtual Result VisitRouteExp([NotNull] AWSIMScriptGrammarParser.RouteExpContext context) { return VisitChildren(context); }
+	public virtual Result VisitAssignmentStm([NotNull] AWSIMScriptGrammarParser.AssignmentStmContext context) { return VisitChildren(context); }
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.variableExp"/>.
 	/// <para>
@@ -145,7 +115,7 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// <return>The visitor result.</return>
 	public virtual Result VisitVariableExp([NotNull] AWSIMScriptGrammarParser.VariableExpContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.spawnDelayOptionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.expression"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -153,7 +123,27 @@ public partial class AWSIMScriptGrammarBaseVisitor<Result> : AbstractParseTreeVi
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitSpawnDelayOptionExp([NotNull] AWSIMScriptGrammarParser.SpawnDelayOptionExpContext context) { return VisitChildren(context); }
+	public virtual Result VisitExpression([NotNull] AWSIMScriptGrammarParser.ExpressionContext context) { return VisitChildren(context); }
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.statement"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitStatement([NotNull] AWSIMScriptGrammarParser.StatementContext context) { return VisitChildren(context); }
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.scenario"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitScenario([NotNull] AWSIMScriptGrammarParser.ScenarioContext context) { return VisitChildren(context); }
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.stringExp"/>.
 	/// <para>

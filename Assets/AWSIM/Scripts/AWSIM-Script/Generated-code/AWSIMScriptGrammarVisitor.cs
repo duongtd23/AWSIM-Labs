@@ -32,29 +32,23 @@ using IToken = Antlr4.Runtime.IToken;
 [System.CLSCompliant(false)]
 public interface IAWSIMScriptGrammarVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.scenario"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.positionExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitScenario([NotNull] AWSIMScriptGrammarParser.ScenarioContext context);
+	Result VisitPositionExp([NotNull] AWSIMScriptGrammarParser.PositionExpContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.statement"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.roadExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitStatement([NotNull] AWSIMScriptGrammarParser.StatementContext context);
+	Result VisitRoadExp([NotNull] AWSIMScriptGrammarParser.RoadExpContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.assignmentStm"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.configExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitAssignmentStm([NotNull] AWSIMScriptGrammarParser.AssignmentStmContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.expression"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitExpression([NotNull] AWSIMScriptGrammarParser.ExpressionContext context);
+	Result VisitConfigExp([NotNull] AWSIMScriptGrammarParser.ConfigExpContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.functionExp"/>.
 	/// </summary>
@@ -62,35 +56,23 @@ public interface IAWSIMScriptGrammarVisitor<Result> : IParseTreeVisitor<Result> 
 	/// <return>The visitor result.</return>
 	Result VisitFunctionExp([NotNull] AWSIMScriptGrammarParser.FunctionExpContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.argumentList"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitArgumentList([NotNull] AWSIMScriptGrammarParser.ArgumentListContext context);
-	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.arrayExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitArrayExp([NotNull] AWSIMScriptGrammarParser.ArrayExpContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.positionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.argumentList"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitPositionExp([NotNull] AWSIMScriptGrammarParser.PositionExpContext context);
+	Result VisitArgumentList([NotNull] AWSIMScriptGrammarParser.ArgumentListContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.lanePositionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.assignmentStm"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitLanePositionExp([NotNull] AWSIMScriptGrammarParser.LanePositionExpContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.routeExp"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitRouteExp([NotNull] AWSIMScriptGrammarParser.RouteExpContext context);
+	Result VisitAssignmentStm([NotNull] AWSIMScriptGrammarParser.AssignmentStmContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.variableExp"/>.
 	/// </summary>
@@ -98,11 +80,23 @@ public interface IAWSIMScriptGrammarVisitor<Result> : IParseTreeVisitor<Result> 
 	/// <return>The visitor result.</return>
 	Result VisitVariableExp([NotNull] AWSIMScriptGrammarParser.VariableExpContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.spawnDelayOptionExp"/>.
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.expression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitSpawnDelayOptionExp([NotNull] AWSIMScriptGrammarParser.SpawnDelayOptionExpContext context);
+	Result VisitExpression([NotNull] AWSIMScriptGrammarParser.ExpressionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.statement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitStatement([NotNull] AWSIMScriptGrammarParser.StatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.scenario"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitScenario([NotNull] AWSIMScriptGrammarParser.ScenarioContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.stringExp"/>.
 	/// </summary>

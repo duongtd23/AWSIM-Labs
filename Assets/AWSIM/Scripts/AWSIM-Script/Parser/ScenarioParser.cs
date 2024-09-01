@@ -17,7 +17,14 @@ namespace AWSIM_Script.Parser
         public const string DELAY_MOVE_UNTIL_EGO_ENGAGED = "delay-move-until-ego-engaged";
         public const string DELAY_SPAWN_UNTIL_EGO_MOVE = "delay-spawn-until-ego-move";
         public const string DELAY_MOVE_UNTIL_EGO_MOVE = "delay-move-until-ego-move";
-
+        public const string RELATIVE_POSITION_LEFT = "left";
+        public const string RELATIVE_POSITION_RIGHT = "right";
+        public const string RELATIVE_POSITION_BACK = "back";
+        public const string RELATIVE_POSITION_FORWARD = "forward";
+        public const string AGGRESSIVE_DRIVING = "aggressive-driving";
+        public const string ACCELERATION = "acceleration";
+        public const string DECELERATION = "deceleration";
+        
         private ScenarioScore scenarioScore;
         public ScenarioParser(ScenarioScore scenarioScore)
 		{
@@ -173,8 +180,10 @@ namespace AWSIM_Script.Parser
             Dictionary<string, float> route = new Dictionary<string, float>();
             IPosition goal = LaneOffsetPosition.DummyPosition();
             NPCSpawnDelay delay = NPCSpawnDelay.DummyDelay();
+            NPCConfig config = NPCConfig.DummyConfigWithoutRoute();
+            
 
-            // 3rd arg (optional): goal or delay option
+            // 3rd arg (optional): goal or config option
             if (func.Parameters.Count >= 3)
             {
                 switch (GetParamType(func.Parameters[2].children[0]))
@@ -183,16 +192,16 @@ namespace AWSIM_Script.Parser
                     case ParamType.POSITION:
                         goal = ParsePosition(func.Parameters[2].children[0]);
                         break;
-                    // delay option
-                    case ParamType.DELAY_OPTION:
-                        delay = ParseDelayOption(func.Parameters[2].children[0]);
+                    // config option
+                    case ParamType.CONFIG:
+                        ParseConfig(func.Parameters[2].children[0], ref delay, ref config);
                         break;
                     default:
                         throw new InvalidScriptException("The third argument of NPC function is invalid " +
                             "(it should be goal or delay config): " + func.Parameters[2].children[0].GetText());
                 }
             }
-            // 4th arg (optional): route (and speeds limit) or delay option
+            // 4th arg (optional): route (and speeds limit) or config option
             if (func.Parameters.Count >= 4)
             {
                 switch (GetParamType(func.Parameters[3].children[0]))
@@ -201,9 +210,9 @@ namespace AWSIM_Script.Parser
                     case ParamType.ROUTE_AND_SPEEDs_LIMIT:
                         route = ParseRouteAndSpeedsLimit(func.Parameters[3].children[0]);
                         break;
-                    // delay option
-                    case ParamType.DELAY_OPTION:
-                        delay = ParseDelayOption(func.Parameters[3].children[0]);
+                    // config option
+                    case ParamType.CONFIG:
+                        ParseConfig(func.Parameters[3].children[0], ref delay, ref config);
                         break;
                     default:
                         throw new InvalidScriptException("The fourth argument of NPC function is invalid " +
@@ -211,14 +220,14 @@ namespace AWSIM_Script.Parser
                 }
             }
 
-            // 5th arg (optional): delay option
+            // 5th arg (optional): config option
             if (func.Parameters.Count >= 5)
             {
                 switch (GetParamType(func.Parameters[4].children[0]))
                 {
-                    // delay option
-                    case ParamType.DELAY_OPTION:
-                        delay = ParseDelayOption(func.Parameters[4].children[0]);
+                    // config option
+                    case ParamType.CONFIG:
+                        ParseConfig(func.Parameters[4].children[0], ref delay, ref config);
                         break;
                     default:
                         throw new InvalidScriptException("The fifth argument of NPC function is invalid " +
@@ -227,10 +236,11 @@ namespace AWSIM_Script.Parser
             }
 
             NPCCar npc = new NPCCar(vehicleType, spawnPosition);
+            npc.Config = config;
             if (!(goal.Equals(LaneOffsetPosition.DummyPosition())))
                 npc.Goal = goal;
             if (route.Count > 0)
-                npc.Config = new NPCConfig(route);
+                npc.Config.RouteAndSpeeds = route;
             if (!(delay.Equals(NPCSpawnDelay.DummyDelay())))
                 npc.SpawnDelayOption = delay;
             if (npcName != "")
@@ -281,55 +291,63 @@ namespace AWSIM_Script.Parser
 
         private IPosition ParsePosition(IParseTree node)
         {
-            if (node is StringExpContext)
+            if (node is StringExpContext stringExp0)
             {
-                string laneName = ParserUtils.ParseStringExp((StringExpContext)node);
+                string laneName = ParserUtils.ParseStringExp(stringExp0);
                 return new LaneOffsetPosition(laneName);
             }
-            else if (node is PositionExpContext)
+            else if (node is PositionExpContext positionExp)
             {
-                if (((PositionExpContext)node).children[0] is LanePositionExpContext)
+                // absolute position - pair of traffic lane and offset
+                if (positionExp.children[0] is StringExpContext stringExp)
                 {
-                    LanePositionExpContext lanePositionExpContext = (LanePositionExpContext)((PositionExpContext)node).children[0];
-                    string laneName = ParserUtils.ParseStringExp((StringExpContext)lanePositionExpContext.children[0]);
+                    string laneName = ParserUtils.ParseStringExp(stringExp);
                     float offset = 0;
-                    if (lanePositionExpContext.ChildCount > 2)
-                        offset = ParserUtils.ParseNumberExp((NumberExpContext)lanePositionExpContext.children[2]);
+                    if (positionExp.ChildCount > 2)
+                        offset = ParserUtils.ParseNumberExp((NumberExpContext)positionExp.children[2]);
                     return new LaneOffsetPosition(laneName, offset);
                 }
-                // parsing other types of position (e.g., relative position) should be done here
+                // realtive position
                 else
-                    throw new InvalidScriptException("Cannot parse position from: " +
-                    node.GetText());
+                {
+                    IPosition reference = ParsePosition(positionExp.children[0]);
+                    float offset = ParserUtils.ParseNumberExp((NumberExpContext)positionExp.children[2]);
+                    switch (positionExp.children[1].GetText())
+                    {
+                        case RELATIVE_POSITION_LEFT:
+                            return new RelativePosition(reference, RelativePositionSide.LEFT, offset);
+                        case RELATIVE_POSITION_RIGHT:
+                            return new RelativePosition(reference, RelativePositionSide.RIGHT, offset);
+                        case RELATIVE_POSITION_FORWARD:
+                            return new RelativePosition(reference, RelativePositionSide.FORWARD, offset);
+                        case RELATIVE_POSITION_BACK:
+                            return new RelativePosition(reference, RelativePositionSide.FORWARD, -offset);
+                    }
+                }
             }
-            else if (node is VariableExpContext)
+            else if (node is VariableExpContext variableExp)
             {
-                string varName = ((VariableExpContext)node).children[0].GetText();
+                string varName = variableExp.children[0].GetText();
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return ParsePosition(scenarioScore.Variables[varName].children[0]);
             }
-            else
-            {
-                throw new InvalidScriptException("Cannot parse position from: " +
-                    node.GetText());
-            }
+            throw new InvalidScriptException("Cannot parse position from: " + node.GetText());
         }
 
         private Dictionary<string, float> ParseRouteAndSpeedsLimit(IParseTree node)
         {
-            if (node is ArrayExpContext)
+            if (node is ArrayExpContext arrayExp)
             {
-                List<ExpressionContext> expContexts =
-                    ParserUtils.ParseArray((ArrayExpContext)node);
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
                 Dictionary<string, float> result = new Dictionary<string, float>();
                 foreach (var expContext in expContexts)
                     ParseRoute(expContext.children[0], ref result);
                 return result;
             }
-            else if (node is VariableExpContext)
+            else if (node is VariableExpContext variableExp)
             {
-                string varName = ((VariableExpContext)node).children[0].GetText();
+                string varName = variableExp.children[0].GetText();
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return ParseRouteAndSpeedsLimit(scenarioScore.Variables[varName].children[0]);
@@ -348,13 +366,12 @@ namespace AWSIM_Script.Parser
                 result.Add(ParserUtils.ParseStringExp((StringExpContext)node), NPCConfig.DUMMY_SPEED);
                 return true;
             }
-            else if (node is RouteExpContext)
+            else if (node is RoadExpContext roadExp)
             {
-                RouteExpContext routeExp = (RouteExpContext)node;
-                string laneName = ParserUtils.ParseStringExp((StringExpContext)(routeExp.children[0]));
+                string laneName = ParserUtils.ParseStringExp((StringExpContext)(roadExp.children[0]));
                 float speed = NPCConfig.DUMMY_SPEED;
-                if (routeExp.ChildCount > 2)
-                    speed = ParserUtils.ParseNumberExp((NumberExpContext)routeExp.children[2]);
+                if (roadExp.ChildCount > 2)
+                    speed = ParserUtils.ParseNumberExp((NumberExpContext)roadExp.children[2]);
                 result.Add(laneName, speed);
                 return true;
             }
@@ -365,40 +382,84 @@ namespace AWSIM_Script.Parser
             }
         }
 
-        private NPCSpawnDelay ParseDelayOption(IParseTree node)
+        private bool ParseConfig(IParseTree node, ref NPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
         {
-            if (node is SpawnDelayOptionExpContext)
+            if (node is ArrayExpContext arrayExp)
             {
-                var delayExpContext = (SpawnDelayOptionExpContext)node;
-                float amount = ParserUtils.ParseNumberExp((NumberExpContext)delayExpContext.children[2]);
-                switch (delayExpContext.children[0].GetText())
-                {
-                    case DELAY_SPAWN:
-                        return NPCSpawnDelay.DelaySpawn(amount);
-                    case DELAY_MOVE:
-                        return NPCSpawnDelay.DelayMove(amount);
-                    case DELAY_SPAWN_UNTIL_EGO_ENGAGED:
-                        return NPCSpawnDelay.DelaySpawnUntilEgoEngaged(amount);
-                    case DELAY_MOVE_UNTIL_EGO_ENGAGED:
-                        return NPCSpawnDelay.DelayMoveUntilEgoEngaged(amount);
-                    case DELAY_SPAWN_UNTIL_EGO_MOVE:
-                        return NPCSpawnDelay.DelaySpawnUntilEgoMove(amount);
-                    case DELAY_MOVE_UNTIL_EGO_MOVE:
-                        return NPCSpawnDelay.DelayMoveUntilEgoMove(amount);
-                }
-                throw new InvalidScriptException("");
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
+                foreach (var expContext in expContexts)
+                    DoParseConfig(expContext.children[0], ref spawnDelay, ref npcConfig);
             }
-            else if (node is VariableExpContext)
+            else if (node is VariableExpContext variableExp)
             {
-                string varName = ((VariableExpContext)node).children[0].GetText();
+                string varName = variableExp.children[0].GetText();
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
-                return ParseDelayOption(scenarioScore.Variables[varName].children[0]);
+                return ParseConfig(scenarioScore.Variables[varName].children[0], ref spawnDelay, ref npcConfig);
             }
             else
+                throw new InvalidScriptException("Cannot parse config: " + node.GetText());
+            return true;
+        }
+        
+        // return 0 if spawnDelay is updated, 1 if npcConfig is updated
+        private int DoParseConfig(IParseTree node, ref NPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
+        {
+            if (node is ConfigExpContext configExp)
             {
-                throw new InvalidScriptException("Cannot parse delay option from: " +
-                    node.GetText());
+                switch (configExp.children[0].GetText())
+                {
+                    case AGGRESSIVE_DRIVING:
+                        npcConfig.AggresiveDrive = true;
+                        return 1;
+                    case ACCELERATION:
+                        npcConfig.Acceleration = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+                        return 1;
+                    case DECELERATION:
+                        npcConfig.Deceleration = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+                        return 1;
+                    case DELAY_SPAWN:
+                    case DELAY_MOVE:
+                    case DELAY_SPAWN_UNTIL_EGO_ENGAGED:
+                    case DELAY_MOVE_UNTIL_EGO_ENGAGED:
+                    case DELAY_SPAWN_UNTIL_EGO_MOVE:
+                    case DELAY_MOVE_UNTIL_EGO_MOVE:
+                        spawnDelay = ParseDelayOption(configExp);
+                        return 0;
+                    default:
+                        throw new InvalidScriptException("Cannot parse the config: " + configExp.GetText());
+
+                }
+            }
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return DoParseConfig(scenarioScore.Variables[varName].children[0], ref spawnDelay, ref npcConfig);
+            }
+            throw new InvalidScriptException("Cannot parse the config: " + node.GetText());
+        }
+
+        private NPCSpawnDelay ParseDelayOption(ConfigExpContext configExp)
+        {
+            float amount = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+            switch (configExp.children[0].GetText())
+            {
+                case DELAY_SPAWN:
+                    return NPCSpawnDelay.DelaySpawn(amount);
+                case DELAY_MOVE:
+                    return NPCSpawnDelay.DelayMove(amount);
+                case DELAY_SPAWN_UNTIL_EGO_ENGAGED:
+                    return NPCSpawnDelay.DelaySpawnUntilEgoEngaged(amount);
+                case DELAY_MOVE_UNTIL_EGO_ENGAGED:
+                    return NPCSpawnDelay.DelayMoveUntilEgoEngaged(amount);
+                case DELAY_SPAWN_UNTIL_EGO_MOVE:
+                    return NPCSpawnDelay.DelaySpawnUntilEgoMove(amount);
+                case DELAY_MOVE_UNTIL_EGO_MOVE:
+                    return NPCSpawnDelay.DelayMoveUntilEgoMove(amount);
+                default:
+                    throw new InvalidScriptException("Cannot parse " + configExp.GetText());
             }
         }
 
@@ -407,28 +468,43 @@ namespace AWSIM_Script.Parser
         {
             if (node is StringExpContext || node is PositionExpContext)
                 return ParamType.POSITION;
-            else if (node is SpawnDelayOptionExpContext)
-                return ParamType.DELAY_OPTION;
-            else if (node is ArrayExpContext)
-                return ParamType.ROUTE_AND_SPEEDs_LIMIT;
-            else if (node is VariableExpContext)
+            if (node is ArrayExpContext arrayExp)
+            {
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
+                if (expContexts.Count == 0)
+                    return ParamType.ROUTE_AND_SPEEDs_LIMIT;
+                if (IsAnArrayOfRoad(expContexts))
+                    return ParamType.ROUTE_AND_SPEEDs_LIMIT;
+                return ParamType.CONFIG;
+            }
+            if (node is VariableExpContext)
             {
                 string varName = ((VariableExpContext)node).children[0].GetText();
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return GetParamType(scenarioScore.Variables[varName].children[0]);
             }
-            else
-                throw new InvalidScriptException("Cannot recognize param type: " +
-                    node.GetText());
+            throw new InvalidScriptException("Cannot recognize param type: " +
+                node.GetText());
         }
 
+        // check if the given argument form a route
+        private bool IsAnArrayOfRoad(List<ExpressionContext> expContexts)
+        {
+            foreach (var expContext in expContexts)
+            {
+                if (!(expContext.children[0] is StringExpContext ||
+                      expContext.children[0] is RoadExpContext))
+                    return false;
+            }
+            return true;
+        }
     }
     public enum ParamType
     {
         POSITION,
         ROUTE_AND_SPEEDs_LIMIT,
-        DELAY_OPTION,
+        CONFIG,
     }
 }
 
