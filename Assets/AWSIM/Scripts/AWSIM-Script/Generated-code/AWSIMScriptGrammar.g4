@@ -22,6 +22,8 @@ configExp
     | 'delay-move-until-ego-move' '(' numberExp ')'
     | 'delay-spawn-until-ego-engaged' '(' numberExp ')'
     | 'delay-move-until-ego-engaged' '(' numberExp ')';
+egoSettingExp
+    : 'max-velocity' '(' numberExp ')';
 functionExp
     : idExp '(' argumentList? ')' ;
 arrayExp
@@ -40,6 +42,7 @@ expression
     | arrayExp
     | variableExp
     | configExp
+    | egoSettingExp
     | functionExp;
 statement
     : (assignmentStm | functionExp) ';' ;

@@ -435,7 +435,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (ego.MaxVelocity > 0.0)
             {
                 var maxVelMsg = new tier4_planning_msgs.msg.VelocityLimit();
-                maxVelMsg.Max_velocity = (float)(ego.MaxVelocity / 3.6);
+                maxVelMsg.Max_velocity = ego.MaxVelocity;
                 maxVelMsg.Use_constraints = false;
                 maxVelMsg.Constraints = new tier4_planning_msgs.msg.VelocityLimitConstraints();
                 maxVelMsg.Constraints.Max_jerk = 0;

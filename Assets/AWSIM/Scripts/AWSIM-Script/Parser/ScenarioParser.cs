@@ -24,6 +24,7 @@ namespace AWSIM_Script.Parser
         public const string AGGRESSIVE_DRIVING = "aggressive-driving";
         public const string ACCELERATION = "acceleration";
         public const string DECELERATION = "deceleration";
+        public const string EGO_MAX_VELOCITY = "max-velocity";
         
         private ScenarioScore scenarioScore;
         public ScenarioParser(ScenarioScore scenarioScore)
@@ -117,22 +118,59 @@ namespace AWSIM_Script.Parser
 
             // 2nd arg: always goal
             IPosition goal = ParsePosition(func.Parameters[1].children[0]);
-            scenario.Ego = new EgoSettings(initPosition, goal);
-            
-            // 3rd arg (optional): max velocity
+            var egoSettings = new EgoSettings(initPosition, goal);
+
+            // 3rd arg (optional): setting options, e.g., max velocity
             if (func.Parameters.Count > 2)
             {
-                if (func.Parameters[2].children[0] is NumberExpContext)
-                {
-                    var speed = ParserUtils.ParseNumberExp((NumberExpContext)func.Parameters[2].children[0]);
-                    scenario.Ego.MaxVelocity = speed;
-                    Debug.Log("Test: " + speed);
-                }
-                else
-                    throw new InvalidScriptException("Expected desired max velocity for Ego, but get: " + func.Parameters[2]);
+                ParseEgoConfig(func.Parameters[2].children[0], ref egoSettings);
             }
             
+            scenario.Ego = egoSettings;
             return true;
+        }
+        
+        private bool ParseEgoConfig(IParseTree node, ref EgoSettings egoSettings)
+        {
+            if (node is ArrayExpContext arrayExp)
+            {
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
+                foreach (var expContext in expContexts)
+                    DoParseEgoConfig(expContext.children[0], ref egoSettings);
+            }
+            else if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return ParseEgoConfig(scenarioScore.Variables[varName].children[0], ref egoSettings);
+            }
+            else
+                throw new InvalidScriptException("Cannot parse config: " + node.GetText());
+            return true;
+        }
+        
+        private bool DoParseEgoConfig(IParseTree node, ref EgoSettings egoSettings)
+        {
+            if (node is EgoSettingExpContext egoSettingExp)
+            {
+                switch (egoSettingExp.children[0].GetText())
+                {
+                    case EGO_MAX_VELOCITY:
+                        egoSettings.MaxVelocity = ParserUtils.ParseNumberExp((NumberExpContext)egoSettingExp.children[2]);
+                        return true;
+                    default:
+                        throw new InvalidScriptException("Cannot parse the config: " + egoSettingExp.GetText());
+                }
+            }
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return DoParseEgoConfig(scenarioScore.Variables[varName].children[0], ref egoSettings);
+            }
+            throw new InvalidScriptException("Cannot parse the ego setting: " + node.GetText());
         }
 
         private bool RetrieveNPC(ExpressionContext npcExpContext, ref Scenario scenario)
