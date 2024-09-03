@@ -49,7 +49,8 @@ namespace AWSIM.AWAnalysis
                 _traceWriter = new TraceWriter(outputFilePath,
                     autowareEgoCar.GetComponent<Vehicle>(),
                     sensorCamera,
-                    perceptionMode);
+                    perceptionMode,
+                    ConfigLoader.Config().TraceFormat);
                 _traceWriter.Start();
             }
         }

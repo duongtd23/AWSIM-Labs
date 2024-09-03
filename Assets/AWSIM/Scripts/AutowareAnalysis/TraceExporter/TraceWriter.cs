@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEngine;
 using System.IO;
 using System.Linq;
@@ -8,8 +7,11 @@ using AWSIM.AWAnalysis.CustomSim;
 using autoware_adapi_v1_msgs.msg;
 using autoware_perception_msgs.msg;
 using autoware_vehicle_msgs.msg;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 using tier4_perception_msgs.msg;
 using ROS2;
+using YamlDotNet.Serialization;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
@@ -24,11 +26,15 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private readonly TraceCaptureConfig _config;
         private readonly PerceptionMode _perceptionMode;
         private readonly float _maxDistanceVisibleOnCamera;
-
+        private readonly TraceFormat _traceFormat;
+        
         // inner use
         private TraceCaptureState _state;
         private string contents;
         private float _timeNow;
+        private double _startTime;
+        private TraceObject _traceObject;
+        
         // ROS time at start
         // When AWSIM starts after Autoware, it is 0.
         // When AWSIM starts before Autoware, rosTimeAtStart > 0.
@@ -45,22 +51,27 @@ namespace AWSIM.AWAnalysis.TraceExporter
         ISubscription<RouteState> routeStateSubscriber;
         ISubscription<LocalizationInitializationState> localizationInitStateSubscriber;
         
-        public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera, PerceptionMode perceptionMode)
+        public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera, 
+            PerceptionMode perceptionMode, TraceFormat traceFormat)
         {
             this._filePath = filePath;
             this._egoVehicle = egoVehicle;
             _sensorCamera = sensorCamera;
             this._config = new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY);
             _perceptionMode = perceptionMode;
-            contents = TEMPLATE;
+            _traceFormat = traceFormat;
+            contents = traceFormat == TraceFormat.MAUDE ? TEMPLATE : "";
+            _traceObject = new TraceObject();
+            _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
+            _traceObject.states = new List<StateObject>();
             _objectDetectedMsgs = new Queue<Tuple<double, PredictedObject[]>>();
             _cameraObjectDetectedMsgs = new Queue<Tuple<double, DetectedObjectWithFeature[]>>();
             _maxDistanceVisibleOnCamera = ConfigLoader.Config().MaxDistanceVisibleonCamera;
         }
 
         public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera,
-            TraceCaptureConfig config, PerceptionMode perceptionMode)
-            : this(filePath, egoVehicle, sensorCamera, perceptionMode)
+            TraceCaptureConfig config, PerceptionMode perceptionMode, TraceFormat traceFormat)
+            : this(filePath, egoVehicle, sensorCamera, perceptionMode, traceFormat)
         {
             _config = config;
         }
@@ -132,113 +143,375 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     }
                     break;
                 case TraceCaptureState.READY_TO_CAPTURE:
-                    contents += $"  eq startTime = {_timeNow + _rosTimeAtStart} .\n" +
-                                $"  eq fixedTimestep = {(int)(Time.fixedDeltaTime * 1000)} .\n" +
-                                $"  eq init = ";
+                    _startTime = _timeNow;
+                    if (_traceFormat == TraceFormat.MAUDE)
+                        contents += $"  eq fixedTimestep = {(int)(Time.fixedDeltaTime * 1000)} .\n" +
+                                    $"  eq init = ";
                     _state = TraceCaptureState.TRACE_CAPTURING;
                     Debug.Log("[AWAnalysis] Start capturing trace");
                     break;
                 
                 case TraceCaptureState.TRACE_CAPTURING:
                     double timeStamp = _timeNow + _rosTimeAtStart;
-                    string stateStr = $"{timeStamp} # {{";
-                    // Dump ground truth trace of Ego and NPCs
-                    stateStr += DumpEgoInfo();
-                    List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
-                    npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
-
-                    while (_objectDetectedMsgs.Count > 0)
-                    {
-                        var tuple = _objectDetectedMsgs.Peek();
-                        if (lastGroundTruthState == null ||
-                             preLastGroundTruthState == null ||
-                             tuple.Item1 > lastGroundTruthState.Item1)
-                            break;
-                        
-                        List<string> objectsStr = new List<string>();
-                        foreach (var detectedObj in tuple.Item2)
-                        {
-                            string objStr = DumpDetectedObject(detectedObj);
-                            if (!objectsStr.Contains(objStr))
-                                objectsStr.Add(objStr);
-                        }
-                        if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                            lastGroundTruthState.Item1 - tuple.Item1)
-                        {
-                            preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                                preLastGroundTruthState.Item1,
-                                preLastGroundTruthState.Item2.Union(objectsStr));
-                        }
-                        else
-                        {
-                            lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                                lastGroundTruthState.Item1,
-                                lastGroundTruthState.Item2.Union(objectsStr));
-                        }
-                        _objectDetectedMsgs.Dequeue();
-                    }
                     
-                    while (_cameraObjectDetectedMsgs.Count > 0)
+                    // if saving-timeout is reached
+                    if (CommandLineArgsManager.TraceSavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
+                        _timeNow > CommandLineArgsManager.TraceSavingTimeout + _startTime)
                     {
-                        var tuple = _cameraObjectDetectedMsgs.Peek();
-                        if (lastGroundTruthState == null ||
-                            preLastGroundTruthState == null ||
-                            tuple.Item1 > lastGroundTruthState.Item1)
-                            break;
-                        List<string> objectsStr = new List<string>();
-                        foreach (var detectedObject in tuple.Item2)
-                        {
-                            string objStr = DumpCameraDetectedObject(detectedObject);
-                            if (!objectsStr.Contains(objStr))
-                                objectsStr.Add(objStr);
-                        }
-                        if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                            lastGroundTruthState.Item1 - tuple.Item1)
-                        {
-                            preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                                preLastGroundTruthState.Item1,
-                                preLastGroundTruthState.Item2.Union(objectsStr));
-                        }
-                        else
-                        {
-                            lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                                lastGroundTruthState.Item1,
-                                lastGroundTruthState.Item2.Union(objectsStr));
-                        }
-                        _cameraObjectDetectedMsgs.Dequeue();
+                        _state = TraceCaptureState.EGO_GOAL_ARRIVED;
+                        break;
                     }
-
-                    if (preLastGroundTruthState == null)
-                        preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                            timeStamp, 
-                            new List<string>{stateStr});
-                    else if (lastGroundTruthState == null)
-                        lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                            timeStamp, 
-                            new List<string>{stateStr});
-                    else
-                    {
-                        string preLastStateStr = preLastGroundTruthState.Item2.First();
-                        foreach (string objStr in preLastGroundTruthState.Item2.Skip(1))
-                            preLastStateStr += ", " + objStr;
-                        // don't forget to add a closing bracket
-                        contents += $"{preLastStateStr}}} .\n  rl {preLastStateStr}}}\n  => ";
-                        preLastGroundTruthState = lastGroundTruthState;
-                        lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                            timeStamp, 
-                            new List<string>{stateStr});
-                    }
+                    if (_traceFormat == TraceFormat.MAUDE)
+                        UpdateMaudeTrace(timeStamp);
+                    else if (_traceFormat == TraceFormat.YAML)
+                        UpdateYamlTrace(timeStamp);
                     break;
                 
                 case TraceCaptureState.EGO_GOAL_ARRIVED:
-                    WriteFile();
+                    if (_traceFormat == TraceFormat.MAUDE)
+                        WriteMaudeFile();
+                    else if (_traceFormat == TraceFormat.YAML)
+                        WriteYamlFile();
                     Debug.Log($"[AWAnalysis] Trace was written to {_filePath}");
                     _state = TraceCaptureState.TRACE_WRITTEN;
                     break;
             }
         }
 
-        private void WriteFile()
+        private void UpdateYamlTrace(double timeStamp)
+        {
+            var newState = new StateObject();
+            newState.timeStamp = timeStamp;
+            
+            // ego ground truth
+            newState.groundtruth_ego = new EgoGroundTruthObject();
+            newState.groundtruth_ego.pose = new PoseObject();
+            newState.groundtruth_ego.pose.position = new Vector3Object(_egoVehicle.Position.x, _egoVehicle.Position.y, _egoVehicle.Position.z);
+            newState.groundtruth_ego.pose.quaternion = new QuaternionObject(_egoVehicle.Rotation.x, _egoVehicle.Rotation.y, _egoVehicle.Rotation.z, _egoVehicle.Rotation.w);
+            
+            newState.groundtruth_ego.twist = new TwistObject();
+            newState.groundtruth_ego.twist.linear = new Vector3Object(_egoVehicle.Velocity.x, _egoVehicle.Velocity.y, _egoVehicle.Velocity.z);
+            newState.groundtruth_ego.twist.angular = new Vector3Object(_egoVehicle.AngularVelocity.x, _egoVehicle.AngularVelocity.y, _egoVehicle.AngularVelocity.z);
+            
+            newState.groundtruth_ego.acceleration = new AccelerationObject();
+            newState.groundtruth_ego.acceleration.linear = new Vector3Object(_egoVehicle.Acceleration.x, _egoVehicle.Acceleration.y, _egoVehicle.Acceleration.z);
+            newState.groundtruth_ego.acceleration.angular = new Vector3Object(_egoVehicle.AngularAcceleration.x, _egoVehicle.AngularAcceleration.y, _egoVehicle.AngularAcceleration.z);
+            
+            // NPCs ground truth
+            int npcCount = CustomNPCSpawningManager.GetNPCs().Count;
+            newState.groundtruth_NPCs = new NPCGroundTruthObject[npcCount];
+            for (int i = 0; i < npcCount; i++)
+            {
+                var npc = CustomNPCSpawningManager.GetNPCs()[i];
+                var centerPos = npc.CenterPosition();
+                newState.groundtruth_NPCs[i] = new NPCGroundTruthObject();
+                newState.groundtruth_NPCs[i].name = npc.ScriptName;
+                
+                newState.groundtruth_NPCs[i].pose = new Pose2Object();
+                newState.groundtruth_NPCs[i].pose.position = new Vector3Object(centerPos.x, centerPos.y, centerPos.z);
+                newState.groundtruth_NPCs[i].pose.rotation = new Vector3Object(0, npc.EulerAnguleY, 0);
+                
+                newState.groundtruth_NPCs[i].twist = new TwistObject();
+                newState.groundtruth_NPCs[i].twist.linear = new Vector3Object(npc.Velocity.x, npc.Velocity.y, npc.Velocity.z);
+                newState.groundtruth_NPCs[i].twist.angular = new Vector3Object(0, npc.YawAngularSpeed, 0);
+
+                newState.groundtruth_NPCs[i].acceleration = npc.Acceleration;
+                
+                if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
+                {
+                    var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(npc.Position, _egoVehicle.Position);
+                    if (distanceToEgo < _maxDistanceVisibleOnCamera &&
+                        CameraUtils.NPCVisibleByCamera(_sensorCamera, npc))
+                        newState.groundtruth_NPCs[i].bounding_box = DumpNPCGtBoundingBox(npc);
+                }
+            }
+            
+            _traceObject.states.Add(newState);
+
+            // 3d detected object by perception module
+            while (_objectDetectedMsgs.Count > 0)
+            {
+                var tuple = _objectDetectedMsgs.Peek();
+                if (tuple.Item1 < timeStamp + Time.fixedDeltaTime)
+                {
+                    int i = _traceObject.states.Count - 1;
+                    for (; i >= 0; i--)
+                    {
+                        StateObject state = _traceObject.states[i];
+                        if (tuple.Item1 >= state.timeStamp || i == 0)
+                        {
+                            state.perception_objects ??= new List<PerceptionObject>();
+                            foreach (var detectedObject in tuple.Item2)
+                            {
+                                var perObject = DumpPerceptionObject2Obj(detectedObject);
+                                // check duplicate before adding
+                                if (!state.perception_objects.Exists(entry => entry.Equals(perObject)))
+                                {
+                                    int existObjWithSameId = state.perception_objects.FindIndex(entry => entry.IDEqual(perObject.id));
+                                    if (existObjWithSameId == -1)
+                                        state.perception_objects.Add(perObject);
+                                    else state.perception_objects[existObjWithSameId] = perObject;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    _objectDetectedMsgs.Dequeue();
+                }
+                else break;
+            }
+            
+            // bounding box detected object on camera screen view by perception module
+            while (_cameraObjectDetectedMsgs.Count > 0)
+            {
+                var tuple = _cameraObjectDetectedMsgs.Peek();
+                if (tuple.Item1 < timeStamp + Time.fixedDeltaTime)
+                {
+                    int i = _traceObject.states.Count - 1;
+                    for (; i >= 0; i--)
+                    {
+                        StateObject state = _traceObject.states[i];
+                        if (tuple.Item1 >= state.timeStamp || i == 0)
+                        {
+                            state.boundingbox_perception_objects ??= new List<BBPerceptionObject>();
+                            foreach (var detectedObject in tuple.Item2)
+                            {
+                                var perObject = DumpBBPerceptionObject2Obj(detectedObject);
+                                // check duplicate before adding
+                                if (!state.boundingbox_perception_objects.Exists(entry => entry.Equals(perObject)))
+                                {
+                                    state.boundingbox_perception_objects.Add(perObject);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    _cameraObjectDetectedMsgs.Dequeue();
+                }
+                else break;
+            }
+        }
+
+        private PerceptionObject DumpPerceptionObject2Obj(PredictedObject detectedObject)
+        {
+            PerceptionObject perObj = new PerceptionObject();
+            perObj.id = new int[detectedObject.Object_id.Uuid.Length];
+            for (int i = 0; i < perObj.id.Length; i++)
+            {
+                perObj.id[i] = detectedObject.Object_id.Uuid[i];
+            }
+
+            perObj.existence_prob = detectedObject.Existence_probability;
+            
+            perObj.classification = new ClassificationObject[detectedObject.Classification.Length];
+            for (int i = 0; i < perObj.classification.Length; i++)
+            {
+                perObj.classification[i] = new ClassificationObject()
+                {
+                    label = detectedObject.Classification[i].Label,
+                    probability = detectedObject.Classification[i].Probability
+                };
+            }
+
+            var pos = ROS2Utility.RosMGRSToUnityPosition(detectedObject.Kinematics.Initial_pose_with_covariance.Pose.Position);
+            var rot = ROS2Utility.RosToUnityRotation(detectedObject.Kinematics.Initial_pose_with_covariance.Pose.Orientation).eulerAngles;
+            perObj.pose = new Pose2Object();
+            perObj.pose.position = new Vector3Object(pos.x, pos.y, pos.z);
+            perObj.pose.rotation = new Vector3Object(rot.x, rot.y, rot.z);
+            
+            var vel = detectedObject.Kinematics.Initial_twist_with_covariance.Twist;
+            perObj.twist = new TwistObject();
+            perObj.twist.linear = new Vector3Object(vel.Linear.X, vel.Linear.Y, vel.Linear.Z);
+            perObj.twist.angular = new Vector3Object(vel.Angular.X, vel.Angular.Y, vel.Angular.Z);
+                
+            var accel = detectedObject.Kinematics.Initial_acceleration_with_covariance.Accel;
+            perObj.acceleration = new AccelerationObject();
+            perObj.acceleration.linear = new Vector3Object(accel.Linear.X, accel.Linear.Y, accel.Linear.Z);
+            perObj.acceleration.angular = new Vector3Object(accel.Angular.X, accel.Angular.Y, accel.Angular.Z);
+
+            return perObj;
+        }
+        
+        private BBPerceptionObject DumpBBPerceptionObject2Obj(DetectedObjectWithFeature detectedObject)
+        {
+            BBPerceptionObject perObj = new BBPerceptionObject();
+
+            perObj.existence_prob = detectedObject.Object.Existence_probability;
+            
+            perObj.classification = new ClassificationObject[detectedObject.Object.Classification.Length];
+            for (int i = 0; i < perObj.classification.Length; i++)
+            {
+                perObj.classification[i] = new ClassificationObject()
+                {
+                    label = detectedObject.Object.Classification[i].Label,
+                    probability = detectedObject.Object.Classification[i].Probability
+                };
+            }
+            
+            perObj.bounding_box = new BoundingBoxObject()
+            {
+                x = (int)detectedObject.Feature.Roi.X_offset,
+                y = (int)detectedObject.Feature.Roi.Y_offset,
+                width = (int)detectedObject.Feature.Roi.Width,
+                height = (int)detectedObject.Feature.Roi.Height
+            };
+            return perObj;
+        }
+
+        private void WriteYamlFile()
+        {
+            while (_objectDetectedMsgs.Count > 0)
+            {
+                var tuple = _objectDetectedMsgs.Dequeue();
+                int i = _traceObject.states.Count - 1;
+                for (; i >= 0; i--)
+                {
+                    StateObject state = _traceObject.states[i];
+                    if (tuple.Item1 >= state.timeStamp || i == 0)
+                    {
+                        state.perception_objects ??= new List<PerceptionObject>();
+                        foreach (var detectedObject in tuple.Item2)
+                        {
+                            var perObject = DumpPerceptionObject2Obj(detectedObject);
+                            // check duplicate before adding
+                            if (!state.perception_objects.Exists(entry => entry.Equals(perObject)))
+                            {
+                                int existObjWithSameId = state.perception_objects.FindIndex(entry => entry.IDEqual(perObject.id));
+                                if (existObjWithSameId == -1)
+                                    state.perception_objects.Add(perObject);
+                                else state.perception_objects[existObjWithSameId] = perObject;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            while (_cameraObjectDetectedMsgs.Count > 0)
+            {
+                var tuple = _cameraObjectDetectedMsgs.Dequeue();
+                int i = _traceObject.states.Count - 1;
+                for (; i >= 0; i--)
+                {
+                    StateObject state = _traceObject.states[i];
+                    if (tuple.Item1 >= state.timeStamp || i == 0)
+                    {
+                        state.boundingbox_perception_objects ??= new List<BBPerceptionObject>();
+                        foreach (var detectedObject in tuple.Item2)
+                        {
+                            var perObject = DumpBBPerceptionObject2Obj(detectedObject);
+                            // check duplicate before adding
+                            if (!state.boundingbox_perception_objects.Exists(entry => entry.Equals(perObject)))
+                            {
+                                state.boundingbox_perception_objects.Add(perObject);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            var serializer = new SerializerBuilder().Build();
+            var yaml = serializer.Serialize(_traceObject);
+            File.WriteAllText(_filePath, yaml);
+        }
+        
+        private void UpdateMaudeTrace(double timeStamp)
+        {
+            string stateStr = $"{timeStamp} # {{";
+            // Dump ground truth trace of Ego and NPCs
+            stateStr += DumpEgoInfo();
+            List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
+            npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
+
+            while (_objectDetectedMsgs.Count > 0)
+            {
+                var tuple = _objectDetectedMsgs.Peek();
+                if (lastGroundTruthState == null ||
+                    preLastGroundTruthState == null ||
+                    tuple.Item1 > lastGroundTruthState.Item1)
+                    break;
+
+                List<string> objectsStr = new List<string>();
+                foreach (var detectedObj in tuple.Item2)
+                {
+                    string objStr = DumpDetectedObject(detectedObj);
+                    if (!objectsStr.Contains(objStr))
+                        objectsStr.Add(objStr);
+                }
+
+                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
+                    lastGroundTruthState.Item1 - tuple.Item1)
+                {
+                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                        preLastGroundTruthState.Item1,
+                        preLastGroundTruthState.Item2.Union(objectsStr));
+                }
+                else
+                {
+                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                        lastGroundTruthState.Item1,
+                        lastGroundTruthState.Item2.Union(objectsStr));
+                }
+
+                _objectDetectedMsgs.Dequeue();
+            }
+
+            while (_cameraObjectDetectedMsgs.Count > 0)
+            {
+                var tuple = _cameraObjectDetectedMsgs.Peek();
+                if (lastGroundTruthState == null ||
+                    preLastGroundTruthState == null ||
+                    tuple.Item1 > lastGroundTruthState.Item1)
+                    break;
+                List<string> objectsStr = new List<string>();
+                foreach (var detectedObject in tuple.Item2)
+                {
+                    string objStr = DumpCameraDetectedObject(detectedObject);
+                    if (!objectsStr.Contains(objStr))
+                        objectsStr.Add(objStr);
+                }
+
+                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
+                    lastGroundTruthState.Item1 - tuple.Item1)
+                {
+                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                        preLastGroundTruthState.Item1,
+                        preLastGroundTruthState.Item2.Union(objectsStr));
+                }
+                else
+                {
+                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                        lastGroundTruthState.Item1,
+                        lastGroundTruthState.Item2.Union(objectsStr));
+                }
+
+                _cameraObjectDetectedMsgs.Dequeue();
+            }
+
+            if (preLastGroundTruthState == null)
+                preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                    timeStamp,
+                    new List<string> { stateStr });
+            else if (lastGroundTruthState == null)
+                lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                    timeStamp,
+                    new List<string> { stateStr });
+            else
+            {
+                string preLastStateStr = preLastGroundTruthState.Item2.First();
+                foreach (string objStr in preLastGroundTruthState.Item2.Skip(1))
+                    preLastStateStr += ", " + objStr;
+                // don't forget to add a closing bracket
+                contents += $"{preLastStateStr}}} .\n  rl {preLastStateStr}}}\n  => ";
+                preLastGroundTruthState = lastGroundTruthState;
+                lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
+                    timeStamp,
+                    new List<string> { stateStr });
+            }
+        }
+
+        private void WriteMaudeFile()
         {
             while (_objectDetectedMsgs.Count > 0)
             {
@@ -366,8 +639,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(npc.Position, _egoVehicle.Position);
                 if (distanceToEgo < _maxDistanceVisibleOnCamera &&
                     CameraUtils.NPCVisibleByCamera(_sensorCamera, npc))
+                {
+                    BoundingBoxObject boundingBoxObject = DumpNPCGtBoundingBox(npc);
                     return
-                        $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}, {DumpNPCGtBoundingBox(npc)}}}";
+                        $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}, " +
+                        $"gt-rect: {boundingBoxObject.x} {boundingBoxObject.y} {boundingBoxObject.width} {boundingBoxObject.height}}}";
+                }
             }
             return $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}}}";
         }
@@ -377,7 +654,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         /// </summary>
         /// <param name="npc"></param>
         /// <returns></returns>
-        private string DumpNPCGtBoundingBox(NPCVehicle npc)
+        private BoundingBoxObject DumpNPCGtBoundingBox(NPCVehicle npc)
         {
             MeshCollider bodyCollider = npc.GetComponentInChildren<MeshCollider>();
             Vector3 localPosition = bodyCollider.transform.parent.localPosition;
@@ -425,7 +702,13 @@ namespace AWSIM.AWAnalysis.TraceExporter
             min_y = Mathf.Max(0, min_y);
             max_x = Mathf.Min(_sensorCamera.pixelWidth, max_x);
             max_y = Mathf.Min(_sensorCamera.pixelHeight, max_y);
-            return $"gt-rect: {min_x} {min_y} {max_x} {max_y}";
+            return new BoundingBoxObject()
+            {
+                x = min_x,
+                y = min_y,
+                width = max_x - min_x,
+                height = max_y - min_y
+            };
         }
 
         private string DumpDetectedObject(PredictedObject obj)

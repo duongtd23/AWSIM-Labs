@@ -84,6 +84,18 @@ public partial class AWSIMScriptGrammarBaseListener : IAWSIMScriptGrammarListene
 	/// <param name="context">The parse tree.</param>
 	public virtual void ExitEgoSettingExp([NotNull] AWSIMScriptGrammarParser.EgoSettingExpContext context) { }
 	/// <summary>
+	/// Enter a parse tree produced by <see cref="AWSIMScriptGrammarParser.simulationSettingExp"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void EnterSimulationSettingExp([NotNull] AWSIMScriptGrammarParser.SimulationSettingExpContext context) { }
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="AWSIMScriptGrammarParser.simulationSettingExp"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void ExitSimulationSettingExp([NotNull] AWSIMScriptGrammarParser.SimulationSettingExpContext context) { }
+	/// <summary>
 	/// Enter a parse tree produced by <see cref="AWSIMScriptGrammarParser.functionExp"/>.
 	/// <para>The default implementation does nothing.</para>
 	/// </summary>

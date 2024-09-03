@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Object;
 using UnityEngine;
 using AWSIM.AWAnalysis.Error;
 
@@ -102,5 +103,7 @@ namespace AWSIM.AWAnalysis
             outputFilePath = _args[TRACE_SAVING_PATH_ARG];
             return true;
         }
+
+        public static float TraceSavingTimeout { get; set; } = Simulation.DUMMY_SAVING_TIMEOUT;
     }
 }

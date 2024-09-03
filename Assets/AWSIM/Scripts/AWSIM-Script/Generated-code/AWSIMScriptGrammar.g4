@@ -6,6 +6,10 @@ grammar AWSIMScriptGrammar;
 // `positionA left -2` denotes the position on the left lane of the lane where positionA is located and 2 meters backward shifted
 positionExp
     : stringExp ('at' numberExp)? // pair of lane and offset
+    | variableExp 'back' numberExp
+    | variableExp 'forward' numberExp
+    | variableExp 'left' numberExp
+    | variableExp 'right' numberExp
     | positionExp 'back' numberExp
     | positionExp 'forward' numberExp
     | positionExp 'left' numberExp
@@ -24,6 +28,8 @@ configExp
     | 'delay-move-until-ego-engaged' '(' numberExp ')';
 egoSettingExp
     : 'max-velocity' '(' numberExp ')';
+simulationSettingExp
+    : 'saving-timeout' '(' numberExp ')';
 functionExp
     : idExp '(' argumentList? ')' ;
 arrayExp
@@ -43,6 +49,7 @@ expression
     | variableExp
     | configExp
     | egoSettingExp
+    | simulationSettingExp
     | functionExp;
 statement
     : (assignmentStm | functionExp) ';' ;

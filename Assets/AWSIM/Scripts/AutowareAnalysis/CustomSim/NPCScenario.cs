@@ -15,7 +15,6 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             while (CustomNPCSpawningManager.Manager() == null) ;
             //Scenario1();
-            //Test1();
             LoadScript();
         }
 
@@ -32,7 +31,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             Debug.Log("[NPCSim] lane1: " + lane1 + " at " + offset1);
             Debug.Log("[NPCSim] lane12: " + lane12 + " at " + offset12);
         }
-
+        
         // make sure to give the command line argument `-script <path-to-script-file>`
         private void LoadScript()
         {
@@ -43,20 +42,22 @@ namespace AWSIM.AWAnalysis.CustomSim
             else
             {
                 Debug.Log("Loading input script " + scriptFilePath);
-                Scenario scenario = new ScriptParser().ParseScriptFromFile(scriptFilePath);
-                RunScenario(scenario);
+                Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFilePath);
+                if (simulation.SavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT)
+                    CommandLineArgsManager.TraceSavingTimeout = simulation.SavingTimeout;
+                RunScenario(simulation);
             }
         }
 
-        private void RunScenario(Scenario scenario)
+        private void RunScenario(Simulation simulation)
         {
-            foreach (NPCCar npcCar in scenario.NPCs)
+            foreach (NPCCar npcCar in simulation.NPCs)
             {
                 CustomNPCSpawningManager.SpawnNPC(npcCar);
             }
 
             // TODO: consider to move to a separate class
-            CustomNPCSpawningManager.EgoSetting(scenario.Ego);
+            CustomNPCSpawningManager.EgoSetting(simulation.Ego);
         }
 
         // a scenario

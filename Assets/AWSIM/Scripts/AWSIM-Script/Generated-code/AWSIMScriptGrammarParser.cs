@@ -38,17 +38,18 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	public const int
 		T__0=1, T__1=2, T__2=3, T__3=4, T__4=5, T__5=6, T__6=7, T__7=8, T__8=9, 
 		T__9=10, T__10=11, T__11=12, T__12=13, T__13=14, T__14=15, T__15=16, T__16=17, 
-		T__17=18, T__18=19, T__19=20, T__20=21, T__21=22, T__22=23, STRING=24, 
-		SIGN=25, NUMBER=26, ID=27, WS=28, LINE_COMMENT=29;
+		T__17=18, T__18=19, T__19=20, T__20=21, T__21=22, T__22=23, T__23=24, 
+		STRING=25, SIGN=26, NUMBER=27, ID=28, WS=29, LINE_COMMENT=30;
 	public const int
 		RULE_positionExp = 0, RULE_roadExp = 1, RULE_configExp = 2, RULE_egoSettingExp = 3, 
-		RULE_functionExp = 4, RULE_arrayExp = 5, RULE_argumentList = 6, RULE_assignmentStm = 7, 
-		RULE_variableExp = 8, RULE_expression = 9, RULE_statement = 10, RULE_scenario = 11, 
-		RULE_stringExp = 12, RULE_numberExp = 13, RULE_idExp = 14;
+		RULE_simulationSettingExp = 4, RULE_functionExp = 5, RULE_arrayExp = 6, 
+		RULE_argumentList = 7, RULE_assignmentStm = 8, RULE_variableExp = 9, RULE_expression = 10, 
+		RULE_statement = 11, RULE_scenario = 12, RULE_stringExp = 13, RULE_numberExp = 14, 
+		RULE_idExp = 15;
 	public static readonly string[] ruleNames = {
-		"positionExp", "roadExp", "configExp", "egoSettingExp", "functionExp", 
-		"arrayExp", "argumentList", "assignmentStm", "variableExp", "expression", 
-		"statement", "scenario", "stringExp", "numberExp", "idExp"
+		"positionExp", "roadExp", "configExp", "egoSettingExp", "simulationSettingExp", 
+		"functionExp", "arrayExp", "argumentList", "assignmentStm", "variableExp", 
+		"expression", "statement", "scenario", "stringExp", "numberExp", "idExp"
 	};
 
 	private static readonly string[] _LiteralNames = {
@@ -56,12 +57,12 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		"'aggressive-driving'", "'acceleration'", "'('", "')'", "'deceleration'", 
 		"'delay-spawn'", "'delay-move'", "'delay-spawn-until-ego-move'", "'delay-move-until-ego-move'", 
 		"'delay-spawn-until-ego-engaged'", "'delay-move-until-ego-engaged'", "'max-velocity'", 
-		"'['", "']'", "','", "'='", "';'"
+		"'saving-timeout'", "'['", "']'", "','", "'='", "';'"
 	};
 	private static readonly string[] _SymbolicNames = {
 		null, null, null, null, null, null, null, null, null, null, null, null, 
 		null, null, null, null, null, null, null, null, null, null, null, null, 
-		"STRING", "SIGN", "NUMBER", "ID", "WS", "LINE_COMMENT"
+		null, "STRING", "SIGN", "NUMBER", "ID", "WS", "LINE_COMMENT"
 	};
 	public static readonly IVocabulary DefaultVocabulary = new Vocabulary(_LiteralNames, _SymbolicNames);
 
@@ -101,6 +102,9 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public NumberExpContext numberExp() {
 			return GetRuleContext<NumberExpContext>(0);
+		}
+		[System.Diagnostics.DebuggerNonUserCode] public VariableExpContext variableExp() {
+			return GetRuleContext<VariableExpContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public PositionExpContext positionExp() {
 			return GetRuleContext<PositionExpContext>(0);
@@ -144,44 +148,90 @@ public partial class AWSIMScriptGrammarParser : Parser {
 			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			{
-			State = 31;
-			stringExp();
-			State = 34;
+			State = 54;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,0,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,1,Context) ) {
 			case 1:
 				{
-				State = 32;
-				Match(T__0);
 				State = 33;
+				stringExp();
+				State = 36;
+				ErrorHandler.Sync(this);
+				switch ( Interpreter.AdaptivePredict(TokenStream,0,Context) ) {
+				case 1:
+					{
+					State = 34;
+					Match(T__0);
+					State = 35;
+					numberExp();
+					}
+					break;
+				}
+				}
+				break;
+			case 2:
+				{
+				State = 38;
+				variableExp();
+				State = 39;
+				Match(T__1);
+				State = 40;
+				numberExp();
+				}
+				break;
+			case 3:
+				{
+				State = 42;
+				variableExp();
+				State = 43;
+				Match(T__2);
+				State = 44;
+				numberExp();
+				}
+				break;
+			case 4:
+				{
+				State = 46;
+				variableExp();
+				State = 47;
+				Match(T__3);
+				State = 48;
+				numberExp();
+				}
+				break;
+			case 5:
+				{
+				State = 50;
+				variableExp();
+				State = 51;
+				Match(T__4);
+				State = 52;
 				numberExp();
 				}
 				break;
 			}
-			}
 			Context.Stop = TokenStream.LT(-1);
-			State = 50;
+			State = 70;
 			ErrorHandler.Sync(this);
-			_alt = Interpreter.AdaptivePredict(TokenStream,2,Context);
+			_alt = Interpreter.AdaptivePredict(TokenStream,3,Context);
 			while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					if ( ParseListeners!=null )
 						TriggerExitRuleEvent();
 					_prevctx = _localctx;
 					{
-					State = 48;
+					State = 68;
 					ErrorHandler.Sync(this);
-					switch ( Interpreter.AdaptivePredict(TokenStream,1,Context) ) {
+					switch ( Interpreter.AdaptivePredict(TokenStream,2,Context) ) {
 					case 1:
 						{
 						_localctx = new PositionExpContext(_parentctx, _parentState);
 						PushNewRecursionContext(_localctx, _startState, RULE_positionExp);
-						State = 36;
+						State = 56;
 						if (!(Precpred(Context, 4))) throw new FailedPredicateException(this, "Precpred(Context, 4)");
-						State = 37;
+						State = 57;
 						Match(T__1);
-						State = 38;
+						State = 58;
 						numberExp();
 						}
 						break;
@@ -189,11 +239,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 						{
 						_localctx = new PositionExpContext(_parentctx, _parentState);
 						PushNewRecursionContext(_localctx, _startState, RULE_positionExp);
-						State = 39;
+						State = 59;
 						if (!(Precpred(Context, 3))) throw new FailedPredicateException(this, "Precpred(Context, 3)");
-						State = 40;
+						State = 60;
 						Match(T__2);
-						State = 41;
+						State = 61;
 						numberExp();
 						}
 						break;
@@ -201,11 +251,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 						{
 						_localctx = new PositionExpContext(_parentctx, _parentState);
 						PushNewRecursionContext(_localctx, _startState, RULE_positionExp);
-						State = 42;
+						State = 62;
 						if (!(Precpred(Context, 2))) throw new FailedPredicateException(this, "Precpred(Context, 2)");
-						State = 43;
+						State = 63;
 						Match(T__3);
-						State = 44;
+						State = 64;
 						numberExp();
 						}
 						break;
@@ -213,20 +263,20 @@ public partial class AWSIMScriptGrammarParser : Parser {
 						{
 						_localctx = new PositionExpContext(_parentctx, _parentState);
 						PushNewRecursionContext(_localctx, _startState, RULE_positionExp);
-						State = 45;
+						State = 65;
 						if (!(Precpred(Context, 1))) throw new FailedPredicateException(this, "Precpred(Context, 1)");
-						State = 46;
+						State = 66;
 						Match(T__4);
-						State = 47;
+						State = 67;
 						numberExp();
 						}
 						break;
 					}
 					} 
 				}
-				State = 52;
+				State = 72;
 				ErrorHandler.Sync(this);
-				_alt = Interpreter.AdaptivePredict(TokenStream,2,Context);
+				_alt = Interpreter.AdaptivePredict(TokenStream,3,Context);
 			}
 			}
 		}
@@ -279,16 +329,16 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 53;
+			State = 73;
 			stringExp();
-			State = 56;
+			State = 76;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if (_la==T__5) {
 				{
-				State = 54;
+				State = 74;
 				Match(T__5);
-				State = 55;
+				State = 75;
 				numberExp();
 				}
 			}
@@ -338,73 +388,21 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		ConfigExpContext _localctx = new ConfigExpContext(Context, State);
 		EnterRule(_localctx, 4, RULE_configExp);
 		try {
-			State = 99;
+			State = 119;
 			ErrorHandler.Sync(this);
 			switch (TokenStream.LA(1)) {
 			case T__6:
 				EnterOuterAlt(_localctx, 1);
 				{
-				State = 58;
+				State = 78;
 				Match(T__6);
 				}
 				break;
 			case T__7:
 				EnterOuterAlt(_localctx, 2);
 				{
-				State = 59;
-				Match(T__7);
-				State = 60;
-				Match(T__8);
-				State = 61;
-				numberExp();
-				State = 62;
-				Match(T__9);
-				}
-				break;
-			case T__10:
-				EnterOuterAlt(_localctx, 3);
-				{
-				State = 64;
-				Match(T__10);
-				State = 65;
-				Match(T__8);
-				State = 66;
-				numberExp();
-				State = 67;
-				Match(T__9);
-				}
-				break;
-			case T__11:
-				EnterOuterAlt(_localctx, 4);
-				{
-				State = 69;
-				Match(T__11);
-				State = 70;
-				Match(T__8);
-				State = 71;
-				numberExp();
-				State = 72;
-				Match(T__9);
-				}
-				break;
-			case T__12:
-				EnterOuterAlt(_localctx, 5);
-				{
-				State = 74;
-				Match(T__12);
-				State = 75;
-				Match(T__8);
-				State = 76;
-				numberExp();
-				State = 77;
-				Match(T__9);
-				}
-				break;
-			case T__13:
-				EnterOuterAlt(_localctx, 6);
-				{
 				State = 79;
-				Match(T__13);
+				Match(T__7);
 				State = 80;
 				Match(T__8);
 				State = 81;
@@ -413,11 +411,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 				Match(T__9);
 				}
 				break;
-			case T__14:
-				EnterOuterAlt(_localctx, 7);
+			case T__10:
+				EnterOuterAlt(_localctx, 3);
 				{
 				State = 84;
-				Match(T__14);
+				Match(T__10);
 				State = 85;
 				Match(T__8);
 				State = 86;
@@ -426,11 +424,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 				Match(T__9);
 				}
 				break;
-			case T__15:
-				EnterOuterAlt(_localctx, 8);
+			case T__11:
+				EnterOuterAlt(_localctx, 4);
 				{
 				State = 89;
-				Match(T__15);
+				Match(T__11);
 				State = 90;
 				Match(T__8);
 				State = 91;
@@ -439,16 +437,68 @@ public partial class AWSIMScriptGrammarParser : Parser {
 				Match(T__9);
 				}
 				break;
-			case T__16:
-				EnterOuterAlt(_localctx, 9);
+			case T__12:
+				EnterOuterAlt(_localctx, 5);
 				{
 				State = 94;
-				Match(T__16);
+				Match(T__12);
 				State = 95;
 				Match(T__8);
 				State = 96;
 				numberExp();
 				State = 97;
+				Match(T__9);
+				}
+				break;
+			case T__13:
+				EnterOuterAlt(_localctx, 6);
+				{
+				State = 99;
+				Match(T__13);
+				State = 100;
+				Match(T__8);
+				State = 101;
+				numberExp();
+				State = 102;
+				Match(T__9);
+				}
+				break;
+			case T__14:
+				EnterOuterAlt(_localctx, 7);
+				{
+				State = 104;
+				Match(T__14);
+				State = 105;
+				Match(T__8);
+				State = 106;
+				numberExp();
+				State = 107;
+				Match(T__9);
+				}
+				break;
+			case T__15:
+				EnterOuterAlt(_localctx, 8);
+				{
+				State = 109;
+				Match(T__15);
+				State = 110;
+				Match(T__8);
+				State = 111;
+				numberExp();
+				State = 112;
+				Match(T__9);
+				}
+				break;
+			case T__16:
+				EnterOuterAlt(_localctx, 9);
+				{
+				State = 114;
+				Match(T__16);
+				State = 115;
+				Match(T__8);
+				State = 116;
+				numberExp();
+				State = 117;
 				Match(T__9);
 				}
 				break;
@@ -501,13 +551,68 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 101;
+			State = 121;
 			Match(T__17);
-			State = 102;
+			State = 122;
 			Match(T__8);
-			State = 103;
+			State = 123;
 			numberExp();
-			State = 104;
+			State = 124;
+			Match(T__9);
+			}
+		}
+		catch (RecognitionException re) {
+			_localctx.exception = re;
+			ErrorHandler.ReportError(this, re);
+			ErrorHandler.Recover(this, re);
+		}
+		finally {
+			ExitRule();
+		}
+		return _localctx;
+	}
+
+	public partial class SimulationSettingExpContext : ParserRuleContext {
+		[System.Diagnostics.DebuggerNonUserCode] public NumberExpContext numberExp() {
+			return GetRuleContext<NumberExpContext>(0);
+		}
+		public SimulationSettingExpContext(ParserRuleContext parent, int invokingState)
+			: base(parent, invokingState)
+		{
+		}
+		public override int RuleIndex { get { return RULE_simulationSettingExp; } }
+		[System.Diagnostics.DebuggerNonUserCode]
+		public override void EnterRule(IParseTreeListener listener) {
+			IAWSIMScriptGrammarListener typedListener = listener as IAWSIMScriptGrammarListener;
+			if (typedListener != null) typedListener.EnterSimulationSettingExp(this);
+		}
+		[System.Diagnostics.DebuggerNonUserCode]
+		public override void ExitRule(IParseTreeListener listener) {
+			IAWSIMScriptGrammarListener typedListener = listener as IAWSIMScriptGrammarListener;
+			if (typedListener != null) typedListener.ExitSimulationSettingExp(this);
+		}
+		[System.Diagnostics.DebuggerNonUserCode]
+		public override TResult Accept<TResult>(IParseTreeVisitor<TResult> visitor) {
+			IAWSIMScriptGrammarVisitor<TResult> typedVisitor = visitor as IAWSIMScriptGrammarVisitor<TResult>;
+			if (typedVisitor != null) return typedVisitor.VisitSimulationSettingExp(this);
+			else return visitor.VisitChildren(this);
+		}
+	}
+
+	[RuleVersion(0)]
+	public SimulationSettingExpContext simulationSettingExp() {
+		SimulationSettingExpContext _localctx = new SimulationSettingExpContext(Context, State);
+		EnterRule(_localctx, 8, RULE_simulationSettingExp);
+		try {
+			EnterOuterAlt(_localctx, 1);
+			{
+			State = 126;
+			Match(T__18);
+			State = 127;
+			Match(T__8);
+			State = 128;
+			numberExp();
+			State = 129;
 			Match(T__9);
 			}
 		}
@@ -555,26 +660,26 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public FunctionExpContext functionExp() {
 		FunctionExpContext _localctx = new FunctionExpContext(Context, State);
-		EnterRule(_localctx, 8, RULE_functionExp);
+		EnterRule(_localctx, 10, RULE_functionExp);
 		int _la;
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 106;
+			State = 131;
 			idExp();
-			State = 107;
+			State = 132;
 			Match(T__8);
-			State = 109;
+			State = 134;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 219150720L) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 438303104L) != 0)) {
 				{
-				State = 108;
+				State = 133;
 				argumentList();
 				}
 			}
 
-			State = 111;
+			State = 136;
 			Match(T__9);
 			}
 		}
@@ -619,25 +724,25 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public ArrayExpContext arrayExp() {
 		ArrayExpContext _localctx = new ArrayExpContext(Context, State);
-		EnterRule(_localctx, 10, RULE_arrayExp);
+		EnterRule(_localctx, 12, RULE_arrayExp);
 		int _la;
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 113;
-			Match(T__18);
-			State = 115;
+			State = 138;
+			Match(T__19);
+			State = 140;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 219150720L) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 438303104L) != 0)) {
 				{
-				State = 114;
+				State = 139;
 				argumentList();
 				}
 			}
 
-			State = 117;
-			Match(T__19);
+			State = 142;
+			Match(T__20);
 			}
 		}
 		catch (RecognitionException re) {
@@ -684,26 +789,26 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public ArgumentListContext argumentList() {
 		ArgumentListContext _localctx = new ArgumentListContext(Context, State);
-		EnterRule(_localctx, 12, RULE_argumentList);
+		EnterRule(_localctx, 14, RULE_argumentList);
 		int _la;
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 119;
+			State = 144;
 			expression();
-			State = 124;
+			State = 149;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			while (_la==T__20) {
+			while (_la==T__21) {
 				{
 				{
-				State = 120;
-				Match(T__20);
-				State = 121;
+				State = 145;
+				Match(T__21);
+				State = 146;
 				expression();
 				}
 				}
-				State = 126;
+				State = 151;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 			}
@@ -753,15 +858,15 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public AssignmentStmContext assignmentStm() {
 		AssignmentStmContext _localctx = new AssignmentStmContext(Context, State);
-		EnterRule(_localctx, 14, RULE_assignmentStm);
+		EnterRule(_localctx, 16, RULE_assignmentStm);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 127;
+			State = 152;
 			variableExp();
-			State = 128;
-			Match(T__21);
-			State = 129;
+			State = 153;
+			Match(T__22);
+			State = 154;
 			expression();
 			}
 		}
@@ -806,11 +911,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public VariableExpContext variableExp() {
 		VariableExpContext _localctx = new VariableExpContext(Context, State);
-		EnterRule(_localctx, 16, RULE_variableExp);
+		EnterRule(_localctx, 18, RULE_variableExp);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 131;
+			State = 156;
 			idExp();
 			}
 		}
@@ -850,6 +955,9 @@ public partial class AWSIMScriptGrammarParser : Parser {
 		[System.Diagnostics.DebuggerNonUserCode] public EgoSettingExpContext egoSettingExp() {
 			return GetRuleContext<EgoSettingExpContext>(0);
 		}
+		[System.Diagnostics.DebuggerNonUserCode] public SimulationSettingExpContext simulationSettingExp() {
+			return GetRuleContext<SimulationSettingExpContext>(0);
+		}
 		[System.Diagnostics.DebuggerNonUserCode] public FunctionExpContext functionExp() {
 			return GetRuleContext<FunctionExpContext>(0);
 		}
@@ -879,71 +987,78 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public ExpressionContext expression() {
 		ExpressionContext _localctx = new ExpressionContext(Context, State);
-		EnterRule(_localctx, 18, RULE_expression);
+		EnterRule(_localctx, 20, RULE_expression);
 		try {
-			State = 142;
+			State = 168;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,8,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,9,Context) ) {
 			case 1:
 				EnterOuterAlt(_localctx, 1);
 				{
-				State = 133;
+				State = 158;
 				stringExp();
 				}
 				break;
 			case 2:
 				EnterOuterAlt(_localctx, 2);
 				{
-				State = 134;
+				State = 159;
 				numberExp();
 				}
 				break;
 			case 3:
 				EnterOuterAlt(_localctx, 3);
 				{
-				State = 135;
+				State = 160;
 				positionExp(0);
 				}
 				break;
 			case 4:
 				EnterOuterAlt(_localctx, 4);
 				{
-				State = 136;
+				State = 161;
 				roadExp();
 				}
 				break;
 			case 5:
 				EnterOuterAlt(_localctx, 5);
 				{
-				State = 137;
+				State = 162;
 				arrayExp();
 				}
 				break;
 			case 6:
 				EnterOuterAlt(_localctx, 6);
 				{
-				State = 138;
+				State = 163;
 				variableExp();
 				}
 				break;
 			case 7:
 				EnterOuterAlt(_localctx, 7);
 				{
-				State = 139;
+				State = 164;
 				configExp();
 				}
 				break;
 			case 8:
 				EnterOuterAlt(_localctx, 8);
 				{
-				State = 140;
+				State = 165;
 				egoSettingExp();
 				}
 				break;
 			case 9:
 				EnterOuterAlt(_localctx, 9);
 				{
-				State = 141;
+				State = 166;
+				simulationSettingExp();
+				}
+				break;
+			case 10:
+				EnterOuterAlt(_localctx, 10);
+				{
+				State = 167;
 				functionExp();
 				}
 				break;
@@ -993,28 +1108,28 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public StatementContext statement() {
 		StatementContext _localctx = new StatementContext(Context, State);
-		EnterRule(_localctx, 20, RULE_statement);
+		EnterRule(_localctx, 22, RULE_statement);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 146;
+			State = 172;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,9,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,10,Context) ) {
 			case 1:
 				{
-				State = 144;
+				State = 170;
 				assignmentStm();
 				}
 				break;
 			case 2:
 				{
-				State = 145;
+				State = 171;
 				functionExp();
 				}
 				break;
 			}
-			State = 148;
-			Match(T__22);
+			State = 174;
+			Match(T__23);
 			}
 		}
 		catch (RecognitionException re) {
@@ -1062,26 +1177,26 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public ScenarioContext scenario() {
 		ScenarioContext _localctx = new ScenarioContext(Context, State);
-		EnterRule(_localctx, 22, RULE_scenario);
+		EnterRule(_localctx, 24, RULE_scenario);
 		int _la;
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 151;
+			State = 177;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			do {
 				{
 				{
-				State = 150;
+				State = 176;
 				statement();
 				}
 				}
-				State = 153;
+				State = 179;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 			} while ( _la==ID );
-			State = 155;
+			State = 181;
 			Match(Eof);
 			}
 		}
@@ -1124,11 +1239,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public StringExpContext stringExp() {
 		StringExpContext _localctx = new StringExpContext(Context, State);
-		EnterRule(_localctx, 24, RULE_stringExp);
+		EnterRule(_localctx, 26, RULE_stringExp);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 157;
+			State = 183;
 			Match(STRING);
 			}
 		}
@@ -1171,11 +1286,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public NumberExpContext numberExp() {
 		NumberExpContext _localctx = new NumberExpContext(Context, State);
-		EnterRule(_localctx, 26, RULE_numberExp);
+		EnterRule(_localctx, 28, RULE_numberExp);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 159;
+			State = 185;
 			Match(NUMBER);
 			}
 		}
@@ -1218,11 +1333,11 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	[RuleVersion(0)]
 	public IdExpContext idExp() {
 		IdExpContext _localctx = new IdExpContext(Context, State);
-		EnterRule(_localctx, 28, RULE_idExp);
+		EnterRule(_localctx, 30, RULE_idExp);
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 161;
+			State = 187;
 			Match(ID);
 			}
 		}
@@ -1254,56 +1369,65 @@ public partial class AWSIMScriptGrammarParser : Parser {
 	}
 
 	private static int[] _serializedATN = {
-		4,1,29,164,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
+		4,1,30,190,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
 		7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,14,
-		1,0,1,0,1,0,1,0,3,0,35,8,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,
-		1,0,5,0,49,8,0,10,0,12,0,52,9,0,1,1,1,1,1,1,3,1,57,8,1,1,2,1,2,1,2,1,2,
-		1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,
+		2,15,7,15,1,0,1,0,1,0,1,0,3,0,37,8,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,
+		0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,3,0,55,8,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,
+		0,1,0,1,0,1,0,1,0,5,0,69,8,0,10,0,12,0,72,9,0,1,1,1,1,1,1,3,1,77,8,1,1,
 		2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,
-		1,2,1,2,3,2,100,8,2,1,3,1,3,1,3,1,3,1,3,1,4,1,4,1,4,3,4,110,8,4,1,4,1,
-		4,1,5,1,5,3,5,116,8,5,1,5,1,5,1,6,1,6,1,6,5,6,123,8,6,10,6,12,6,126,9,
-		6,1,7,1,7,1,7,1,7,1,8,1,8,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,1,9,3,9,143,
-		8,9,1,10,1,10,3,10,147,8,10,1,10,1,10,1,11,4,11,152,8,11,11,11,12,11,153,
-		1,11,1,11,1,12,1,12,1,13,1,13,1,14,1,14,1,14,0,1,0,15,0,2,4,6,8,10,12,
-		14,16,18,20,22,24,26,28,0,0,175,0,30,1,0,0,0,2,53,1,0,0,0,4,99,1,0,0,0,
-		6,101,1,0,0,0,8,106,1,0,0,0,10,113,1,0,0,0,12,119,1,0,0,0,14,127,1,0,0,
-		0,16,131,1,0,0,0,18,142,1,0,0,0,20,146,1,0,0,0,22,151,1,0,0,0,24,157,1,
-		0,0,0,26,159,1,0,0,0,28,161,1,0,0,0,30,31,6,0,-1,0,31,34,3,24,12,0,32,
-		33,5,1,0,0,33,35,3,26,13,0,34,32,1,0,0,0,34,35,1,0,0,0,35,50,1,0,0,0,36,
-		37,10,4,0,0,37,38,5,2,0,0,38,49,3,26,13,0,39,40,10,3,0,0,40,41,5,3,0,0,
-		41,49,3,26,13,0,42,43,10,2,0,0,43,44,5,4,0,0,44,49,3,26,13,0,45,46,10,
-		1,0,0,46,47,5,5,0,0,47,49,3,26,13,0,48,36,1,0,0,0,48,39,1,0,0,0,48,42,
-		1,0,0,0,48,45,1,0,0,0,49,52,1,0,0,0,50,48,1,0,0,0,50,51,1,0,0,0,51,1,1,
-		0,0,0,52,50,1,0,0,0,53,56,3,24,12,0,54,55,5,6,0,0,55,57,3,26,13,0,56,54,
-		1,0,0,0,56,57,1,0,0,0,57,3,1,0,0,0,58,100,5,7,0,0,59,60,5,8,0,0,60,61,
-		5,9,0,0,61,62,3,26,13,0,62,63,5,10,0,0,63,100,1,0,0,0,64,65,5,11,0,0,65,
-		66,5,9,0,0,66,67,3,26,13,0,67,68,5,10,0,0,68,100,1,0,0,0,69,70,5,12,0,
-		0,70,71,5,9,0,0,71,72,3,26,13,0,72,73,5,10,0,0,73,100,1,0,0,0,74,75,5,
-		13,0,0,75,76,5,9,0,0,76,77,3,26,13,0,77,78,5,10,0,0,78,100,1,0,0,0,79,
-		80,5,14,0,0,80,81,5,9,0,0,81,82,3,26,13,0,82,83,5,10,0,0,83,100,1,0,0,
-		0,84,85,5,15,0,0,85,86,5,9,0,0,86,87,3,26,13,0,87,88,5,10,0,0,88,100,1,
-		0,0,0,89,90,5,16,0,0,90,91,5,9,0,0,91,92,3,26,13,0,92,93,5,10,0,0,93,100,
-		1,0,0,0,94,95,5,17,0,0,95,96,5,9,0,0,96,97,3,26,13,0,97,98,5,10,0,0,98,
-		100,1,0,0,0,99,58,1,0,0,0,99,59,1,0,0,0,99,64,1,0,0,0,99,69,1,0,0,0,99,
-		74,1,0,0,0,99,79,1,0,0,0,99,84,1,0,0,0,99,89,1,0,0,0,99,94,1,0,0,0,100,
-		5,1,0,0,0,101,102,5,18,0,0,102,103,5,9,0,0,103,104,3,26,13,0,104,105,5,
-		10,0,0,105,7,1,0,0,0,106,107,3,28,14,0,107,109,5,9,0,0,108,110,3,12,6,
-		0,109,108,1,0,0,0,109,110,1,0,0,0,110,111,1,0,0,0,111,112,5,10,0,0,112,
-		9,1,0,0,0,113,115,5,19,0,0,114,116,3,12,6,0,115,114,1,0,0,0,115,116,1,
-		0,0,0,116,117,1,0,0,0,117,118,5,20,0,0,118,11,1,0,0,0,119,124,3,18,9,0,
-		120,121,5,21,0,0,121,123,3,18,9,0,122,120,1,0,0,0,123,126,1,0,0,0,124,
-		122,1,0,0,0,124,125,1,0,0,0,125,13,1,0,0,0,126,124,1,0,0,0,127,128,3,16,
-		8,0,128,129,5,22,0,0,129,130,3,18,9,0,130,15,1,0,0,0,131,132,3,28,14,0,
-		132,17,1,0,0,0,133,143,3,24,12,0,134,143,3,26,13,0,135,143,3,0,0,0,136,
-		143,3,2,1,0,137,143,3,10,5,0,138,143,3,16,8,0,139,143,3,4,2,0,140,143,
-		3,6,3,0,141,143,3,8,4,0,142,133,1,0,0,0,142,134,1,0,0,0,142,135,1,0,0,
-		0,142,136,1,0,0,0,142,137,1,0,0,0,142,138,1,0,0,0,142,139,1,0,0,0,142,
-		140,1,0,0,0,142,141,1,0,0,0,143,19,1,0,0,0,144,147,3,14,7,0,145,147,3,
-		8,4,0,146,144,1,0,0,0,146,145,1,0,0,0,147,148,1,0,0,0,148,149,5,23,0,0,
-		149,21,1,0,0,0,150,152,3,20,10,0,151,150,1,0,0,0,152,153,1,0,0,0,153,151,
-		1,0,0,0,153,154,1,0,0,0,154,155,1,0,0,0,155,156,5,0,0,1,156,23,1,0,0,0,
-		157,158,5,24,0,0,158,25,1,0,0,0,159,160,5,26,0,0,160,27,1,0,0,0,161,162,
-		5,27,0,0,162,29,1,0,0,0,11,34,48,50,56,99,109,115,124,142,146,153
+		1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,
+		2,1,2,1,2,1,2,1,2,1,2,3,2,120,8,2,1,3,1,3,1,3,1,3,1,3,1,4,1,4,1,4,1,4,
+		1,4,1,5,1,5,1,5,3,5,135,8,5,1,5,1,5,1,6,1,6,3,6,141,8,6,1,6,1,6,1,7,1,
+		7,1,7,5,7,148,8,7,10,7,12,7,151,9,7,1,8,1,8,1,8,1,8,1,9,1,9,1,10,1,10,
+		1,10,1,10,1,10,1,10,1,10,1,10,1,10,1,10,3,10,169,8,10,1,11,1,11,3,11,173,
+		8,11,1,11,1,11,1,12,4,12,178,8,12,11,12,12,12,179,1,12,1,12,1,13,1,13,
+		1,14,1,14,1,15,1,15,1,15,0,1,0,16,0,2,4,6,8,10,12,14,16,18,20,22,24,26,
+		28,30,0,0,205,0,54,1,0,0,0,2,73,1,0,0,0,4,119,1,0,0,0,6,121,1,0,0,0,8,
+		126,1,0,0,0,10,131,1,0,0,0,12,138,1,0,0,0,14,144,1,0,0,0,16,152,1,0,0,
+		0,18,156,1,0,0,0,20,168,1,0,0,0,22,172,1,0,0,0,24,177,1,0,0,0,26,183,1,
+		0,0,0,28,185,1,0,0,0,30,187,1,0,0,0,32,33,6,0,-1,0,33,36,3,26,13,0,34,
+		35,5,1,0,0,35,37,3,28,14,0,36,34,1,0,0,0,36,37,1,0,0,0,37,55,1,0,0,0,38,
+		39,3,18,9,0,39,40,5,2,0,0,40,41,3,28,14,0,41,55,1,0,0,0,42,43,3,18,9,0,
+		43,44,5,3,0,0,44,45,3,28,14,0,45,55,1,0,0,0,46,47,3,18,9,0,47,48,5,4,0,
+		0,48,49,3,28,14,0,49,55,1,0,0,0,50,51,3,18,9,0,51,52,5,5,0,0,52,53,3,28,
+		14,0,53,55,1,0,0,0,54,32,1,0,0,0,54,38,1,0,0,0,54,42,1,0,0,0,54,46,1,0,
+		0,0,54,50,1,0,0,0,55,70,1,0,0,0,56,57,10,4,0,0,57,58,5,2,0,0,58,69,3,28,
+		14,0,59,60,10,3,0,0,60,61,5,3,0,0,61,69,3,28,14,0,62,63,10,2,0,0,63,64,
+		5,4,0,0,64,69,3,28,14,0,65,66,10,1,0,0,66,67,5,5,0,0,67,69,3,28,14,0,68,
+		56,1,0,0,0,68,59,1,0,0,0,68,62,1,0,0,0,68,65,1,0,0,0,69,72,1,0,0,0,70,
+		68,1,0,0,0,70,71,1,0,0,0,71,1,1,0,0,0,72,70,1,0,0,0,73,76,3,26,13,0,74,
+		75,5,6,0,0,75,77,3,28,14,0,76,74,1,0,0,0,76,77,1,0,0,0,77,3,1,0,0,0,78,
+		120,5,7,0,0,79,80,5,8,0,0,80,81,5,9,0,0,81,82,3,28,14,0,82,83,5,10,0,0,
+		83,120,1,0,0,0,84,85,5,11,0,0,85,86,5,9,0,0,86,87,3,28,14,0,87,88,5,10,
+		0,0,88,120,1,0,0,0,89,90,5,12,0,0,90,91,5,9,0,0,91,92,3,28,14,0,92,93,
+		5,10,0,0,93,120,1,0,0,0,94,95,5,13,0,0,95,96,5,9,0,0,96,97,3,28,14,0,97,
+		98,5,10,0,0,98,120,1,0,0,0,99,100,5,14,0,0,100,101,5,9,0,0,101,102,3,28,
+		14,0,102,103,5,10,0,0,103,120,1,0,0,0,104,105,5,15,0,0,105,106,5,9,0,0,
+		106,107,3,28,14,0,107,108,5,10,0,0,108,120,1,0,0,0,109,110,5,16,0,0,110,
+		111,5,9,0,0,111,112,3,28,14,0,112,113,5,10,0,0,113,120,1,0,0,0,114,115,
+		5,17,0,0,115,116,5,9,0,0,116,117,3,28,14,0,117,118,5,10,0,0,118,120,1,
+		0,0,0,119,78,1,0,0,0,119,79,1,0,0,0,119,84,1,0,0,0,119,89,1,0,0,0,119,
+		94,1,0,0,0,119,99,1,0,0,0,119,104,1,0,0,0,119,109,1,0,0,0,119,114,1,0,
+		0,0,120,5,1,0,0,0,121,122,5,18,0,0,122,123,5,9,0,0,123,124,3,28,14,0,124,
+		125,5,10,0,0,125,7,1,0,0,0,126,127,5,19,0,0,127,128,5,9,0,0,128,129,3,
+		28,14,0,129,130,5,10,0,0,130,9,1,0,0,0,131,132,3,30,15,0,132,134,5,9,0,
+		0,133,135,3,14,7,0,134,133,1,0,0,0,134,135,1,0,0,0,135,136,1,0,0,0,136,
+		137,5,10,0,0,137,11,1,0,0,0,138,140,5,20,0,0,139,141,3,14,7,0,140,139,
+		1,0,0,0,140,141,1,0,0,0,141,142,1,0,0,0,142,143,5,21,0,0,143,13,1,0,0,
+		0,144,149,3,20,10,0,145,146,5,22,0,0,146,148,3,20,10,0,147,145,1,0,0,0,
+		148,151,1,0,0,0,149,147,1,0,0,0,149,150,1,0,0,0,150,15,1,0,0,0,151,149,
+		1,0,0,0,152,153,3,18,9,0,153,154,5,23,0,0,154,155,3,20,10,0,155,17,1,0,
+		0,0,156,157,3,30,15,0,157,19,1,0,0,0,158,169,3,26,13,0,159,169,3,28,14,
+		0,160,169,3,0,0,0,161,169,3,2,1,0,162,169,3,12,6,0,163,169,3,18,9,0,164,
+		169,3,4,2,0,165,169,3,6,3,0,166,169,3,8,4,0,167,169,3,10,5,0,168,158,1,
+		0,0,0,168,159,1,0,0,0,168,160,1,0,0,0,168,161,1,0,0,0,168,162,1,0,0,0,
+		168,163,1,0,0,0,168,164,1,0,0,0,168,165,1,0,0,0,168,166,1,0,0,0,168,167,
+		1,0,0,0,169,21,1,0,0,0,170,173,3,16,8,0,171,173,3,10,5,0,172,170,1,0,0,
+		0,172,171,1,0,0,0,173,174,1,0,0,0,174,175,5,24,0,0,175,23,1,0,0,0,176,
+		178,3,22,11,0,177,176,1,0,0,0,178,179,1,0,0,0,179,177,1,0,0,0,179,180,
+		1,0,0,0,180,181,1,0,0,0,181,182,5,0,0,1,182,25,1,0,0,0,183,184,5,25,0,
+		0,184,27,1,0,0,0,185,186,5,27,0,0,186,29,1,0,0,0,187,188,5,28,0,0,188,
+		31,1,0,0,0,12,36,54,68,70,76,119,134,140,149,168,172,179
 	};
 
 	public static readonly ATN _ATN =

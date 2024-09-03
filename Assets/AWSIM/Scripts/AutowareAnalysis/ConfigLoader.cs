@@ -1,11 +1,13 @@
 using System.IO;
 using UnityEngine;
+using YamlDotNet.Serialization;
 
 namespace AWSIM.AWAnalysis
 {
     public class ConfigLoader
     {
-        private const string CONFIG_FILE = "AWAnalysis-config.json";
+        private const string YAML_CONFIG_FILE = "AWAnalysis-config.yaml";
+        private const string YAML_CONFIG_FILE2 = "Assets/AWAnalysis-config.yaml";
 
         public static AWAnalysisConfig Config()
         {
@@ -16,14 +18,16 @@ namespace AWSIM.AWAnalysis
         private static AWAnalysisConfig _config;
         private static AWAnalysisConfig Load()
         {
-            if (File.Exists(CONFIG_FILE))
+            string filePath =
+                File.Exists(YAML_CONFIG_FILE) ? YAML_CONFIG_FILE : YAML_CONFIG_FILE2;
+            if (File.Exists(filePath))
             {
                 Debug.Log("Loading config file");
-                string content = File.ReadAllText(CONFIG_FILE);
-                AWAnalysisConfig config = JsonUtility.FromJson<AWAnalysisConfig>(content);
+                var deserializer = new DeserializerBuilder().Build();
+                var config = deserializer.Deserialize<AWAnalysisConfig>(File.OpenText(filePath));
                 return config;
             }
-            Debug.LogError($"No config file found at {CONFIG_FILE}. Use default config.");
+            Debug.LogError($"No config file found at {YAML_CONFIG_FILE}. Use default config.");
             return new AWAnalysisConfig();
         }
     }

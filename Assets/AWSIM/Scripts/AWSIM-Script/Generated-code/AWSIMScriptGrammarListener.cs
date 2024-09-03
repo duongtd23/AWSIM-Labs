@@ -71,6 +71,16 @@ public interface IAWSIMScriptGrammarListener : IParseTreeListener {
 	/// <param name="context">The parse tree.</param>
 	void ExitEgoSettingExp([NotNull] AWSIMScriptGrammarParser.EgoSettingExpContext context);
 	/// <summary>
+	/// Enter a parse tree produced by <see cref="AWSIMScriptGrammarParser.simulationSettingExp"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void EnterSimulationSettingExp([NotNull] AWSIMScriptGrammarParser.SimulationSettingExpContext context);
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="AWSIMScriptGrammarParser.simulationSettingExp"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void ExitSimulationSettingExp([NotNull] AWSIMScriptGrammarParser.SimulationSettingExpContext context);
+	/// <summary>
 	/// Enter a parse tree produced by <see cref="AWSIMScriptGrammarParser.functionExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

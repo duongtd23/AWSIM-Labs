@@ -1,3 +1,6 @@
+using AWSIM.AWAnalysis.CustomSim;
+using AWSIM.TrafficSimulation;
+
 namespace AWSIM_Script.Object
 {
     public enum RelativePositionSide
@@ -23,52 +26,47 @@ namespace AWSIM_Script.Object
 
         public string GetLane()
         {
-            throw new System.NotImplementedException();
+            ToLaneOffsetPosition(out LaneOffsetPosition laneOffset);
+            return laneOffset.GetLane();
         }
 
         public float GetOffset()
         {
-            throw new System.NotImplementedException();
+            ToLaneOffsetPosition(out LaneOffsetPosition laneOffset);
+            return laneOffset.GetOffset();
         }
 
-        //public string GetLane()
-        //{
-        //    ToLaneOffsetPosition(out LaneOffsetPosition laneOffset);
-        //    return laneOffset.GetLane();
-        //}
+        public bool ToLaneOffsetPosition(out LaneOffsetPosition laneOffset)
+        {
+            while (CustomNPCSpawningManager.Manager() == null);
+            return ToLaneOffsetPosition(CustomNPCSpawningManager.GetAllTrafficLanes(), out laneOffset);
+        }
 
-        //public float GetOffset()
-        //{
-        //    ToLaneOffsetPosition(out LaneOffsetPosition laneOffset);
-        //    return laneOffset.GetOffset();
-        //}
+        // convert to LaneOffsetPosition
+        public bool ToLaneOffsetPosition(TrafficLane[] allLanes, out LaneOffsetPosition laneOffset)
+        {
+            ToLaneOffsetPosition(allLanes, out TrafficLane lane, out float offset2);
+            laneOffset = new LaneOffsetPosition(lane.name, offset2);
+            return true;
+        }
 
-        //public bool ToLaneOffsetPosition(out LaneOffsetPosition laneOffset)
-        //{
-        //    while (CustomNPCSpawningManager.Manager() == null) ;
-        //    return ToLaneOffsetPosition(CustomNPCSpawningManager.GetAllTrafficLanes(), out laneOffset);
-        //}
+        // derive the lane and the offset
+        public bool ToLaneOffsetPosition(TrafficLane[] allLanes, out TrafficLane lane, out float offset2)
+        {
+            string rootLane = referencePosition.GetLane();
+            float rootOffset = referencePosition.GetOffset();
 
-        //// convert to LaneOffsetPosition
-        //public bool ToLaneOffsetPosition(TrafficLane[] allLanes, out LaneOffsetPosition laneOffset)
-        //{
-        //    ToLaneOffsetPosition(allLanes, out TrafficLane lane, out float offset2);
-        //    laneOffset = new LaneOffsetPosition(lane.name, offset2);
-        //    return true;
-        //}
-
-        //// derive the lane and the offset
-        //public bool ToLaneOffsetPosition(TrafficLane[] allLanes, out TrafficLane lane, out float offset2)
-        //{
-        //    string rootLane = root.GetLane();
-        //    float rootOffset = root.GetOffset();
-
-        //    if (side == RelativePositionSide.LEFT)
-        //        CustomSimUtils.LeftLaneOffset(rootLane, rootOffset, allLanes, out lane, out offset2);
-        //    else
-        //        CustomSimUtils.RightLaneOffset(rootLane, rootOffset, allLanes, out lane, out offset2);
-        //    offset2 += this.longitudinalOffset;
-        //    return false;
-        //}
+            if (side == RelativePositionSide.LEFT)
+                CustomSimUtils.LeftLaneOffset(rootLane, rootOffset, allLanes, out lane, out offset2);
+            else if (side == RelativePositionSide.RIGHT)
+                CustomSimUtils.RightLaneOffset(rootLane, rootOffset, allLanes, out lane, out offset2);
+            else
+            {
+                lane = CustomSimUtils.ParseLane(rootLane);
+                offset2 = rootOffset;
+            }
+            offset2 += this.longitudinalOffset;
+            return false;
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using Antlr4.Runtime.Tree;
 using AWSIM_Script.Error;
 using AWSIM_Script.Object;
@@ -25,6 +26,7 @@ namespace AWSIM_Script.Parser
         public const string ACCELERATION = "acceleration";
         public const string DECELERATION = "deceleration";
         public const string EGO_MAX_VELOCITY = "max-velocity";
+        public const string SAVING_TIMEOUT = "saving-timeout";
         
         private ScenarioScore scenarioScore;
         public ScenarioParser(ScenarioScore scenarioScore)
@@ -32,13 +34,13 @@ namespace AWSIM_Script.Parser
             this.scenarioScore = scenarioScore;
 		}
 
-        public Scenario Parse()
+        public Simulation Parse()
         {
             var runFuncs = scenarioScore.Functions.FindAll(function => function.Name == FunctionParser.FUNCTION_RUN);
             if (runFuncs.Count == 0)
             {
                 Debug.LogWarning("[AWAnalysis] There is no run function in the input script.");
-                return new Scenario();
+                return new Simulation();
             }
             if (runFuncs.Count > 1)
                 Debug.LogError("[AWAnalysis] Found more than run function in the input script." +
@@ -48,7 +50,7 @@ namespace AWSIM_Script.Parser
             if (runFunc.Parameters.Count < 1)
                 throw new InvalidScriptException("Invalid arguments passed for function run: ");
 
-            Scenario scenario = new Scenario();
+            Simulation simulation = new Simulation();
             List<ExpressionContext> npcsExpContexts = new List<ExpressionContext>();
             ParserRuleContext egoFuncExp = FunctionExpContext.EmptyContext;
 
@@ -80,28 +82,36 @@ namespace AWSIM_Script.Parser
                 throw new InvalidScriptException("Invalid arguments passed for function run: ");
 
             // if the second param is NPC list
-            if (runFunc.Parameters.Count > 1 &&
-                runFunc.Parameters[1].children?[0] is ArrayExpContext)
+            if (runFunc.Parameters.Count > 1)
             {
-                npcsExpContexts = ParserUtils.
-                ParseArray((ArrayExpContext)runFunc.Parameters[1].children[0]);
+                if (runFunc.Parameters[1].children?[0] is ArrayExpContext arrayExpContext)
+                {
+                    npcsExpContexts = ParserUtils.ParseArray(arrayExpContext);
+                }
+                else
+                    throw new InvalidScriptException("Expected an array of NPCs, but get: " + runFunc.Parameters[1].GetText());
             }
-            else
-                throw new InvalidScriptException("Invalid arguments passed for function run: ");
 
             // Prase Ego
             if (egoFuncExp != FunctionExpContext.EmptyContext)
-                RetrieveEgo((FunctionExpContext)egoFuncExp, ref scenario);
+                RetrieveEgo((FunctionExpContext)egoFuncExp, ref simulation);
 
             // Parse NPCs
             foreach (ExpressionContext npcExpContext in npcsExpContexts)
             {
-                RetrieveNPC(npcExpContext, ref scenario);
+                RetrieveNPC(npcExpContext, ref simulation);
             }
-            return scenario;
+            
+            // 3rd param (optional): simulation setting,
+            // e.g., saving-timeout(30) indicates the trace will be exported at time 30s or Ego reaches goal, which ever happens first
+            if (runFunc.Parameters.Count > 2)
+            {
+                ParseSimulationConfig(runFunc.Parameters[2].children[0], ref simulation);
+            }
+            return simulation;
         }
 
-        private bool RetrieveEgo(FunctionExpContext egoFuncExp, ref Scenario scenario)
+        private bool RetrieveEgo(FunctionExpContext egoFuncExp, ref Simulation simulation)
         {
             if (egoFuncExp.exception != null)
                 throw new InvalidScriptException("Catch exception: " + egoFuncExp.exception.Message +
@@ -126,7 +136,7 @@ namespace AWSIM_Script.Parser
                 ParseEgoConfig(func.Parameters[2].children[0], ref egoSettings);
             }
             
-            scenario.Ego = egoSettings;
+            simulation.Ego = egoSettings;
             return true;
         }
         
@@ -173,7 +183,7 @@ namespace AWSIM_Script.Parser
             throw new InvalidScriptException("Cannot parse the ego setting: " + node.GetText());
         }
 
-        private bool RetrieveNPC(ExpressionContext npcExpContext, ref Scenario scenario)
+        private bool RetrieveNPC(ExpressionContext npcExpContext, ref Simulation simulation)
         {
             if (npcExpContext.children[0] is VariableExpContext)
             {
@@ -186,16 +196,16 @@ namespace AWSIM_Script.Parser
                     !(tempExp.children[0] is FunctionExpContext))
                     throw new InvalidScriptException("Expected a function defining NPC, but get: "
                         + tempExp.GetText());
-                RetriveNPC((FunctionExpContext)tempExp.children[0], ref scenario, varExp.GetText());
+                RetriveNPC((FunctionExpContext)tempExp.children[0], ref simulation, varExp.GetText());
             }
             else if (npcExpContext.children[0] is FunctionExpContext)
             {
-                RetriveNPC((FunctionExpContext)npcExpContext.children[0], ref scenario);
+                RetriveNPC((FunctionExpContext)npcExpContext.children[0], ref simulation);
             }
             return true;
         }
 
-        private bool RetriveNPC(FunctionExpContext npcFuncContext, ref Scenario scenario, string npcName = "")
+        private bool RetriveNPC(FunctionExpContext npcFuncContext, ref Simulation simulation, string npcName = "")
         {
             if (npcFuncContext.exception != null)
                 throw new InvalidScriptException("Catch exception: " + npcFuncContext.exception.Message +
@@ -283,7 +293,7 @@ namespace AWSIM_Script.Parser
                 npc.SpawnDelayOption = delay;
             if (npcName != "")
                 npc.Name = npcName;
-            scenario.NPCs.Add(npc);
+            simulation.NPCs.Add(npc);
             return true;
         }
 
@@ -499,6 +509,26 @@ namespace AWSIM_Script.Parser
                 default:
                     throw new InvalidScriptException("Cannot parse " + configExp.GetText());
             }
+        }
+
+        private bool ParseSimulationConfig(IParseTree node, ref Simulation simulation)
+        {
+            if (node is ArrayExpContext arrayExpContext)
+            {
+                var simulationConfigs = ParserUtils.ParseArray(arrayExpContext);
+                foreach (var simulationConfig in simulationConfigs)
+                {
+                    if (simulationConfig.children[0] is SimulationSettingExpContext simulationSettingExp)
+                    {
+                        float timeout =
+                            ParserUtils.ParseNumberExp((NumberExpContext)simulationSettingExp.children[2]);
+                        simulation.SavingTimeout = timeout;
+                    }
+                    else throw new InvalidScriptException("Unexpected argument: " + simulationConfig.GetText());
+                }
+                return true;
+            }
+            throw new InvalidScriptException("Expected an array of settings for simulation, but get: " + node.GetText());
         }
 
         // if node is a param of position

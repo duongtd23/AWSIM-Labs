@@ -56,6 +56,12 @@ public interface IAWSIMScriptGrammarVisitor<Result> : IParseTreeVisitor<Result> 
 	/// <return>The visitor result.</return>
 	Result VisitEgoSettingExp([NotNull] AWSIMScriptGrammarParser.EgoSettingExpContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.simulationSettingExp"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSimulationSettingExp([NotNull] AWSIMScriptGrammarParser.SimulationSettingExpContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AWSIMScriptGrammarParser.functionExp"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

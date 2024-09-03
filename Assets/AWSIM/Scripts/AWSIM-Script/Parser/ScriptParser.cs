@@ -14,13 +14,13 @@ namespace AWSIM_Script.Parser
 		public ScriptParser()
 		{
 		}
-        public Scenario ParseScriptFromFile(string scriptFilePath)
+        public Simulation ParseScriptFromFile(string scriptFilePath)
         {
             string scriptContent = File.ReadAllText(scriptFilePath);
             return ParseScript(scriptContent);
         }
 
-        public Scenario ParseScript(string scriptContent)
+        public Simulation ParseScript(string scriptContent)
         {
             ICharStream stream = CharStreams.fromString(scriptContent);
             ITokenSource lexer = new AWSIMScriptGrammarLexer(stream);
@@ -35,7 +35,7 @@ namespace AWSIM_Script.Parser
         /// </summary>
         /// <param name="antlrTree"></param>
         /// <returns></returns>
-        public Scenario ParseScript(IParseTree antlrTree)
+        public Simulation ParseScript(IParseTree antlrTree)
         {
             if (!(antlrTree is ScenarioContext))
                 throw new InvalidScriptException("Cannot parse the input to a Scenario object.");

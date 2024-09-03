@@ -136,7 +136,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
                 if (_maxVelPublisher != null && _maxVelMsg != null)
                 {
-                    Debug.Log("[AWAnalysis] Setting max velocity...");
+                    // Debug.Log("[AWAnalysis] Setting max velocity...");
                     _maxVelPublisher.Publish(_maxVelMsg);
                 }
             }
@@ -424,7 +424,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             {
                 if (msg.State == LocalizationInitializationState.INITIALIZED)
                 {
-                    Debug.Log("[AWAnalysis] Setting goal for Ego...");
+                    // Debug.Log("[AWAnalysis] Setting goal for Ego...");
                     var goalMsgHeader = goalMsg as MessageWithHeader;
                     SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
                     SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL).Publish(goalMsg);
