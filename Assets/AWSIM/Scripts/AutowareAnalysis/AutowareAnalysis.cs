@@ -46,11 +46,16 @@ namespace AWSIM.AWAnalysis
             else
             {
                 PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();
-                _traceWriter = new TraceWriter(outputFilePath,
-                    autowareEgoCar.GetComponent<Vehicle>(),
-                    sensorCamera,
-                    perceptionMode,
-                    ConfigLoader.Config().TraceFormat);
+                if (ConfigLoader.Config().TraceFormat == TraceFormat.YAML)
+                    _traceWriter = new YamlTraceWriter(outputFilePath,
+                        autowareEgoCar.GetComponent<Vehicle>(),
+                        sensorCamera,
+                        perceptionMode);
+                else 
+                    _traceWriter = new MaudeTraceWriter(outputFilePath,
+                        autowareEgoCar.GetComponent<Vehicle>(),
+                        sensorCamera,
+                        perceptionMode);
                 _traceWriter.Start();
             }
         }

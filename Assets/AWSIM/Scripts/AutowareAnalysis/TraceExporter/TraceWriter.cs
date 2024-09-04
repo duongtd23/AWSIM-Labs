@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System.IO;
-using System.Linq;
 using AWSIM.AWAnalysis.CustomSim;
 using autoware_adapi_v1_msgs.msg;
 using autoware_perception_msgs.msg;
@@ -11,67 +9,54 @@ using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
 using tier4_perception_msgs.msg;
 using ROS2;
-using YamlDotNet.Serialization;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
-    public class TraceWriter
+    public abstract class TraceWriter
     {
-        public const string MAUDE_TEMPLATE = "in ../base.maude\n\nmod TRACE is " +
-            "\n  pr FORMULAS .\n\n";
-
-        private readonly string _filePath;
-        private readonly Vehicle _egoVehicle;
-        private readonly Camera _sensorCamera;
-        private readonly TraceCaptureConfig _config;
-        private readonly PerceptionMode _perceptionMode;
-        private readonly float _maxDistanceVisibleOnCamera;
-        private readonly TraceFormat _traceFormat;
+        protected readonly string _filePath;
+        protected readonly Vehicle _egoVehicle;
+        protected readonly Camera _sensorCamera;
+        protected readonly TraceCaptureConfig _config;
+        protected readonly PerceptionMode _perceptionMode;
+        protected readonly float _maxDistanceVisibleOnCamera;
         
         // inner use
-        private TraceCaptureState _state;
-        // private string contents;
-        private float _timeNow;
-        private double _startTime;
-        private TraceObject _traceObject;
+        protected TraceCaptureState _state;
+        protected float _timeNow;
+        protected double _startTime;
+        protected TraceObject _traceObject;
+        // a detected object message with timeStamp > 10 steps (10*25=250ms) behind
+        // the current frame will be discarded (with log error)
+        protected const int MAX_LAG_FIXED_STEPS = 10;
         
         // ROS time at start up
-        // private double _rosTimeAtStart;
+        // protected double _rosTimeAtStart;
         // time when autonomous operation mode becomes ready
-        private float _autoOpModeReadyTime = -1f;
+        protected float _autoOpModeReadyTime = -1f;
         
-        private Queue<Tuple<double, PredictedObject[]>> _objectDetectedMsgs;
-        private Queue<Tuple<double, DetectedObjectWithFeature[]>> _cameraObjectDetectedMsgs;
-        // private Tuple<double,IEnumerable<string>> lastGroundTruthState;
-        // private Tuple<double,IEnumerable<string>> preLastGroundTruthState;
+        protected Queue<Tuple<double, PredictedObject[]>> _objectDetectedMsgs;
+        protected Queue<Tuple<double, DetectedObjectWithFeature[]>> _cameraObjectDetectedMsgs;
         
         ISubscription<OperationModeState> opModeSubscriber;
         ISubscription<RouteState> routeStateSubscriber;
         ISubscription<LocalizationInitializationState> localizationInitStateSubscriber;
         
         public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera, 
-            PerceptionMode perceptionMode, TraceFormat traceFormat)
+            PerceptionMode perceptionMode)
         {
             this._filePath = filePath;
             this._egoVehicle = egoVehicle;
             _sensorCamera = sensorCamera;
             this._config = new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY);
             _perceptionMode = perceptionMode;
-            _traceFormat = traceFormat;
-            // contents = traceFormat == TraceFormat.MAUDE ? TEMPLATE : "";
+            // _traceFormat = traceFormat;
             _traceObject = new TraceObject();
             _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
             _traceObject.states = new List<StateObject>();
             _objectDetectedMsgs = new Queue<Tuple<double, PredictedObject[]>>();
             _cameraObjectDetectedMsgs = new Queue<Tuple<double, DetectedObjectWithFeature[]>>();
             _maxDistanceVisibleOnCamera = ConfigLoader.Config().MaxDistanceVisibleonCamera;
-        }
-
-        public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera,
-            TraceCaptureConfig config, PerceptionMode perceptionMode, TraceFormat traceFormat)
-            : this(filePath, egoVehicle, sensorCamera, perceptionMode, traceFormat)
-        {
-            _config = config;
         }
 
         public void Start()
@@ -92,7 +77,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
                                 _autoOpModeReadyTime = _timeNow;
                                 _state = TraceCaptureState.AUTO_MODE_READY;
                                 SubscribeRosEvents();
-
                             }
                         });
                     break;
@@ -160,17 +144,18 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 
                 case TraceCaptureState.EGO_GOAL_ARRIVED:
                     FlushMessages();
-                    if (_traceFormat == TraceFormat.MAUDE)
-                        WriteMaudeFile();
-                    else if (_traceFormat == TraceFormat.YAML)
-                        WriteYamlFile();
+                    WriteFile();
+                    // if (_traceFormat == TraceFormat.MAUDE)
+                        // WriteMaudeFile();
+                    // else if (_traceFormat == TraceFormat.YAML)
+                        // WriteYamlFile();
                     Debug.Log($"[AWAnalysis] Trace was written to {_filePath}");
                     _state = TraceCaptureState.TRACE_WRITTEN;
                     break;
             }
         }
 
-        private void UpdateTraceObject(double timeStamp)
+        protected virtual void UpdateTraceObject(double timeStamp)
         {
             var newState = new StateObject();
             newState.timeStamp = timeStamp;
@@ -220,14 +205,16 @@ namespace AWSIM.AWAnalysis.TraceExporter
             
             _traceObject.states.Add(newState);
 
+            int numberOfState = _traceObject.states.Count;
+
             // 3d detected object by perception module
             while (_objectDetectedMsgs.Count > 0)
             {
                 var tuple = _objectDetectedMsgs.Peek();
                 if (tuple.Item1 < timeStamp + Time.fixedDeltaTime)
                 {
-                    int i = _traceObject.states.Count - 1;
-                    for (; i >= 0; i--)
+                    int i = numberOfState - 1;
+                    for (; i >= Math.Max(0,numberOfState - MAX_LAG_FIXED_STEPS); i--)
                     {
                         StateObject state = _traceObject.states[i];
                         if (tuple.Item1 >= state.timeStamp || i == 0)
@@ -248,6 +235,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             break;
                         }
                     }
+
+                    if (i < Math.Max(0, numberOfState - MAX_LAG_FIXED_STEPS))
+                    {
+                        Debug.LogError($"A ROS message with timeStamp {tuple.Item1} was discarded " +
+                                       $"at {timeStamp} due to its too late.");
+                    }
                     _objectDetectedMsgs.Dequeue();
                 }
                 else break;
@@ -259,8 +252,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 var tuple = _cameraObjectDetectedMsgs.Peek();
                 if (tuple.Item1 < timeStamp + Time.fixedDeltaTime)
                 {
-                    int i = _traceObject.states.Count - 1;
-                    for (; i >= 0; i--)
+                    int i = numberOfState - 1;
+                    for (; i >= Math.Max(0, numberOfState - MAX_LAG_FIXED_STEPS); i--)
                     {
                         StateObject state = _traceObject.states[i];
                         if (tuple.Item1 >= state.timeStamp || i == 0)
@@ -275,8 +268,14 @@ namespace AWSIM.AWAnalysis.TraceExporter
                                     state.boundingbox_perception_objects.Add(perObject);
                                 }
                             }
+
                             break;
                         }
+                    }
+                    if (i < Math.Max(0, numberOfState - MAX_LAG_FIXED_STEPS))
+                    {
+                        Debug.LogError($"A ROS message with timeStamp {tuple.Item1} was discarded " +
+                                       $"at {timeStamp} due to its too late.");
                     }
                     _cameraObjectDetectedMsgs.Dequeue();
                 }
@@ -284,7 +283,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
         }
 
-        private PerceptionObject DumpPerceptionObject2Obj(PredictedObject detectedObject)
+        protected PerceptionObject DumpPerceptionObject2Obj(PredictedObject detectedObject)
         {
             PerceptionObject perObj = new PerceptionObject();
             perObj.id = new int[detectedObject.Object_id.Uuid.Length];
@@ -324,7 +323,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             return perObj;
         }
         
-        private BBPerceptionObject DumpBBPerceptionObject2Obj(DetectedObjectWithFeature detectedObject)
+        protected BBPerceptionObject DumpBBPerceptionObject2Obj(DetectedObjectWithFeature detectedObject)
         {
             BBPerceptionObject perObj = new BBPerceptionObject();
 
@@ -350,7 +349,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             return perObj;
         }
 
-        private void FlushMessages()
+        protected void FlushMessages()
         {
             while (_objectDetectedMsgs.Count > 0)
             {
@@ -400,42 +399,16 @@ namespace AWSIM.AWAnalysis.TraceExporter
                                 state.boundingbox_perception_objects.Add(perObject);
                             }
                         }
-
                         break;
                     }
                 }
             }
         }
 
-        private void WriteYamlFile()
-        {
-            var serializer = new SerializerBuilder().Build();
-            var yaml = serializer.Serialize(_traceObject);
-            File.WriteAllText(_filePath, yaml);
-        }
+        protected abstract void WriteFile();
         
-        private void WriteMaudeFile()
-        {
-            string contents = MAUDE_TEMPLATE;
-            contents += $"  eq fixedTimestep = {(int)(Time.fixedDeltaTime * 1000)} .\n" +
-                        $"  eq init = ";
-
-            string stateStr = "";
-            foreach (var state in _traceObject.states)
-            {
-                stateStr = state.DumpMaudeStr();
-                contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
-            }
-
-            contents += $"{stateStr} .\n";
-            contents += $"  eq cameraScreenWidth = {_sensorCamera.pixelWidth} .\n" +
-                        $"  eq cameraScreenHeight = {_sensorCamera.pixelHeight} .\n";
-            contents += "endm";
-            File.WriteAllText(_filePath, contents);
-        }
-
         // start capturing traces, and also register various ROS events
-        private void SubscribeRosEvents()
+        protected void SubscribeRosEvents()
         {
             // Debug.Log("[AWAnalysis] Start capturing trace");
             SimulatorROS2Node.CreateSubscription<PredictedObjects>(
@@ -473,7 +446,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         /// </summary>
         /// <param name="npc"></param>
         /// <returns></returns>
-        private BoundingBoxObject DumpNPCGtBoundingBox(NPCVehicle npc)
+        protected BoundingBoxObject DumpNPCGtBoundingBox(NPCVehicle npc)
         {
             MeshCollider bodyCollider = npc.GetComponentInChildren<MeshCollider>();
             Vector3 localPosition = bodyCollider.transform.parent.localPosition;
