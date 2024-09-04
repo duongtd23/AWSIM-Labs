@@ -17,7 +17,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 {
     public class TraceWriter
     {
-        public const string TEMPLATE = "in ../base.maude\n\nmod TRACE is " +
+        public const string MAUDE_TEMPLATE = "in ../base.maude\n\nmod TRACE is " +
             "\n  pr FORMULAS .\n\n";
 
         private readonly string _filePath;
@@ -30,22 +30,20 @@ namespace AWSIM.AWAnalysis.TraceExporter
         
         // inner use
         private TraceCaptureState _state;
-        private string contents;
+        // private string contents;
         private float _timeNow;
         private double _startTime;
         private TraceObject _traceObject;
         
-        // ROS time at start
-        // When AWSIM starts after Autoware, it is 0.
-        // When AWSIM starts before Autoware, rosTimeAtStart > 0.
-        private double _rosTimeAtStart;
+        // ROS time at start up
+        // private double _rosTimeAtStart;
         // time when autonomous operation mode becomes ready
         private float _autoOpModeReadyTime = -1f;
         
         private Queue<Tuple<double, PredictedObject[]>> _objectDetectedMsgs;
         private Queue<Tuple<double, DetectedObjectWithFeature[]>> _cameraObjectDetectedMsgs;
-        private Tuple<double,IEnumerable<string>> lastGroundTruthState;
-        private Tuple<double,IEnumerable<string>> preLastGroundTruthState;
+        // private Tuple<double,IEnumerable<string>> lastGroundTruthState;
+        // private Tuple<double,IEnumerable<string>> preLastGroundTruthState;
         
         ISubscription<OperationModeState> opModeSubscriber;
         ISubscription<RouteState> routeStateSubscriber;
@@ -60,7 +58,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             this._config = new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY);
             _perceptionMode = perceptionMode;
             _traceFormat = traceFormat;
-            contents = traceFormat == TraceFormat.MAUDE ? TEMPLATE : "";
+            // contents = traceFormat == TraceFormat.MAUDE ? TEMPLATE : "";
             _traceObject = new TraceObject();
             _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
             _traceObject.states = new List<StateObject>();
@@ -80,8 +78,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
         {
             _state = TraceCaptureState.INITIALIZED;
             // difference between ROS time and Unity time
-            var rosTime = SimulatorROS2Node.GetCurrentRosTime();
-            _rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9);
+            // updated: since we use Unity time source, this is no longer needed
+            // var rosTime = SimulatorROS2Node.GetCurrentRosTime();
+            // _rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9);
             switch (_config.TraceCaptureFrom)
             {
                 case CaptureStartingTime.AW_AUTO_MODE_READY:
@@ -144,16 +143,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     break;
                 case TraceCaptureState.READY_TO_CAPTURE:
                     _startTime = _timeNow;
-                    if (_traceFormat == TraceFormat.MAUDE)
-                        contents += $"  eq fixedTimestep = {(int)(Time.fixedDeltaTime * 1000)} .\n" +
-                                    $"  eq init = ";
                     _state = TraceCaptureState.TRACE_CAPTURING;
                     Debug.Log("[AWAnalysis] Start capturing trace");
                     break;
                 
                 case TraceCaptureState.TRACE_CAPTURING:
-                    double timeStamp = _timeNow + _rosTimeAtStart;
-                    
                     // if saving-timeout is reached
                     if (CommandLineArgsManager.TraceSavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
                         _timeNow > CommandLineArgsManager.TraceSavingTimeout + _startTime)
@@ -161,13 +155,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         _state = TraceCaptureState.EGO_GOAL_ARRIVED;
                         break;
                     }
-                    if (_traceFormat == TraceFormat.MAUDE)
-                        UpdateMaudeTrace(timeStamp);
-                    else if (_traceFormat == TraceFormat.YAML)
-                        UpdateYamlTrace(timeStamp);
+                    UpdateTraceObject(_timeNow);
                     break;
                 
                 case TraceCaptureState.EGO_GOAL_ARRIVED:
+                    FlushMessages();
                     if (_traceFormat == TraceFormat.MAUDE)
                         WriteMaudeFile();
                     else if (_traceFormat == TraceFormat.YAML)
@@ -178,7 +170,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
         }
 
-        private void UpdateYamlTrace(double timeStamp)
+        private void UpdateTraceObject(double timeStamp)
         {
             var newState = new StateObject();
             newState.timeStamp = timeStamp;
@@ -358,7 +350,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             return perObj;
         }
 
-        private void WriteYamlFile()
+        private void FlushMessages()
         {
             while (_objectDetectedMsgs.Count > 0)
             {
@@ -376,17 +368,19 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             // check duplicate before adding
                             if (!state.perception_objects.Exists(entry => entry.Equals(perObject)))
                             {
-                                int existObjWithSameId = state.perception_objects.FindIndex(entry => entry.IDEqual(perObject.id));
+                                int existObjWithSameId =
+                                    state.perception_objects.FindIndex(entry => entry.IDEqual(perObject.id));
                                 if (existObjWithSameId == -1)
                                     state.perception_objects.Add(perObject);
                                 else state.perception_objects[existObjWithSameId] = perObject;
                             }
                         }
+
                         break;
                     }
                 }
             }
-            
+
             while (_cameraObjectDetectedMsgs.Count > 0)
             {
                 var tuple = _cameraObjectDetectedMsgs.Dequeue();
@@ -406,182 +400,36 @@ namespace AWSIM.AWAnalysis.TraceExporter
                                 state.boundingbox_perception_objects.Add(perObject);
                             }
                         }
+
                         break;
                     }
                 }
             }
-            
+        }
+
+        private void WriteYamlFile()
+        {
             var serializer = new SerializerBuilder().Build();
             var yaml = serializer.Serialize(_traceObject);
             File.WriteAllText(_filePath, yaml);
         }
         
-        private void UpdateMaudeTrace(double timeStamp)
-        {
-            string stateStr = $"{timeStamp} # {{";
-            // Dump ground truth trace of Ego and NPCs
-            stateStr += DumpEgoInfo();
-            List<NPCVehicle> npcs = CustomNPCSpawningManager.GetNPCs();
-            npcs.ForEach(npc => stateStr += ", " + DumpNPCInfo(npc));
-
-            while (_objectDetectedMsgs.Count > 0)
-            {
-                var tuple = _objectDetectedMsgs.Peek();
-                if (lastGroundTruthState == null ||
-                    preLastGroundTruthState == null ||
-                    tuple.Item1 > lastGroundTruthState.Item1)
-                    break;
-
-                List<string> objectsStr = new List<string>();
-                foreach (var detectedObj in tuple.Item2)
-                {
-                    string objStr = DumpDetectedObject(detectedObj);
-                    if (!objectsStr.Contains(objStr))
-                        objectsStr.Add(objStr);
-                }
-
-                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                    lastGroundTruthState.Item1 - tuple.Item1)
-                {
-                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        preLastGroundTruthState.Item1,
-                        preLastGroundTruthState.Item2.Union(objectsStr));
-                }
-                else
-                {
-                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        lastGroundTruthState.Item1,
-                        lastGroundTruthState.Item2.Union(objectsStr));
-                }
-
-                _objectDetectedMsgs.Dequeue();
-            }
-
-            while (_cameraObjectDetectedMsgs.Count > 0)
-            {
-                var tuple = _cameraObjectDetectedMsgs.Peek();
-                if (lastGroundTruthState == null ||
-                    preLastGroundTruthState == null ||
-                    tuple.Item1 > lastGroundTruthState.Item1)
-                    break;
-                List<string> objectsStr = new List<string>();
-                foreach (var detectedObject in tuple.Item2)
-                {
-                    string objStr = DumpCameraDetectedObject(detectedObject);
-                    if (!objectsStr.Contains(objStr))
-                        objectsStr.Add(objStr);
-                }
-
-                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                    lastGroundTruthState.Item1 - tuple.Item1)
-                {
-                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        preLastGroundTruthState.Item1,
-                        preLastGroundTruthState.Item2.Union(objectsStr));
-                }
-                else
-                {
-                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        lastGroundTruthState.Item1,
-                        lastGroundTruthState.Item2.Union(objectsStr));
-                }
-
-                _cameraObjectDetectedMsgs.Dequeue();
-            }
-
-            if (preLastGroundTruthState == null)
-                preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                    timeStamp,
-                    new List<string> { stateStr });
-            else if (lastGroundTruthState == null)
-                lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                    timeStamp,
-                    new List<string> { stateStr });
-            else
-            {
-                string preLastStateStr = preLastGroundTruthState.Item2.First();
-                foreach (string objStr in preLastGroundTruthState.Item2.Skip(1))
-                    preLastStateStr += ", " + objStr;
-                // don't forget to add a closing bracket
-                contents += $"{preLastStateStr}}} .\n  rl {preLastStateStr}}}\n  => ";
-                preLastGroundTruthState = lastGroundTruthState;
-                lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                    timeStamp,
-                    new List<string> { stateStr });
-            }
-        }
-
         private void WriteMaudeFile()
         {
-            while (_objectDetectedMsgs.Count > 0)
+            string contents = MAUDE_TEMPLATE;
+            contents += $"  eq fixedTimestep = {(int)(Time.fixedDeltaTime * 1000)} .\n" +
+                        $"  eq init = ";
+
+            string stateStr = "";
+            foreach (var state in _traceObject.states)
             {
-                var tuple = _objectDetectedMsgs.Dequeue();
-                
-                List<string> listObjectStr = new List<string>();
-                foreach (var detectedObject in tuple.Item2)
-                {
-                    string str = DumpDetectedObject(detectedObject);
-                    if (!listObjectStr.Contains(str))
-                        listObjectStr.Add(str);
-                }
-                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                    lastGroundTruthState.Item1 - tuple.Item1)
-                {
-                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        preLastGroundTruthState.Item1,
-                        preLastGroundTruthState.Item2.Union(listObjectStr));
-                }
-                else
-                {
-                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        lastGroundTruthState.Item1,
-                        lastGroundTruthState.Item2.Union(listObjectStr));
-                }
+                stateStr = state.DumpMaudeStr();
+                contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
             }
-            
-            while (_cameraObjectDetectedMsgs.Count > 0)
-            {
-                var tuple = _cameraObjectDetectedMsgs.Dequeue();
-                
-                List<string> listObjectStr2 = new List<string>();
-                // string objectsStr = "";
-                foreach (var detectedObject in tuple.Item2)
-                {
-                    string str = DumpCameraDetectedObject(detectedObject);
-                    if (!listObjectStr2.Contains(str))
-                        listObjectStr2.Add(str);
-                }
-                if (Math.Abs(tuple.Item1 - preLastGroundTruthState.Item1) <=
-                    lastGroundTruthState.Item1 - tuple.Item1)
-                {
-                    preLastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        preLastGroundTruthState.Item1,
-                        preLastGroundTruthState.Item2.Union(listObjectStr2));
-                }
-                else
-                {
-                    lastGroundTruthState = new Tuple<double, IEnumerable<string>>(
-                        lastGroundTruthState.Item1,
-                        lastGroundTruthState.Item2.Union(listObjectStr2));
-                }
-            }
-            
-            string preLastStateStr = preLastGroundTruthState.Item2.First();
-            foreach (string objStr in preLastGroundTruthState.Item2.Skip(1))
-                preLastStateStr += ", " + objStr;
-            
-            string lastStateStr = lastGroundTruthState.Item2.First();
-            foreach (string objStr in lastGroundTruthState.Item2.Skip(1))
-                lastStateStr += ", " + objStr;
-                
-            contents += $"{preLastStateStr}}} .\n  rl {preLastStateStr}}}\n  => ";
-            contents += $"{lastStateStr}}} .\n";
-            // loop rule
-            contents += $"  rl {lastStateStr}}} \n  => {lastStateStr}}} .\n";
-            if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
-                // write camera info
-                contents += $"  eq cameraScreenWidth = {_sensorCamera.pixelWidth} .\n" +
-                            $"  eq cameraScreenHeight = {_sensorCamera.pixelHeight} .\n";
+
+            contents += $"{stateStr} .\n";
+            contents += $"  eq cameraScreenWidth = {_sensorCamera.pixelWidth} .\n" +
+                        $"  eq cameraScreenHeight = {_sensorCamera.pixelHeight} .\n";
             contents += "endm";
             File.WriteAllText(_filePath, contents);
         }
@@ -619,36 +467,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                         _state = TraceCaptureState.EGO_GOAL_ARRIVED;
                 });
         }
-        
-        private string DumpEgoInfo()
-        {
-            string pose = $"pose: {{pos: {_egoVehicle.Position.x} {_egoVehicle.Position.y} {_egoVehicle.Position.z}, qua: {_egoVehicle.Rotation.x} {_egoVehicle.Rotation.y} {_egoVehicle.Rotation.z} | {_egoVehicle.Rotation.w}}}";
-            string twist = $"twist: {{lin: {_egoVehicle.Velocity.x} {_egoVehicle.Velocity.y} {_egoVehicle.Velocity.z}, ang: {_egoVehicle.AngularVelocity.x} {_egoVehicle.AngularVelocity.y} {_egoVehicle.AngularVelocity.z}}}";
-            string accel = $"accel: {{lin: {_egoVehicle.Acceleration.x} {_egoVehicle.Acceleration.y} {_egoVehicle.Acceleration.z}, ang: {_egoVehicle.AngularAcceleration.x} {_egoVehicle.AngularAcceleration.y} {_egoVehicle.AngularAcceleration.z}}}";
-            return $"{{name: \"ego\", {pose}, {twist}, {accel}}}";
-        }
 
-        private string DumpNPCInfo(NPCVehicle npc)
-        {
-            var centerPos = npc.CenterPosition();
-            string pose = $"pose: {{pos: {centerPos.x} {centerPos.y} {centerPos.z}, rota: {npc.EulerAnguleY}}}";
-            string twist = $"twist: {{lin: {npc.Velocity.x} {npc.Velocity.y} {npc.Velocity.z}, ang: {npc.YawAngularSpeed}}}";
-            string accel = $"accel: {npc.Acceleration}";
-            if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
-            {
-                var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(npc.Position, _egoVehicle.Position);
-                if (distanceToEgo < _maxDistanceVisibleOnCamera &&
-                    CameraUtils.NPCVisibleByCamera(_sensorCamera, npc))
-                {
-                    BoundingBoxObject boundingBoxObject = DumpNPCGtBoundingBox(npc);
-                    return
-                        $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}, " +
-                        $"gt-rect: {boundingBoxObject.x} {boundingBoxObject.y} {boundingBoxObject.width} {boundingBoxObject.height}}}";
-                }
-            }
-            return $"{{name: \"{npc.ScriptName ?? ""}\", {pose}, {twist}, {accel}}}";
-        }
-        
         /// <summary>
         /// return the bounding box of `npc`.
         /// </summary>
@@ -709,53 +528,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 width = max_x - min_x,
                 height = max_y - min_y
             };
-        }
-
-        private string DumpDetectedObject(PredictedObject obj)
-        {
-            string uuid = "";
-            for (int i = 0; i < obj.Object_id.Uuid.Length; i++)
-            {
-                uuid += $"{(int)obj.Object_id.Uuid[i]} ";
-            }
-            if (uuid != "")
-                uuid = uuid[..^1];
-
-            string classification = "";
-            foreach (var t in obj.Classification)
-            {
-                classification += $"{(int)t.Label} -> {t.Probability}, ";
-            }
-            if (classification != "")
-                classification = classification[..^2];
-
-            var pos = ROS2Utility.RosMGRSToUnityPosition(obj.Kinematics.Initial_pose_with_covariance.Pose.Position);
-            var rot = ROS2Utility.RosToUnityRotation(obj.Kinematics.Initial_pose_with_covariance.Pose.Orientation).eulerAngles;
-            string pose = $"pose: {{pos: {pos.x} {pos.y} {pos.z}, rota: {rot.x} {rot.y} {rot.z}}}";
-
-            var vel = obj.Kinematics.Initial_twist_with_covariance.Twist;
-            string twist = $"twist: {{lin: {vel.Linear.X} {vel.Linear.Y} {vel.Linear.Z}, ang: {vel.Angular.X} {vel.Angular.Y} {vel.Angular.Z}}}";
-
-            var accel = obj.Kinematics.Initial_acceleration_with_covariance.Accel;
-            string accelStr = $"accel: {{lin: {accel.Linear.X} {accel.Linear.Y} {accel.Linear.Z}, ang: {accel.Angular.X} {accel.Angular.Y} {accel.Angular.Z}}}";
-
-            return $"{{id: [{uuid}], epro: {obj.Existence_probability}, class: [{classification}], {pose}, {twist}, {accelStr}}}";
-        }
-        
-        private string DumpCameraDetectedObject(DetectedObjectWithFeature obj)
-        {
-            string classification = "";
-            foreach (var t in obj.Object.Classification)
-            {
-                classification += $"{(int)t.Label} -> {t.Probability}, ";
-            }
-            if (classification != "")
-                classification = classification[..^2];
-
-            var roi = obj.Feature.Roi;
-            string rectStr = $"rect: {roi.X_offset} {_sensorCamera.pixelHeight - roi.Y_offset - roi.Height} {roi.Width} {roi.Height}";
-
-            return $"{{epro: {obj.Object.Existence_probability}, class: [{classification}], {rectStr}}}";
         }
     }
 

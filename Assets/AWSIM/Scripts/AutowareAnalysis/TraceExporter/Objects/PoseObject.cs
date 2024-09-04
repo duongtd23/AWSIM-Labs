@@ -11,5 +11,10 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         {
             return position.Equals(other.position) && quaternion.Equals(other.quaternion);
         }
+
+        public string DumpMaudeStr()
+        {
+            return $"pos: {position.DumpMaudeStr()}, qua: {quaternion.DumpMaudeStr()}";
+        }
     }
 }

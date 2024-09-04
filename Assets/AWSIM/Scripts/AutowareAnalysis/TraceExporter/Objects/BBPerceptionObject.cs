@@ -22,5 +22,19 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
                     return false;
             return true;
         }
+        
+        public string DumpMaudeStr()
+        {
+            string classStr = "";
+            foreach (var t in classification)
+            {
+                classStr += $"{(int)t.label} -> {t.probability}, ";
+            }
+            if (classStr != "")
+                classStr = classStr[..^2];
+
+            return $"{{epro: {existence_prob}, class: [{classStr}], " +
+                   $"rect: {bounding_box.DumpMaudeStr()}}}";
+        }
     }
 }

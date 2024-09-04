@@ -11,5 +11,10 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         {
             return position.Equals(other.position) && rotation.Equals(other.rotation);
         }
+        
+        public string DumpMaudeStr()
+        {
+            return $"pos: {position.DumpMaudeStr()}, rota: {rotation.DumpMaudeStr()}";
+        }
     }
 }

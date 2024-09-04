@@ -3,5 +3,5 @@ NpcAcceleration: 3
 NpcDeceleration: 5
 MaxDistanceVisibleonCamera: 130
 DelaySendingEngageCmd: 1.5
-TraceFormat: 1                  # 0: maude, 1: yaml
+TraceFormat: 0                  # 0: maude, 1: yaml
 

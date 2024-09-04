@@ -19,5 +19,10 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         {
             return x.Equals(other.x) && y.Equals(other.y) && z.Equals(other.z);
         }
+
+        public string DumpMaudeStr()
+        {
+            return $"{x} {y} {z}";
+        }
     }
 }

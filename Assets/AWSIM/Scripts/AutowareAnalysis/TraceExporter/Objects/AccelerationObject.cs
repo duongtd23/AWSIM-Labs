@@ -11,5 +11,10 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         {
             return linear.Equals(other.linear) && angular.Equals(other.angular);
         }
+        
+        public string DumpMaudeStr()
+        {
+            return $"lin: {linear.DumpMaudeStr()}, ang: {angular.DumpMaudeStr()}";
+        }
     }
 }

@@ -35,5 +35,27 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
                     return false;
             return true;
         }
+
+        public string DumpMaudeStr()
+        {
+            string uuid = "";
+            for (int i = 0; i < id.Length; i++)
+            {
+                uuid += $"{id[i]} ";
+            }
+            if (uuid != "")
+                uuid = uuid[..^1];
+
+            string classStr = "";
+            foreach (var t in classification)
+            {
+                classStr += $"{(int)t.label} -> {t.probability}, ";
+            }
+            if (classStr != "")
+                classStr = classStr[..^2];
+
+            return $"{{id: [{uuid}], epro: {existence_prob}, class: [{classStr}], " +
+                   $"pose: {{{pose.DumpMaudeStr()}}}, twist: {{{twist.DumpMaudeStr()}}}, accel: {{{acceleration.DumpMaudeStr()}}}}}";
+        }
     }
 }
