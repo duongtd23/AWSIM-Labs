@@ -9,6 +9,7 @@ using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
 using tier4_perception_msgs.msg;
 using ROS2;
+using awTrajectoryPoint = autoware_planning_msgs.msg.TrajectoryPoint;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
@@ -37,6 +38,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
         
         protected Queue<Tuple<double, PredictedObject[]>> _objectDetectedMsgs;
         protected Queue<Tuple<double, DetectedObjectWithFeature[]>> _cameraObjectDetectedMsgs;
+        protected Queue<Tuple<double, awTrajectoryPoint[]>> _planTrajectoryMsgs;
         
         ISubscription<OperationModeState> opModeSubscriber;
         ISubscription<RouteState> routeStateSubscriber;
@@ -50,15 +52,22 @@ namespace AWSIM.AWAnalysis.TraceExporter
             _sensorCamera = sensorCamera;
             this._config = new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY);
             _perceptionMode = perceptionMode;
-            // _traceFormat = traceFormat;
-            _traceObject = new TraceObject();
-            _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
+            InitializeTraceObj();
             _traceObject.states = new List<StateObject>();
             _objectDetectedMsgs = new Queue<Tuple<double, PredictedObject[]>>();
             _cameraObjectDetectedMsgs = new Queue<Tuple<double, DetectedObjectWithFeature[]>>();
+            _planTrajectoryMsgs = new Queue<Tuple<double, awTrajectoryPoint[]>>();
             _maxDistanceVisibleOnCamera = ConfigLoader.Config().MaxDistanceVisibleonCamera;
         }
 
+        protected void InitializeTraceObj()
+        {
+            _traceObject = new TraceObject();
+            _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
+            _traceObject.camera_screen_height = _sensorCamera.pixelHeight;
+            _traceObject.camera_screen_width = _sensorCamera.pixelWidth;
+        }
+        
         public void Start()
         {
             _state = TraceCaptureState.INITIALIZED;
@@ -281,6 +290,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 }
                 else break;
             }
+
+            WritePlanTrajectoryObj(timeStamp, numberOfState);
         }
 
         protected PerceptionObject DumpPerceptionObject2Obj(PredictedObject detectedObject)
@@ -439,6 +450,18 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     if (msg.State == RouteState.ARRIVED)
                         _state = TraceCaptureState.EGO_GOAL_ARRIVED;
                 });
+            
+            // capture planning trajectory
+            if (ConfigLoader.CapturePlanTrajectory())
+            {
+                SimulatorROS2Node.CreateSubscription<autoware_planning_msgs.msg.Trajectory>(
+                    TopicName.TOPIC_PLANNING_TRAJECTORY, msg =>
+                    {
+                        _planTrajectoryMsgs.Enqueue(new Tuple<double, awTrajectoryPoint[]>(
+                            msg.Header.Stamp.Sec + msg.Header.Stamp.Nanosec / Math.Pow(10, 9),
+                            msg.Points));
+                    });
+            }
         }
 
         /// <summary>
@@ -501,6 +524,59 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 width = max_x - min_x,
                 height = max_y - min_y
             };
+        }
+
+        protected void WritePlanTrajectoryObj(double timeStamp, int numberOfState)
+        {
+            while (_planTrajectoryMsgs.Count > 0)
+            {
+                var tuple = _planTrajectoryMsgs.Dequeue();
+                if (tuple.Item1 < timeStamp + Time.fixedDeltaTime)
+                {
+                    int i = numberOfState - 1;
+                    for (; i >= Math.Max(0, numberOfState - MAX_LAG_FIXED_STEPS); i--)
+                    {
+                        StateObject state = _traceObject.states[i];
+                        if (tuple.Item1 >= state.timeStamp || i == 0)
+                        {
+                            state.plan_trajectory = new PlanTrajectory()
+                            {
+                                points = DumpTrajectoryPoints(tuple.Item2)
+                            };
+                            break;
+                        }
+                    }
+                    if (i < Math.Max(0, numberOfState - MAX_LAG_FIXED_STEPS))
+                    {
+                        Debug.LogError($"A ROS message with timeStamp {tuple.Item1} was discarded " +
+                                       $"at {timeStamp} due to its too late.");
+                    }
+                }
+                else break;
+            }
+        }
+
+        protected TrajectoryPoint[] DumpTrajectoryPoints(awTrajectoryPoint[] points)
+        {
+            int no = Math.Min(points.Length, ConfigLoader.Config().PlanTrajectoryMaxStepsRecording);
+            var result = new TrajectoryPoint[no];
+            for (int i = 0; i < no; i++)
+            {
+                result[i] = new TrajectoryPoint()
+                {
+                    longitudinal_velocity = points[i].Longitudinal_velocity_mps,
+                    lateral_velocity = points[i].Lateral_velocity_mps,
+                    acceleration = points[i].Acceleration_mps2,
+                    time_from_start = points[i].Time_from_start.Sec +
+                                      points[i].Time_from_start.Nanosec / Math.Pow(10, 9),
+                    pose = new PoseObject()
+                };
+                var unityPoint = ROS2Utility.RosMGRSToUnityPosition(points[i].Pose.Position);
+                var unityRotation = ROS2Utility.RosToUnityRotation(points[i].Pose.Orientation);
+                result[i].pose.position = new Vector3Object(unityPoint.x, unityPoint.y, unityPoint.z);
+                result[i].pose.quaternion = new QuaternionObject(unityRotation.x, unityRotation.y, unityRotation.z, unityRotation.w);
+            }
+            return result;
         }
     }
 

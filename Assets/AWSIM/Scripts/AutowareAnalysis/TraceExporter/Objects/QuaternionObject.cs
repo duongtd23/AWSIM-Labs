@@ -4,11 +4,11 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
 {
     public class QuaternionObject
     {
-        public float x;
-        public float y;
-        public float z;
-        public float w;
-        public QuaternionObject(float x2, float y2, float z2, float w2)
+        public double x;
+        public double y;
+        public double z;
+        public double w;
+        public QuaternionObject(double x2, double y2, double z2, double w2)
         {
             this.x = x2;
             this.y = y2;

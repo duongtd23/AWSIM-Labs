@@ -22,6 +22,7 @@ namespace AWSIM.AWAnalysis
         public const string TOPIC_PERCEPTION_CAMERA_OBJECTS = "/perception/object_recognition/detection/rois0";
         public const string TOPIC_INITIAL_POSE = "/initialpose";
         public const string TOPIC_MAX_VELOCITY = "/planning/scenario_planning/max_velocity";
+        public const string TOPIC_PLANNING_TRAJECTORY = "/planning/scenario_planning/trajectory";
     }
 
     public enum PerceptionMode

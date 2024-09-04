@@ -11,9 +11,9 @@ namespace AWSIM.AWAnalysis
         public float MaxDistanceVisibleonCamera { get; set; } = 130f;
         // the interval to send engage command from the time when AW autonomous mode becomes available 
         public float DelaySendingEngageCmd { get; set; } = 1.5f;
-
-        // public string TraceFormat { get; set; } = "maude";
         public TraceFormat TraceFormat { get; set; } = TraceFormat.MAUDE;
+        public TraceComponent[] ComponentsRecording { get; set; } = Array.Empty<TraceComponent>();
+        public int PlanTrajectoryMaxStepsRecording { get; set; } = 10;
     }
 
     [Serializable]
@@ -21,5 +21,11 @@ namespace AWSIM.AWAnalysis
     {
         MAUDE = 0,
         YAML = 1
+    }
+    
+    [Serializable]
+    public enum TraceComponent
+    {
+        PLANNING_TRAJECTORY = 1
     }
 }

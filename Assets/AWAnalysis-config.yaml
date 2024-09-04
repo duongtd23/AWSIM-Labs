@@ -3,5 +3,7 @@ NpcAcceleration: 3
 NpcDeceleration: 5
 MaxDistanceVisibleonCamera: 130
 DelaySendingEngageCmd: 1.5
-TraceFormat: 0                  # 0: maude, 1: yaml
-
+TraceFormat: 1                              # 0: maude, 1: yaml (see enum TraceFormat)
+ComponentsRecording:                        # see enum TraceComponent
+  - 1                                       # 1: planning trajectory
+PlanTrajectoryMaxStepsRecording: 10         # maximum number of steps when recording plan trajectories

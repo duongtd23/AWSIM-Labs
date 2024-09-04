@@ -10,6 +10,8 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         
         public List<PerceptionObject> perception_objects;
         public List<BBPerceptionObject> boundingbox_perception_objects;
+        
+        public PlanTrajectory plan_trajectory;
 
         public string DumpMaudeStr()
         {
