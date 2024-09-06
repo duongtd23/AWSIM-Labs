@@ -6,7 +6,9 @@ using AWSIM.AWAnalysis.CustomSim;
 using AWSIM.AWAnalysis.TraceExporter;
 using AWSIM_Script.Object;
 using AWSIM_Script.Parser;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AWSIM.AWAnalysis
 {
@@ -36,35 +38,71 @@ namespace AWSIM.AWAnalysis
         public GameObject autowareEgoCar;
         public Camera sensorCamera;
         private TraceWriter _traceWriter;
+        private CustomEgoSetting _customEgoSetting;
         
         // Start is called before the first frame update
         void Start()
         {
-            bool argDefined = CommandLineArgsManager.GetTraceSavingPathArg(out string outputFilePath);
-            if (!argDefined)
-                Debug.LogError("[AWAnalysis] Path to save trace output is not given. " +
-                    "Specify it by argument `-output <path-to-save-trace-file>`.");
-            else
-            {
-                PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();
-                if (ConfigLoader.Config().TraceFormat == TraceFormat.YAML)
-                    _traceWriter = new YamlTraceWriter(outputFilePath,
-                        autowareEgoCar.GetComponent<Vehicle>(),
-                        sensorCamera,
-                        perceptionMode);
-                else 
-                    _traceWriter = new MaudeTraceWriter(outputFilePath,
-                        autowareEgoCar.GetComponent<Vehicle>(),
-                        sensorCamera,
-                        perceptionMode);
-                _traceWriter.Start();
-            }
+            while (CustomNPCSpawningManager.Manager() == null) ;
+            var simulation = InitializeCustomSim();
+            InitializeTrace(simulation.SavingTimeout);
         }
 
         // Update is called once per frame
         void FixedUpdate()
         {
             _traceWriter?.Update();
+            _customEgoSetting.UpdateEgo();
+        }
+
+        private Simulation InitializeCustomSim()
+        {
+            bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
+            if (!argDefined)
+            {   
+                Debug.LogError("[AWAnalysis] Input script is not given. " +
+                                "Specify it by argument `-script <path-to-script-file>`.");
+                return null;
+            }
+            Debug.Log("Loading input script " + scriptFilePath);
+            Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFilePath);
+            ExecuteSimulation(simulation);
+            return simulation;
+        }
+
+        private void InitializeTrace(float savingTimeout)
+        {
+            bool argDefined = CommandLineArgsManager.GetTraceSavingPathArg(out string outputFilePath);
+            if (!argDefined)
+                Debug.LogError("[AWAnalysis] Path to save trace output is not given. " +
+                               "Specify it by argument `-output <path-to-save-trace-file>`.");
+            else
+            {
+                PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();
+                if (ConfigLoader.Config().TraceFormat == TraceFormat.YAML)
+                    _traceWriter = new YamlTraceWriter(outputFilePath,
+                        autowareEgoCar,
+                        sensorCamera,
+                        perceptionMode,
+                        new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
+                else
+                    _traceWriter = new MaudeTraceWriter(outputFilePath,
+                        autowareEgoCar,
+                        sensorCamera,
+                        perceptionMode,
+                        new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
+                _traceWriter.Start();
+            }
+        }
+        
+        private void ExecuteSimulation(Simulation simulation)
+        {
+            foreach (NPCCar npcCar in simulation.NPCs)
+            {
+                CustomNPCSpawningManager.SpawnNPC(npcCar);
+            }
+
+            _customEgoSetting = new CustomEgoSetting(autowareEgoCar, simulation.Ego);
         }
     }
 }

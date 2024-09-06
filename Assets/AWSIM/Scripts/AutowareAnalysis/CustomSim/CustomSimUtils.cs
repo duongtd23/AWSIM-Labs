@@ -22,10 +22,13 @@ namespace AWSIM.AWAnalysis.CustomSim
         /// <returns></returns>
         public static float DistanceIgnoreYAxis(Vector3 point1, Vector3 point2)
         {
-            // in C#, objects are passed by value
+            return MagnitudeIgnoreYAxis(point1 - point2);
+        }
+        
+        public static float MagnitudeIgnoreYAxis(Vector3 point1)
+        {
             point1.y = 0f;
-            point2.y = 0f;
-            return Vector3.Distance(point1, point2);
+            return Vector3.Magnitude(point1);
         }
 
         // parse traffic name from a given name

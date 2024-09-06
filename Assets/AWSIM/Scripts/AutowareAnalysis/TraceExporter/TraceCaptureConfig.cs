@@ -1,17 +1,19 @@
 ﻿using System;
+using AWSIM_Script.Object;
+
 namespace AWSIM.AWAnalysis.TraceExporter
 {
 	public class TraceCaptureConfig
 	{
-		public TraceCaptureConfig(CaptureStartingTime startingConfig)
+		public TraceCaptureConfig(CaptureStartingTime startingConfig, float savingTimeout)
 		{
-            this.TraceCaptureFrom = startingConfig;
+            TraceCaptureFrom = startingConfig;
+            SavingTimeout = savingTimeout;
 		}
 
 		public CaptureStartingTime TraceCaptureFrom { get; set; }
-
-        // how many frame per second
-    }
+		public float SavingTimeout { get; set; } = Simulation.DUMMY_SAVING_TIMEOUT;
+	}
 
     public enum CaptureStartingTime
     {

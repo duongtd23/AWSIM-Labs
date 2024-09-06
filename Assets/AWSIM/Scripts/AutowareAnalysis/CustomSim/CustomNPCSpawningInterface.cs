@@ -33,5 +33,4 @@ namespace AWSIM.AWAnalysis.CustomSim
             CustomNPCSpawningManager.Manager()?.UpdateNPCs();
         }
     }
-
 }

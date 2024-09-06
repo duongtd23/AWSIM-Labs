@@ -15,6 +15,13 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
             this.z = z2;
         }
 
+        public Vector3Object(UnityEngine.Vector3 other)
+        {
+            this.x = other.x;
+            this.y = other.y;
+            this.z = other.z;
+        }
+
         public bool Equals(Vector3Object other)
         {
             return x.Equals(other.x) && y.Equals(other.y) && z.Equals(other.z);

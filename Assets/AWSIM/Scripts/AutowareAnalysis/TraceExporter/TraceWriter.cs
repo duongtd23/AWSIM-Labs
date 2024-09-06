@@ -16,6 +16,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
     public abstract class TraceWriter
     {
         protected readonly string _filePath;
+        protected GameObject _autowareEgoCar;
         protected readonly Vehicle _egoVehicle;
         protected readonly Camera _sensorCamera;
         protected readonly TraceCaptureConfig _config;
@@ -44,13 +45,14 @@ namespace AWSIM.AWAnalysis.TraceExporter
         ISubscription<RouteState> routeStateSubscriber;
         ISubscription<LocalizationInitializationState> localizationInitStateSubscriber;
         
-        public TraceWriter(string filePath, Vehicle egoVehicle, Camera sensorCamera, 
-            PerceptionMode perceptionMode)
+        public TraceWriter(string filePath, GameObject autowareEgoCar, Camera sensorCamera, 
+            PerceptionMode perceptionMode, TraceCaptureConfig config)
         {
-            this._filePath = filePath;
-            this._egoVehicle = egoVehicle;
+            _filePath = filePath;
+            _autowareEgoCar = autowareEgoCar;
+            _egoVehicle = autowareEgoCar.GetComponent<Vehicle>();
             _sensorCamera = sensorCamera;
-            this._config = new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY);
+            _config = config;
             _perceptionMode = perceptionMode;
             InitializeTraceObj();
             _traceObject.states = new List<StateObject>();
@@ -142,8 +144,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 
                 case TraceCaptureState.TRACE_CAPTURING:
                     // if saving-timeout is reached
-                    if (CommandLineArgsManager.TraceSavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
-                        _timeNow > CommandLineArgsManager.TraceSavingTimeout + _startTime)
+                    if (_config.SavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
+                        _timeNow > _config.SavingTimeout + _startTime)
                     {
                         _state = TraceCaptureState.EGO_GOAL_ARRIVED;
                         break;
@@ -417,6 +419,31 @@ namespace AWSIM.AWAnalysis.TraceExporter
         }
 
         protected abstract void WriteFile();
+
+        protected void DumpVehicleDetails()
+        {
+            // ego details
+            MeshFilter meshFilter = _autowareEgoCar.GetComponentInChildren<MeshFilter>();
+            
+            _traceObject.ego_detail = new EgoDetailObject()
+            {
+                center = new Vector3Object(meshFilter.mesh.bounds.center + meshFilter.transform.parent.parent.localPosition),
+                extents = new Vector3Object(meshFilter.mesh.bounds.extents)
+            };
+            
+            // NPCs details
+            var npcs = CustomNPCSpawningManager.GetNPCs();
+            _traceObject.npcs_detail = new NPCDetailObject[npcs.Count];
+            for (int i = 0; i < npcs.Count; i++)
+            {
+                _traceObject.npcs_detail[i] = new NPCDetailObject()
+                {
+                    name = npcs[i].ScriptName,
+                    center = new Vector3Object(npcs[i].Bounds.center),
+                    extents = new Vector3Object(npcs[i].Bounds.extents)
+                };
+            }
+        }
         
         // start capturing traces, and also register various ROS events
         protected void SubscribeRosEvents()
