@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Error;
 using UnityEngine;
 using UnityEngine.Profiling;
 using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation
 {
@@ -162,11 +164,68 @@ namespace AWSIM.TrafficSimulation
             cognitionStep?.Dispose();
         }
 
-        public void Register(NPCVehicle vehicle, List<TrafficLane> route, int waypointIndex,
-            Dictionary<string,float> desiredSpeed, IPosition goal, NPCConfig customConfig)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="waypointIndex"></param>
+        /// <param name="goal">must be validated (offet does not exceed total length)</param>
+        /// <param name="customConfig">its Route and RouteAndSpeeds must be non-null</param>
+        public void Register(NPCVehicle vehicle, int waypointIndex,
+            IPosition goal, NPCConfig customConfig)
         {
-            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, desiredSpeed, goal, 
+            var routeStr = customConfig.Route;
+            var route = CustomSimUtils.ParseLanes(routeStr);
+
+            if (customConfig.HasALaneChange())
+            {
+                // add a waypoint to the point where lane change starts
+                int sourceWaypointId = AddaWaypointToSourceLaneChange(ref route, customConfig.LaneChange);
+                
+                // add a waypoint to the point where lane change complete
+                int targetWaypointId = AddaWaypointToTargetLaneChange(ref route, customConfig.LaneChange);
+                
+                customConfig.LaneChange.SourceLaneWaypointIndex = sourceWaypointId;
+                customConfig.LaneChange.TargetLaneWaypointIndex = targetWaypointId;
+            }
+            
+            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, 
+                CustomSimUtils.ValidateGoal(goal), 
                 customConfig, waypointIndex));
+        }
+
+        private int AddaWaypointToSourceLaneChange(ref List<TrafficLane> route, LaneChangeConfig laneChangeConfig)
+        {
+            TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(sourceLane, laneChangeConfig.ChangeOffset, out int waypointIndex);
+            var updateWaypoints = new List<Vector3>(sourceLane.Waypoints[..(waypointIndex + 1)]);
+            updateWaypoints.Add(newWaypoint);
+            sourceLane.UpdateWaypoints(updateWaypoints.ToArray());
+            return waypointIndex;
+        }
+        
+        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, LaneChangeConfig laneChangeConfig)
+        {
+            TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
+            TrafficLane targetLane = route.Find(l => l.name == laneChangeConfig.TargetLane);
+            float timeForLaneChange = sourceLane.Width / laneChangeConfig.LateralVelocity;
+            float longitudeLaneChangeDistance = timeForLaneChange * laneChangeConfig.LongitudinalVelocity;
+
+            var ok = CustomSimUtils.SideLaneOffset(sourceLane, longitudeLaneChangeDistance,
+                new TrafficLane[1] { targetLane },
+                laneChangeConfig.ChangeDirection == Side.LEFT,
+                out TrafficLane other, out float offset);
+            if (!ok)
+            {
+                throw new InvalidScriptException("Cannot parse the lane change information");
+            }
+            
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(targetLane, offset, out int waypointIndex);
+
+            var updateWaypoints = new List<Vector3>(targetLane.Waypoints[waypointIndex..]);
+            updateWaypoints.Insert(0, newWaypoint);
+            targetLane.UpdateWaypoints(updateWaypoints.ToArray());
+            return waypointIndex;
         }
     }
 }

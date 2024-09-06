@@ -47,6 +47,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new LaneNotFoundException("[NPCSim] Cannot find traffic lane with name: " + laneName);
             return obj.GetComponent<TrafficLane>();
         }
+        
         public static List<TrafficLane> ParseLanes(List<string> laneNames)
         {
             var lanes = new List<TrafficLane>();

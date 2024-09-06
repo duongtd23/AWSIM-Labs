@@ -58,15 +58,7 @@ namespace AWSIM_Script.Object
 			return Config.RouteAndSpeeds;
 		}
 
-        public List<string> Route()
-        {
-            if (Config == null)
-                return null;
-            var routeSpeeds = Config.RouteAndSpeeds;
-			if (routeSpeeds == null)
-				return null;
-			return new List<string>(routeSpeeds.Keys);
-        }
+        public List<string> Route => Config?.Route;
 
 		public bool HasGoal()
 		{

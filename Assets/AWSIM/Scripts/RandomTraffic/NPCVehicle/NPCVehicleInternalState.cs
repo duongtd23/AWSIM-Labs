@@ -232,7 +232,6 @@ namespace AWSIM.TrafficSimulation
                     z = vehicle.Bounds.min.z
                 },
                 Width = vehicle.Bounds.size.x,
-                desiredSpeed = new Dictionary<string, float>()
             };
             state.FollowingLanes.Add(lane);
             return state;
@@ -245,16 +244,11 @@ namespace AWSIM.TrafficSimulation
             return state;
         }
 
-        // desired speeds, defined as a map from lane names to speeds
-        private Dictionary<string, float> desiredSpeed;
-
         // return the desired speed for a given lane
         public float TargetSpeed(TrafficLane lane)
         {
-            if (desiredSpeed.ContainsKey(lane.name) &&
-                desiredSpeed[lane.name] != NPCConfig.DUMMY_SPEED &&
-                desiredSpeed[lane.name] >= 0)
-                return desiredSpeed[lane.name];
+            if (CustomConfig.HasDesiredSpeed(lane.name))
+                return CustomConfig.RouteAndSpeeds[lane.name];
             return lane.SpeedLimit;
         }
 
@@ -309,11 +303,19 @@ namespace AWSIM.TrafficSimulation
         // custom config
         public NPCConfig CustomConfig { get; set; }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="route"></param>
+        /// <param name="goal"></param>
+        /// <param name="customConfig"></param>
+        /// <param name="waypointIndex"></param>
+        /// <returns></returns>
         public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
-            Dictionary<string, float> desiredSpeed, IPosition goal, NPCConfig customConfig, int waypointIndex = 0)
+            IPosition goal, NPCConfig customConfig, int waypointIndex = 0)
         {
-            var state = NPCVehicleInternalState.Create(vehicle, route, waypointIndex);
-            state.desiredSpeed = desiredSpeed;
+            var state = Create(vehicle, route, waypointIndex);
             state.goal = goal;
             state.CustomConfig = customConfig;
             return state;

@@ -101,7 +101,13 @@ namespace AWSIM.AWAnalysis.CustomSim
                 vehicleLM, groundLM);
             return manager;
         }
-        public static CustomNPCSpawningManager Manager() => manager;
+
+        public static CustomNPCSpawningManager Manager()
+        {
+            while (manager == null) ;
+            return manager;
+        }
+
         public static List<NPCVehicle> GetNPCs() => Manager().npcs;
         public static TrafficLane[] GetAllTrafficLanes() => Manager().allTrafficLanes;
 
@@ -144,10 +150,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                     (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
                     (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
-                    List<string> route = npcCar.Route();
-                    var routeLanes = CustomSimUtils.ParseLanes(route);
-                    npcVehicleSimulator.Register(npcVehicle, routeLanes,
-                        waypointIndex, npcCar.RouteAndSpeeds(), CustomSimUtils.ValidateGoal(npcCar.Goal),
+                    npcVehicleSimulator.Register(npcVehicle, waypointIndex, 
+                        CustomSimUtils.ValidateGoal(npcCar.Goal),
                         npcCar.Config);
                     removeAfter.Add(npcVehicle);
                 }
@@ -219,15 +223,13 @@ namespace AWSIM.AWAnalysis.CustomSim
         }
 
         // spawn an NPC and make it move
+        // npcConfig.Route $ RouteAndSpeeds must be non-null
         public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition,
             NPCConfig npcConfig, IPosition goal, string name = "")
         {
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, name);
-
-            // set route
-            var routeLanes = CustomSimUtils.ParseLanes(npcConfig.Route());
-            Manager().npcVehicleSimulator.Register(npc, routeLanes, waypointIndex, npcConfig.RouteAndSpeeds,
+            Manager().npcVehicleSimulator.Register(npc, waypointIndex,
                 CustomSimUtils.ValidateGoal(goal),
                 npcConfig);
             return npc;
@@ -250,9 +252,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static void SpawnNPC(NPCCar npcCar)
         {
             if (npcCar.InitialPosition == null)
-                throw new InvalidScriptException("Undefined initial position" +
-                    npcCar.Name == null ? "." : " " + npcCar.Name);
-
+                throw new InvalidScriptException("Undefined initial position" + 
+                                                 (npcCar.Name == null ? "." : " " + npcCar.Name));
             ValidateNPC(ref npcCar);
             if (!npcCar.HasGoal())
             {
@@ -291,7 +292,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             // validate route
             var npcConfig = npcCar.Config;
             // if there is no route config, validate if goal can be reached directly from spawn lane
-            if (npcConfig == null || npcConfig.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
+            if (npcConfig?.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
             {
                 if (spawnLane == goalLane)
                     npcCar.Config = new NPCConfig(new List<string> {

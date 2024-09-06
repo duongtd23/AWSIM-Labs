@@ -36,11 +36,18 @@ namespace AWSIM.TrafficSimulation
         private float speedLimit;
         [SerializeField, Tooltip("Is intersection lane")]
         public bool intersectionLane;
+        [SerializeField, Tooltip("Lane's width. Use 3.0 as default if unset.")]
+        private float width = 3.0f;
 
         /// <summary>
         /// Get waypoints in this lane.
         /// </summary>
         public Vector3[] Waypoints => waypoints;
+
+        public void UpdateWaypoints(Vector3[] upWaypoints)
+        {
+            this.waypoints = waypoints;
+        }
 
         /// <summary>
         /// Get turning direction of vehicles in the lane.
@@ -113,5 +120,8 @@ namespace AWSIM.TrafficSimulation
                 totalLen += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
             return totalLen;
         }
+
+        public const float DEFAULT_WIDTH = 3.0f;
+        public float Width => width == 0.0f ? DEFAULT_WIDTH : width;
     }
 }
