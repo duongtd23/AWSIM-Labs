@@ -57,16 +57,28 @@ namespace AWSIM.TrafficSimulation
 
                     if (!isCloseToTarget)
                         continue;
-
-                    if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                    
+                    // check if change lane soon
+                    if (state.CustomConfig.HasALaneChange() &&
+                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                        state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
                     {
                         state.ExtendFollowingLane();
                         state.RemoveCurrentFollowingLane();
-                        state.WaypointIndex = 1;
+                        state.WaypointIndex = state.CustomConfig.LaneChange.TargetLaneWaypointIndex;
                     }
                     else
                     {
-                        state.WaypointIndex++;
+                        if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                        {
+                            state.ExtendFollowingLane();
+                            state.RemoveCurrentFollowingLane();
+                            state.WaypointIndex = 1;
+                        }
+                        else
+                        {
+                            state.WaypointIndex++;
+                        }
                     }
 
                     // Despawn if there are no lanes to follow.
@@ -1210,6 +1222,8 @@ namespace AWSIM.TrafficSimulation
                 foreach (var state in States)
                 {
                     if (state.GoalArrived || state.Goal == null || state.Goal.GetLane() != state.CurrentFollowingLane.name)
+                        continue;
+                    if (state.IsChangingLane())
                         continue;
                     float distanceHasGone = state.DistanceHasGoneOnLane();
                     if (distanceHasGone >= state.Goal.GetOffset())

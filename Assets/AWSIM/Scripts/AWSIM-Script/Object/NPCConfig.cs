@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+
 namespace AWSIM_Script.Object
 {
 	public class NPCConfig
@@ -10,16 +12,16 @@ namespace AWSIM_Script.Object
         private NPCConfig(){}
         public NPCConfig(List<string> route)
         {
-            RouteAndSpeeds = new Dictionary<string, float>();
-            route.ForEach(lane => RouteAndSpeeds.Add(lane, DUMMY_SPEED));
+            RouteAndSpeeds =new List<Tuple<string, float>>();
+            route.ForEach(lane => RouteAndSpeeds.Add(new Tuple<string, float>(lane, DUMMY_SPEED)));
         }
 
         // routes and (optional) desired speed limit
         // a map from lane name to the desired speed limit
         // if the speed limit is not set by the user, it is 0
-        public Dictionary<string, float> RouteAndSpeeds { get; set; }
+        public List<Tuple<string, float>> RouteAndSpeeds { get; set; }
 
-        public List<string> Route => RouteAndSpeeds == null ? null : new List<string>(RouteAndSpeeds.Keys);
+        public List<string> Route => RouteAndSpeeds?.ConvertAll(l => l.Item1);
 
         public const float DUMMY_ACCELERATION = 0;
         public const float DUMMY_DECELERATION = 0;
@@ -30,13 +32,20 @@ namespace AWSIM_Script.Object
         public bool HasDesiredSpeed(string trafficLane)
         {
             return RouteAndSpeeds != null &&
-                   RouteAndSpeeds.ContainsKey(trafficLane) &&
-                   RouteAndSpeeds[trafficLane] != NPCConfig.DUMMY_SPEED;
+                   RouteAndSpeeds.Exists(entry => 
+                       entry.Item1 == trafficLane && entry.Item2 != NPCConfig.DUMMY_SPEED);
         }
 
         public bool HasALaneChange()
         {
             return LaneChange != null;
+        }
+
+        public float GetDesiredSpeed(string trafficLane)
+        {
+            if (RouteAndSpeeds == null)
+                return DUMMY_SPEED;
+            return RouteAndSpeeds.First(entry => entry.Item1 == trafficLane).Item2;
         }
         
         public LaneChangeConfig LaneChange { get; set; }

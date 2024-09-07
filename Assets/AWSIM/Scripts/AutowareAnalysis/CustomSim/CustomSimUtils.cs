@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
 using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
@@ -112,18 +113,6 @@ namespace AWSIM.AWAnalysis.CustomSim
             return lane.Waypoints[waypointIndex];
         }
 
-        // if the offset of goal exceeds the lane's total length,
-        // set the offset to lane length
-        public static IPosition ValidateGoal(IPosition goal)
-        {
-            TrafficLane lane = ParseLane(goal.GetLane());
-            if (goal.GetOffset() > lane.TotalLength())
-            {
-                return new LaneOffsetPosition(goal.GetLane(), lane.TotalLength());
-            }
-            return goal;
-        }
-
         /// <summary>
         /// get the left lane of the $root lane
         /// </summary>
@@ -163,11 +152,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             if (rootLane.TurnDirection != TrafficLane.TurnDirectionType.STRAIGHT)
             {
-                Debug.LogError("[NPCSim] Left lane API only supports for straight lane. " +
+                throw new InvalidScriptException("[NPCSim] Side lane API only supports for straight lane. " +
                     "The input lane is a " + rootLane.TurnDirection + " turn lane.");
-                result = null;
-                offset = 0;
-                return false;
             }
             Vector3 rootPosition = CalculatePosition(rootLane, rootOffset, out int rootWaypointIndex);
             Vector2 rootDirection = DirectionIgnoreYAxis(rootLane.Waypoints[0], rootLane.Waypoints[1]);

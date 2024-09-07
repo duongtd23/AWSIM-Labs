@@ -5,7 +5,6 @@ using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
 using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
-using ROS2;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -79,14 +78,14 @@ namespace AWSIM.AWAnalysis.CustomSim
                     {
                         if (msg.Engage_)
                         {
-                            Debug.Log("[NPCSim] Got /autoware/engage message: " + msg);
+                            Debug.Log("[AWAnalysis] Got /autoware/engage message: " + msg);
                             egoEngaged = true;
                         }
                     });
             }
             catch (NullReferenceException e)
             {
-                Debug.LogError("[NPCSim] Cannot create ROS subscriber /autoware/engage. " +
+                Debug.LogError("[AWAnalysis] Cannot create ROS subscriber /autoware/engage. " +
                     "Make sure Autoware has been started. Exception detail: " + e);
             }
         }
@@ -151,7 +150,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                     (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
                 {
                     npcVehicleSimulator.Register(npcVehicle, waypointIndex, 
-                        CustomSimUtils.ValidateGoal(npcCar.Goal),
+                        npcCar.Goal,
                         npcCar.Config);
                     removeAfter.Add(npcVehicle);
                 }
@@ -230,7 +229,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             // spawn NPC
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, name);
             Manager().npcVehicleSimulator.Register(npc, waypointIndex,
-                CustomSimUtils.ValidateGoal(goal),
+                ValidateGoal(goal),
                 npcConfig);
             return npc;
         }
@@ -287,12 +286,16 @@ namespace AWSIM.AWAnalysis.CustomSim
             TrafficLane spawnLane = CustomSimUtils.ParseLane(npcCar.InitialPosition.GetLane());
             if (!npcCar.HasGoal())
                 return;
+            
             // validate goal lane if exists
             TrafficLane goalLane = CustomSimUtils.ParseLane(npcCar.Goal.GetLane());
+            npcCar.Goal = ValidateGoal(npcCar.Goal, goalLane);
+            
             // validate route
             var npcConfig = npcCar.Config;
+            if (npcConfig == null) return;
             // if there is no route config, validate if goal can be reached directly from spawn lane
-            if (npcConfig?.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
+            if (npcConfig.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
             {
                 if (spawnLane == goalLane)
                     npcCar.Config = new NPCConfig(new List<string> {
@@ -308,6 +311,47 @@ namespace AWSIM.AWAnalysis.CustomSim
                 else
                     throw new InvalidScriptException($"Undefined route from {npcCar.InitialPosition} to {npcCar.Goal}.");
             }
+            
+            // update lane change config
+            TrafficLane sourceLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.SourceLane);
+            TrafficLane targetLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.TargetLane);
+
+            if (npcConfig.LaneChange.LateralVelocity == 0)
+                npcConfig.LaneChange.LateralVelocity = LaneChangeConfig.DEFAULT_LATERAL_VELOCITY;
+            if (npcConfig.LaneChange.LongitudinalVelocity == 0)
+            {
+                if (npcConfig.HasDesiredSpeed(npcConfig.LaneChange.SourceLane))
+                    npcConfig.LaneChange.LongitudinalVelocity = 
+                        npcConfig.GetDesiredSpeed(npcConfig.LaneChange.SourceLane);
+                else
+                    npcConfig.LaneChange.LongitudinalVelocity = sourceLaneChange.SpeedLimit;
+            }
+            bool leftLaneChange = CustomSimUtils.OnLeftSide(
+                targetLaneChange.Waypoints[0],
+                sourceLaneChange.Waypoints[0], sourceLaneChange.Waypoints[1]);
+            npcConfig.LaneChange.ChangeDirection = leftLaneChange ? Side.LEFT : Side.RIGHT;
+        }
+        
+        // if the offset of goal exceeds the lane's total length,
+        // set the offset to lane length
+        private static IPosition ValidateGoal(IPosition goal)
+        {
+            TrafficLane lane = CustomSimUtils.ParseLane(goal.GetLane());
+            if (goal.GetOffset() > lane.TotalLength())
+            {
+                return new LaneOffsetPosition(goal.GetLane(), lane.TotalLength());
+            }
+            return goal;
+        }
+        
+        private static IPosition ValidateGoal(IPosition goal, TrafficLane goalLane)
+        {
+            if (goal.GetOffset() > goalLane.TotalLength())
+            {
+                Debug.Log("[AWAnalysis]: Goal offset exceeds lane's length. Use the end point of lane");
+                return new LaneOffsetPosition(goal.GetLane(), goalLane.TotalLength());
+            }
+            return goal;
         }
 
         private GameObject GetNPCPrefab(VehicleType vehicleType)
@@ -334,7 +378,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             if (instance == null)
             {
-                Debug.Log("[NPCSim] Could not find an instance of `CustomNPCSpawningManager`.");
+                Debug.Log("[AWAnalysis] Could not find an instance of `CustomNPCSpawningManager`.");
                 throw new NullReferenceException("[NPCSim] Could not find an instance of `CustomNPCSpawningManager`. " +
                     "Initialize it with `CustomNPCSpawningManager.Initialize()`");
             }

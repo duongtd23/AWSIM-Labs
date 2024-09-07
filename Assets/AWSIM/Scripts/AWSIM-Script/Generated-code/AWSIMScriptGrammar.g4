@@ -15,7 +15,9 @@ positionExp
     | positionExp 'left' numberExp
     | positionExp 'right' numberExp;
 roadExp
-    : stringExp ('with-speed-limit' numberExp)?;
+    : stringExp ('max-velocity' '(' numberExp ')')?
+    | 'change-lane' ('at' numberExp)? ('longitudinal-velocity' '(' numberExp ')')? ('lateral-velocity' '(' numberExp ')')?
+    | 'change-lane' ('at' numberExp)? 'velocity' '(' numberExp ',' numberExp ')'? ;
 configExp
     : 'aggressive-driving'
     | 'acceleration' '(' numberExp ')'

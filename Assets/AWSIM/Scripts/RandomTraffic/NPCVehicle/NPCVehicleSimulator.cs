@@ -189,8 +189,7 @@ namespace AWSIM.TrafficSimulation
                 customConfig.LaneChange.TargetLaneWaypointIndex = targetWaypointId;
             }
             
-            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, 
-                CustomSimUtils.ValidateGoal(goal), 
+            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, goal, 
                 customConfig, waypointIndex));
         }
 
@@ -198,8 +197,8 @@ namespace AWSIM.TrafficSimulation
         {
             TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
             Vector3 newWaypoint = CustomSimUtils.CalculatePosition(sourceLane, laneChangeConfig.ChangeOffset, out int waypointIndex);
-            var updateWaypoints = new List<Vector3>(sourceLane.Waypoints[..(waypointIndex + 1)]);
-            updateWaypoints.Add(newWaypoint);
+            var updateWaypoints = new List<Vector3>(sourceLane.Waypoints);
+            updateWaypoints.Insert(waypointIndex,newWaypoint);
             sourceLane.UpdateWaypoints(updateWaypoints.ToArray());
             return waypointIndex;
         }
@@ -210,8 +209,10 @@ namespace AWSIM.TrafficSimulation
             TrafficLane targetLane = route.Find(l => l.name == laneChangeConfig.TargetLane);
             float timeForLaneChange = sourceLane.Width / laneChangeConfig.LateralVelocity;
             float longitudeLaneChangeDistance = timeForLaneChange * laneChangeConfig.LongitudinalVelocity;
+            
+            Debug.Log($"[AWAnalysis] Longitude distance for Lane Change: {longitudeLaneChangeDistance}");
 
-            var ok = CustomSimUtils.SideLaneOffset(sourceLane, longitudeLaneChangeDistance,
+            var ok = CustomSimUtils.SideLaneOffset(sourceLane, longitudeLaneChangeDistance + laneChangeConfig.ChangeOffset,
                 new TrafficLane[1] { targetLane },
                 laneChangeConfig.ChangeDirection == Side.LEFT,
                 out TrafficLane other, out float offset);
@@ -222,8 +223,8 @@ namespace AWSIM.TrafficSimulation
             
             Vector3 newWaypoint = CustomSimUtils.CalculatePosition(targetLane, offset, out int waypointIndex);
 
-            var updateWaypoints = new List<Vector3>(targetLane.Waypoints[waypointIndex..]);
-            updateWaypoints.Insert(0, newWaypoint);
+            var updateWaypoints = new List<Vector3>(targetLane.Waypoints);
+            updateWaypoints.Insert(waypointIndex, newWaypoint);
             targetLane.UpdateWaypoints(updateWaypoints.ToArray());
             return waypointIndex;
         }

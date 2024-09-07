@@ -247,8 +247,17 @@ namespace AWSIM.TrafficSimulation
         // return the desired speed for a given lane
         public float TargetSpeed(TrafficLane lane)
         {
+            // velocity during lane change
+            if (CustomConfig.HasALaneChange() &&
+                CurrentFollowingLane.name == CustomConfig.LaneChange.TargetLane &&
+                WaypointIndex == CustomConfig.LaneChange.TargetLaneWaypointIndex)
+            {
+                var speed = new Vector2(CustomConfig.LaneChange.LongitudinalVelocity,
+                    CustomConfig.LaneChange.LateralVelocity).magnitude;
+                return speed;
+            }
             if (CustomConfig.HasDesiredSpeed(lane.name))
-                return CustomConfig.RouteAndSpeeds[lane.name];
+                return CustomConfig.GetDesiredSpeed(lane.name);
             return lane.SpeedLimit;
         }
 
@@ -260,20 +269,35 @@ namespace AWSIM.TrafficSimulation
         /// <returns></returns>
         public float DistanceHasGoneOnLane()
         {
+            if (IsChangingLane() || !HasPassedPoint(CurrentFollowingLane.Waypoints[0]))
+                return 0;
             Vector3 position = Position;
             position.y = 0f;
-            float distanceGone = 0;
             if (!ReallyOnlane())
             {
                 return -Vector3.Distance(position, CurrentFollowingLane.Waypoints[0]);
             }
-            for (int i = 0; i < WaypointIndex - 1; i++)
+            
+            float distanceGone = 0;
+            int idx = 1;
+            for (; idx < WaypointIndex; idx++)
             {
-                distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[i], CurrentFollowingLane.Waypoints[i + 1]);
+                if (HasPassedPoint(CurrentFollowingLane.Waypoints[idx]))
+                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[idx-1], CurrentFollowingLane.Waypoints[idx]);
+                else
+                {
+                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[idx-1], position);
+                    break;
+                }
             }
-            int lastWaypointIndex = WaypointIndex - 1 >= 0 ? WaypointIndex - 1 : 0;
-            distanceGone += CustomSimUtils.DistanceIgnoreYAxis(CurrentFollowingLane.Waypoints[lastWaypointIndex], position);
             return distanceGone;
+        }
+
+        public bool HasPassedPoint(Vector3 point)
+        {
+            return Vector3.Dot(Forward, point - Position) < 0f;
         }
 
         /// <summary>
@@ -294,7 +318,7 @@ namespace AWSIM.TrafficSimulation
             laneStartingPoint.y = 0f;
             return Vector3.Dot(Forward, laneStartingPoint - position) < 0f;
         }
-
+        
         // goal, defined as a pair of lane name and distance (from the starting point)
         private IPosition goal;
         public IPosition Goal => goal;
@@ -319,6 +343,14 @@ namespace AWSIM.TrafficSimulation
             state.goal = goal;
             state.CustomConfig = customConfig;
             return state;
+        }
+
+        public bool IsChangingLane()
+        {
+            if (!CustomConfig.HasALaneChange())
+                return false;
+            return CurrentFollowingLane.name == CustomConfig.LaneChange.TargetLane &&
+                   WaypointIndex == CustomConfig.LaneChange.TargetLaneWaypointIndex;
         }
     }
 }

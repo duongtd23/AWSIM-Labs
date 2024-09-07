@@ -51,12 +51,7 @@ namespace AWSIM_Script.Object
         public NPCSpawnDelay SpawnDelayOption { get; set; }
 		public string Name { get; set; }
 
-		public Dictionary<string,float> RouteAndSpeeds()
-		{
-			if (Config == null)
-				return null;
-			return Config.RouteAndSpeeds;
-		}
+		public List<Tuple<string,float>> RouteAndSpeeds => Config?.RouteAndSpeeds;
 
         public List<string> Route => Config?.Route;
 

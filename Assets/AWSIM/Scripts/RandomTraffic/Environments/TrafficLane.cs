@@ -46,7 +46,7 @@ namespace AWSIM.TrafficSimulation
 
         public void UpdateWaypoints(Vector3[] upWaypoints)
         {
-            this.waypoints = waypoints;
+            this.waypoints = upWaypoints;
         }
 
         /// <summary>
