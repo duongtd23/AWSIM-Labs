@@ -8,26 +8,24 @@ namespace AWSIM_Script.Object
         UNTIL_EGO_MOVE,
         NONE
     }
-    public enum DelayedAction
-    {
-        SPAWNING, // spawning NPC is delayed
-        MOVING    // spawn NPC as it is, but delay its movement
-    }
-    public class NPCSpawnDelay
+    
+    // delay based on time information
+    public class NPCDelayTime : INPCSpawnDelay
     {
         public float DelayAmount { get; set; }
         public DelayKind DelayType { get; set; }
+
         public DelayedAction ActionDelayed { get; set; }
 
-        public NPCSpawnDelay()
+        public NPCDelayTime()
         {
             DelayType = DelayKind.NONE;
         }
 
         // Delay `delay` seconds from the beginning before spawning the NPC
-        public static NPCSpawnDelay DelaySpawn(float delay)
+        public static NPCDelayTime DelaySpawn(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.FROM_BEGINNING,
@@ -35,9 +33,9 @@ namespace AWSIM_Script.Object
             };
         }
         // Spawn NPC, but delay `delay` seconds from the beginning before letting it move
-        public static NPCSpawnDelay DelayMove(float delay)
+        public static NPCDelayTime DelayMove(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.FROM_BEGINNING,
@@ -49,9 +47,9 @@ namespace AWSIM_Script.Object
         // E.g., if the passed param (`delay`) is 2,
         // 2 seconds after Ego engaged, the NPC will be spawned
         // If `delay` is 0, NPC will be spawned at the same time when Ego engaged.
-        public static NPCSpawnDelay DelaySpawnUntilEgoEngaged(float delay)
+        public static NPCDelayTime DelaySpawnUntilEgoEngaged(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.UNTIL_EGO_ENGAGE,
@@ -59,9 +57,9 @@ namespace AWSIM_Script.Object
             };
         }
         // Delay moving NPC until the Ego vehicle got engaged (in seconds).
-        public static NPCSpawnDelay DelayMoveUntilEgoEngaged(float delay)
+        public static NPCDelayTime DelayMoveUntilEgoEngaged(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.UNTIL_EGO_ENGAGE,
@@ -72,9 +70,9 @@ namespace AWSIM_Script.Object
         // Delay spawning NPC until Ego moves (in seconds)
         // E.g., if the passed param (`delay`) is 2,
         // 2 seconds after Ego moves, the NPC will be spawned
-        public static NPCSpawnDelay DelaySpawnUntilEgoMove(float delay)
+        public static NPCDelayTime DelaySpawnUntilEgoMove(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.UNTIL_EGO_MOVE,
@@ -85,9 +83,9 @@ namespace AWSIM_Script.Object
         // Delay moving NPC until Ego moves.
         // Don't set `delay` value to 0 as it may cause the NPC and the Ego never move.
         // In such a case, use DelayMoveUntilEgoEngaged instead
-        public static NPCSpawnDelay DelayMoveUntilEgoMove(float delay)
+        public static NPCDelayTime DelayMoveUntilEgoMove(float delay)
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = delay,
                 DelayType = DelayKind.UNTIL_EGO_MOVE,
@@ -95,9 +93,9 @@ namespace AWSIM_Script.Object
             };
         }
 
-        public static NPCSpawnDelay DummyDelay()
+        public static NPCDelayTime DummyDelay()
         {
-            return new NPCSpawnDelay()
+            return new NPCDelayTime()
             {
                 DelayAmount = 0,
                 DelayType = DelayKind.NONE,
@@ -107,9 +105,9 @@ namespace AWSIM_Script.Object
 
         public override bool Equals(object obj)
         {
-            if (obj is NPCSpawnDelay)
+            if (obj is NPCDelayTime)
             {
-                var obj2 = (NPCSpawnDelay)obj;
+                var obj2 = (NPCDelayTime)obj;
                 return this.DelayType == obj2.DelayType &&
                     this.DelayAmount == obj2.DelayAmount &&
                     this.ActionDelayed == obj2.ActionDelayed;

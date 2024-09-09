@@ -59,12 +59,16 @@ namespace AWSIM_Script.Object
     public class LaneChangeConfig
     {
         public const float DEFAULT_LATERAL_VELOCITY = 1;
+        public const float DUMMY_DX = -1;
+        public const float DUMMY_CHANGE_OFFSET = -1;
+
         // the maximum is 3
         public float LateralVelocity { get; set; } = DEFAULT_LATERAL_VELOCITY;
         public float LongitudinalVelocity { get; set; }
         public string SourceLane { get; set; }
         public string TargetLane { get; set; }
-        public float ChangeOffset { get; set; }
+        public float ChangeOffset { get; set; } = DUMMY_CHANGE_OFFSET;
+        public float Dx { get; set; } = DUMMY_DX;
 
         public Side ChangeDirection { get; set; }
         public int SourceLaneWaypointIndex { get; set; }

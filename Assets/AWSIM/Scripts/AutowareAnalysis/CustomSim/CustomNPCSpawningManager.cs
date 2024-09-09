@@ -5,6 +5,7 @@ using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
 using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 
 namespace AWSIM.AWAnalysis.CustomSim
 {
@@ -143,16 +144,35 @@ namespace AWSIM.AWAnalysis.CustomSim
                 NPCVehicle npcVehicle = entry.Key;
                 NPCCar npcCar = entry.Value.Item2;
                 int waypointIndex = entry.Value.Item1;
-                NPCSpawnDelay delay = npcCar.SpawnDelayOption;
+                INPCSpawnDelay idelay = npcCar.SpawnDelayOption;
 
-                if ((delay.DelayType == DelayKind.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
-                    (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
+                if (idelay is NPCDelayTime delayTime)
                 {
-                    npcVehicleSimulator.Register(npcVehicle, waypointIndex, 
-                        npcCar.Goal,
-                        npcCar.Config);
-                    removeAfter.Add(npcVehicle);
+                    if ((delayTime.DelayType == DelayKind.UNTIL_EGO_MOVE &&
+                         Time.fixedTime - egoStartMovingTime >= delayTime.DelayAmount) ||
+                        (delayTime.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delayTime.DelayAmount) ||
+                        (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
+                         Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
+                    {
+                        npcVehicleSimulator.Register(npcVehicle, waypointIndex,
+                            npcCar.Goal,
+                            npcCar.Config);
+                        removeAfter.Add(npcVehicle);
+                    }
+                }
+                else if (idelay is NPCDelayDistance delayDistance)
+                {
+                    if (_egoVehicle.Velocity.magnitude > 0.1f &&
+                        CustomSimUtils.LongitudeDistance(
+                            _egoVehicle.Position,
+                            _egoVehicle.Rotation * Vector3.forward,
+                            npcVehicle.Position) <= delayDistance.Distance)
+                    {
+                        npcVehicleSimulator.Register(npcVehicle, waypointIndex, 
+                            npcCar.Goal,
+                            npcCar.Config);
+                        removeAfter.Add(npcVehicle);
+                    }
                 }
             }
             foreach (var npc in removeAfter)
@@ -161,13 +181,18 @@ namespace AWSIM.AWAnalysis.CustomSim
             List<NPCCar> removeAfter2 = new List<NPCCar>();
             foreach (var npcCar in delayingSpawnNPCs)
             {
-                NPCSpawnDelay delay = npcCar.SpawnDelayOption;
-                if ((delay.DelayType == DelayKind.UNTIL_EGO_MOVE && Time.fixedTime - egoStartMovingTime >= delay.DelayAmount) ||
-                    (delay.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delay.DelayAmount) ||
-                    (delay.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged && Time.fixedTime - egoEngagedTime >= delay.DelayAmount))
+                INPCSpawnDelay idelay = npcCar.SpawnDelayOption;
+                if (idelay is NPCDelayTime delayTime)
                 {
-                    SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal, npcCar.Name);
-                    removeAfter2.Add(npcCar);
+                    if ((delayTime.DelayType == DelayKind.UNTIL_EGO_MOVE &&
+                         Time.fixedTime - egoStartMovingTime >= delayTime.DelayAmount) ||
+                        (delayTime.DelayType == DelayKind.FROM_BEGINNING && Time.fixedTime >= delayTime.DelayAmount) ||
+                        (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
+                         Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
+                    {
+                        SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal, npcCar.Name);
+                        removeAfter2.Add(npcCar);
+                    }
                 }
             }
             foreach (var entry in removeAfter2)
@@ -220,6 +245,15 @@ namespace AWSIM.AWAnalysis.CustomSim
             GetNPCs().Add(npc);
             return npc;
         }
+        
+        // spawn an NPC (static, no movement)
+        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex,
+            NPCConfig customConfig, string name = "")
+        {
+            var npc = SpawnNPC(vehicleType, spawnPosition, out waypointIndex, name);
+            npc.CustomConfig = customConfig;
+            return npc;
+        }
 
         // spawn an NPC and make it move
         // npcConfig.Route $ RouteAndSpeeds must be non-null
@@ -227,7 +261,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             NPCConfig npcConfig, IPosition goal, string name = "")
         {
             // spawn NPC
-            NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, name);
+            NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, npcConfig, name);
             Manager().npcVehicleSimulator.Register(npc, waypointIndex,
                 ValidateGoal(goal),
                 npcConfig);
@@ -242,6 +276,8 @@ namespace AWSIM.AWAnalysis.CustomSim
 
             // spawn NPC
             NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex, npcCar.Name);
+            if (npcCar.Config != null)
+                npc.CustomConfig = npcCar.Config;
 
             Manager().delayingMoveNPCs.Add(npc,
                 Tuple.Create(waypointIndex, npcCar));
@@ -353,7 +389,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             return goal;
         }
-
+        
         private GameObject GetNPCPrefab(VehicleType vehicleType)
         {
             switch (vehicleType)
@@ -374,6 +410,25 @@ namespace AWSIM.AWAnalysis.CustomSim
                     return npcTaxi;
             }
         }
+
+        public static NPCDetailObject GetNPCCarInfo(VehicleType vehicleType)
+        {
+            switch (vehicleType)
+            {
+                case VehicleType.TAXI:
+                    return CustomSimUtils.GetNPCCarInfo(Manager().npcTaxi.GetComponent<NPCVehicle>());
+                case VehicleType.HATCHBACK:
+                    return CustomSimUtils.GetNPCCarInfo(Manager().npcHatchback.GetComponent<NPCVehicle>());
+                case VehicleType.SMALL_CAR:
+                    return CustomSimUtils.GetNPCCarInfo(Manager().npcSmallCar.GetComponent<NPCVehicle>());
+                case VehicleType.TRUCK:
+                    return CustomSimUtils.GetNPCCarInfo(Manager().npcTruck.GetComponent<NPCVehicle>());
+                case VehicleType.VAN:
+                    return CustomSimUtils.GetNPCCarInfo(Manager().npcVan.GetComponent<NPCVehicle>());
+            }
+            throw new InvalidScriptException("Cannot detect the vehicle type `" + vehicleType + "`.");
+        }
+
         private static void EnsureNonNullInstance(CustomNPCSpawningManager instance)
         {
             if (instance == null)

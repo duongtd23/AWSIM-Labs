@@ -4,6 +4,7 @@ using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.Error;
 using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 using UnityEngine;
 
 namespace AWSIM.AWAnalysis.CustomSim
@@ -72,6 +73,11 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             }
             return -1;
+        }
+
+        public static Vector3 CalculatePosition(IPosition position)
+        {
+            return CalculatePosition(ParseLane(position.GetLane()), position.GetOffset(), out int index);
         }
 
         /// <summary>
@@ -388,6 +394,44 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static bool OnRightSide(Vector2 A, Vector2 B)
         {
             return -A.x * B.y + A.y * B.x > 0;
+        }
+        
+        // calculate longitude distance from root to position according to forwardDirection vector
+        public static float LongitudeDistance(Vector3 root, Vector3 forwardDirection, Vector3 position)
+        {
+            root.y = 0; position.y = 0; forwardDirection.y = 0;
+            var angle = Vector3.Angle(forwardDirection, position - root);
+            return Mathf.Cos(angle / 180 * Mathf.PI) * ((position - root).magnitude);
+        }
+
+        public static EgoDetailObject GetEgoCarInfo(GameObject autowareEgoCar)
+        {
+            MeshFilter meshFilter = autowareEgoCar.GetComponentInChildren<MeshFilter>();
+            return new EgoDetailObject()
+            {
+                center = new Vector3Object(meshFilter.mesh.bounds.center + meshFilter.transform.parent.parent.localPosition),
+                extents = new Vector3Object(meshFilter.mesh.bounds.extents)
+            };
+        }
+        
+        // fixed
+        public static EgoDetailObject GetEgoCarInfo()
+        {
+            return new EgoDetailObject()
+            {
+                center = new Vector3Object(0, 0.973394155502319, 1.42438745498657),
+                extents = new Vector3Object(1.09320676326752, 0.710384964942932, 2.44304156303406)
+            };
+        }
+
+        public static NPCDetailObject GetNPCCarInfo(NPCVehicle npc)
+        {
+            return new NPCDetailObject()
+            {
+                name = npc.ScriptName,
+                center = new Vector3Object(npc.Bounds.center),
+                extents = new Vector3Object(npc.Bounds.extents)
+            };
         }
     }
 }

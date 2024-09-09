@@ -12,8 +12,11 @@ namespace AWSIM.AWAnalysis
         // the interval to send engage command from the time when AW autonomous mode becomes available 
         public float DelaySendingEngageCmd { get; set; } = 1.5f;
         public TraceFormat TraceFormat { get; set; } = TraceFormat.MAUDE;
+        public float TimeNPCTravelBeforeCutin { get; set; } = 4;
         public TraceComponent[] ComponentsRecording { get; set; } = Array.Empty<TraceComponent>();
         public int PlanTrajectoryMaxStepsRecording { get; set; } = 10;
+        public float EgoNormalAcceleration { get; set; } = 1;
+        public float TimeEgoTravelConstSpeed { get; set; } = 2;
     }
 
     [Serializable]

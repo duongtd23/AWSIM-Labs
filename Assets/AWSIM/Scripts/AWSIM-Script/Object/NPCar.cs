@@ -39,7 +39,7 @@ namespace AWSIM_Script.Object
             Config = config;
         }
         public NPCCar(VehicleType vehicleType, IPosition spawnPosition,
-			IPosition goal, NPCConfig config, NPCSpawnDelay spawnDelay) :
+			IPosition goal, NPCConfig config, INPCSpawnDelay spawnDelay) :
 			this(vehicleType, spawnPosition, goal, config)
         {
 			SpawnDelayOption = spawnDelay;
@@ -48,7 +48,7 @@ namespace AWSIM_Script.Object
         public IPosition InitialPosition { get; set; }
         public IPosition Goal { get; set; }
 		public NPCConfig Config { get; set; }
-        public NPCSpawnDelay SpawnDelayOption { get; set; }
+        public INPCSpawnDelay SpawnDelayOption { get; set; }
 		public string Name { get; set; }
 
 		public List<Tuple<string,float>> RouteAndSpeeds => Config?.RouteAndSpeeds;
@@ -69,9 +69,22 @@ namespace AWSIM_Script.Object
 
 		public bool HasDelayOption()
 		{
-			return SpawnDelayOption != null &&
-				!SpawnDelayOption.Equals(NPCSpawnDelay.DummyDelay()) &&
-				SpawnDelayOption.DelayType != DelayKind.NONE;
+			if (SpawnDelayOption == null)
+				return false;
+			if (SpawnDelayOption is NPCDelayTime npcDelayTime)
+			{
+				return !npcDelayTime.Equals(NPCDelayTime.DummyDelay()) &&
+				       npcDelayTime.DelayType != DelayKind.NONE;
+			}
+			return SpawnDelayOption != null;
+		}
+		
+		public bool NeedComputeInitialPosition()
+		{
+			return HasConfig() &&
+			       Config.HasALaneChange() &&
+			       Config.LaneChange.ChangeOffset == LaneChangeConfig.DUMMY_CHANGE_OFFSET &&
+			       InitialPosition.Equals(LaneOffsetPosition.DummyPosition());
 		}
     }
 }

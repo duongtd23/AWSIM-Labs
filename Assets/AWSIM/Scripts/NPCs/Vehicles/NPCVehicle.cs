@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using AWSIM_Script.Object;
 
 namespace AWSIM
 {
@@ -440,6 +441,8 @@ namespace AWSIM
         public float YawAngularSpeed => yawAngularSpeed;
         public float Acceleration => acceleration;
         public string ScriptName { get; set; }
+        
+        public NPCConfig CustomConfig { get; set; }
 
         public Vector3 CenterPosition()
         {

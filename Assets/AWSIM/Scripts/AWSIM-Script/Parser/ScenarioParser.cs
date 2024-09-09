@@ -8,7 +8,6 @@ using static AWSIMScriptGrammarParser;
 using System.Collections.Generic;
 using System.Linq;
 using Antlr4.Runtime;
-using AWSIM.Lanelet;
 
 namespace AWSIM_Script.Parser
 {
@@ -33,6 +32,11 @@ namespace AWSIM_Script.Parser
         public const string LATERAL_VELOCITY = "lateral-velocity";
         public const string LONGITUDINAL_VELOCITY = "longitudinal-velocity";
         public const string VELOCITY = "velocity";
+        public const string AT = "at";
+        public const string WITH = "with";
+        public const string DX = "dx";
+        public const string IGNORE_EXP = "_";
+
         
         private ScenarioScore scenarioScore;
         public ScenarioParser(ScenarioScore scenarioScore)
@@ -233,7 +237,7 @@ namespace AWSIM_Script.Parser
 
             List<Tuple<string, float>> route = new List<Tuple<string, float>>();
             IPosition goal = LaneOffsetPosition.DummyPosition();
-            NPCSpawnDelay delay = NPCSpawnDelay.DummyDelay();
+            INPCSpawnDelay delay = NPCDelayTime.DummyDelay();
             NPCConfig config = NPCConfig.DummyConfigWithoutRoute();
             
 
@@ -300,7 +304,7 @@ namespace AWSIM_Script.Parser
                 npc.Goal = goal;
             if (route.Count > 0)
                 npc.Config.RouteAndSpeeds = route;
-            if (!(delay.Equals(NPCSpawnDelay.DummyDelay())))
+            if (!delay.Equals(NPCDelayTime.DummyDelay()))
                 npc.SpawnDelayOption = delay;
             if (npcName != "")
                 npc.Name = npcName;
@@ -352,7 +356,7 @@ namespace AWSIM_Script.Parser
                 string laneName = ParserUtils.ParseStringExp(stringExp0);
                 return new LaneOffsetPosition(laneName);
             }
-            else if (node is PositionExpContext positionExp)
+            if (node is PositionExpContext positionExp)
             {
                 // absolute position - pair of traffic lane and offset
                 if (positionExp.children[0] is StringExpContext stringExp)
@@ -384,6 +388,10 @@ namespace AWSIM_Script.Parser
             else if (node is VariableExpContext variableExp)
             {
                 string varName = variableExp.children[0].GetText();
+                if (varName == IGNORE_EXP)
+                {
+                    return LaneOffsetPosition.DummyPosition();
+                }
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return ParsePosition(scenarioScore.Variables[varName].children[0]);
@@ -460,36 +468,49 @@ namespace AWSIM_Script.Parser
         private LaneChangeConfig ParseLaneChange(RoadExpContext roadExp)
         {
             LaneChangeConfig result = new LaneChangeConfig();
-            
-            // lane change offset
-            result.ChangeOffset = ParserUtils.ParseNumberExp(roadExp.children[2] as NumberExpContext);
-            
-            if (roadExp.children.Count > 3)
+
+            int index = 0;
+            if (roadExp.children[1].GetText() == AT)
             {
-                if (roadExp.children[3].GetText() == LONGITUDINAL_VELOCITY)
+                // lane change offset
+                result.ChangeOffset = ParserUtils.ParseNumberExp(roadExp.children[2] as NumberExpContext);
+                index = 3;
+            }
+            else if (roadExp.children[1].GetText() == WITH)
+            {
+                result.Dx = ParserUtils.ParseNumberExp(roadExp.children[4] as NumberExpContext);
+                index = 6;
+            }
+            
+            if (roadExp.children.Count > index)
+            {
+                if (roadExp.children[index].GetText() == LONGITUDINAL_VELOCITY)
                 {
-                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[5] as NumberExpContext);
+                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
+                    index += 4;
                 }
-                else if (roadExp.children[3].GetText() == LATERAL_VELOCITY)
+                else if (roadExp.children[index].GetText() == LATERAL_VELOCITY)
                 {
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[5] as NumberExpContext);
+                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
+                    index += 4;
                 }
-                else if (roadExp.children[3].GetText() == VELOCITY)
+                else if (roadExp.children[index].GetText() == VELOCITY)
                 {
-                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[5] as NumberExpContext);
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[7] as NumberExpContext);
+                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
+                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 4] as NumberExpContext);
+                    index += 6;
                 }
 
-                if (roadExp.children.Count > 10)
+                if (roadExp.children.Count > index)
                 {
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[9] as NumberExpContext);
+                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
                 }
             }
 
             return result;
         }
 
-        private bool ParseConfig(IParseTree node, ref NPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
+        private bool ParseConfig(IParseTree node, ref INPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
         {
             if (node is ArrayExpContext arrayExp)
             {
@@ -510,7 +531,7 @@ namespace AWSIM_Script.Parser
         }
         
         // return 0 if spawnDelay is updated, 1 if npcConfig is updated
-        private int DoParseConfig(IParseTree node, ref NPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
+        private int DoParseConfig(IParseTree node, ref INPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
         {
             if (node is ConfigExpContext configExp)
             {
@@ -548,23 +569,23 @@ namespace AWSIM_Script.Parser
             throw new InvalidScriptException("Cannot parse the config: " + node.GetText());
         }
 
-        private NPCSpawnDelay ParseDelayOption(ConfigExpContext configExp)
+        private NPCDelayTime ParseDelayOption(ConfigExpContext configExp)
         {
             float amount = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
             switch (configExp.children[0].GetText())
             {
                 case DELAY_SPAWN:
-                    return NPCSpawnDelay.DelaySpawn(amount);
+                    return NPCDelayTime.DelaySpawn(amount);
                 case DELAY_MOVE:
-                    return NPCSpawnDelay.DelayMove(amount);
+                    return NPCDelayTime.DelayMove(amount);
                 case DELAY_SPAWN_UNTIL_EGO_ENGAGED:
-                    return NPCSpawnDelay.DelaySpawnUntilEgoEngaged(amount);
+                    return NPCDelayTime.DelaySpawnUntilEgoEngaged(amount);
                 case DELAY_MOVE_UNTIL_EGO_ENGAGED:
-                    return NPCSpawnDelay.DelayMoveUntilEgoEngaged(amount);
+                    return NPCDelayTime.DelayMoveUntilEgoEngaged(amount);
                 case DELAY_SPAWN_UNTIL_EGO_MOVE:
-                    return NPCSpawnDelay.DelaySpawnUntilEgoMove(amount);
+                    return NPCDelayTime.DelaySpawnUntilEgoMove(amount);
                 case DELAY_MOVE_UNTIL_EGO_MOVE:
-                    return NPCSpawnDelay.DelayMoveUntilEgoMove(amount);
+                    return NPCDelayTime.DelayMoveUntilEgoMove(amount);
                 default:
                     throw new InvalidScriptException("Cannot parse " + configExp.GetText());
             }

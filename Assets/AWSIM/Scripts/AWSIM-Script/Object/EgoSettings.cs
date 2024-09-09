@@ -17,6 +17,6 @@ namespace AWSIM_Script.Object
         public IPosition InitialPosition { get; set; }
         public IPosition Goal { get; set; }
         
-        public float MaxVelocity { get; set; }
+        public float MaxVelocity { get; set; } // in m/s unit
     }
 }
