@@ -403,35 +403,5 @@ namespace AWSIM.AWAnalysis.CustomSim
             var angle = Vector3.Angle(forwardDirection, position - root);
             return Mathf.Cos(angle / 180 * Mathf.PI) * ((position - root).magnitude);
         }
-
-        public static EgoDetailObject GetEgoCarInfo(GameObject autowareEgoCar)
-        {
-            MeshFilter meshFilter = autowareEgoCar.GetComponentInChildren<MeshFilter>();
-            return new EgoDetailObject()
-            {
-                center = new Vector3Object(meshFilter.mesh.bounds.center + meshFilter.transform.parent.parent.localPosition),
-                extents = new Vector3Object(meshFilter.mesh.bounds.extents)
-            };
-        }
-        
-        // fixed
-        public static EgoDetailObject GetEgoCarInfo()
-        {
-            return new EgoDetailObject()
-            {
-                center = new Vector3Object(0, 0.973394155502319, 1.42438745498657),
-                extents = new Vector3Object(1.09320676326752, 0.710384964942932, 2.44304156303406)
-            };
-        }
-
-        public static NPCDetailObject GetNPCCarInfo(NPCVehicle npc)
-        {
-            return new NPCDetailObject()
-            {
-                name = npc.ScriptName,
-                center = new Vector3Object(npc.Bounds.center),
-                extents = new Vector3Object(npc.Bounds.extents)
-            };
-        }
     }
 }

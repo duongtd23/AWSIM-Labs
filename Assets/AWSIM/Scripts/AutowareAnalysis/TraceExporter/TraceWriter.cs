@@ -45,12 +45,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
         ISubscription<RouteState> routeStateSubscriber;
         ISubscription<LocalizationInitializationState> localizationInitStateSubscriber;
         
-        public TraceWriter(string filePath, GameObject autowareEgoCar, Camera sensorCamera, 
+        public TraceWriter(string filePath, Camera sensorCamera, 
             PerceptionMode perceptionMode, TraceCaptureConfig config)
         {
             _filePath = filePath;
-            _autowareEgoCar = autowareEgoCar;
-            _egoVehicle = autowareEgoCar.GetComponent<Vehicle>();
+            _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
+            _egoVehicle = EgoSingletonInstance.AutowareEgoCarVehicle;
             _sensorCamera = sensorCamera;
             _config = config;
             _perceptionMode = perceptionMode;

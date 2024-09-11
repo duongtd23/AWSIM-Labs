@@ -14,8 +14,9 @@ namespace AWSIM_Script.Object
     {
         public float DelayAmount { get; set; }
         public DelayKind DelayType { get; set; }
-
         public DelayedAction ActionDelayed { get; set; }
+
+        public const float DUMMY_DELAY_AMOUNT = -1f;
 
         public NPCDelayTime()
         {
@@ -105,9 +106,8 @@ namespace AWSIM_Script.Object
 
         public override bool Equals(object obj)
         {
-            if (obj is NPCDelayTime)
+            if (obj is NPCDelayTime obj2)
             {
-                var obj2 = (NPCDelayTime)obj;
                 return this.DelayType == obj2.DelayType &&
                     this.DelayAmount == obj2.DelayAmount &&
                     this.ActionDelayed == obj2.ActionDelayed;

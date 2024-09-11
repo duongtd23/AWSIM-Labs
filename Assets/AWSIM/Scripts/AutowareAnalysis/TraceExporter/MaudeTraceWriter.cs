@@ -10,9 +10,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
                                              "\n  pr FORMULAS .\n\n";
         private string _contents;
 
-        public MaudeTraceWriter(string filePath, GameObject autowareEgoCar, Camera sensorCamera,
+        public MaudeTraceWriter(string filePath, Camera sensorCamera,
             PerceptionMode perceptionMode, TraceCaptureConfig config)
-            : base(filePath, autowareEgoCar, sensorCamera, perceptionMode, config)
+            : base(filePath, sensorCamera, perceptionMode, config)
         {
             _contents = MAUDE_TEMPLATE + 
                         "  eq init = ";

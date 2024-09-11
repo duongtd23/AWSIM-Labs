@@ -12,9 +12,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
         private string _contents;
         private ISerializer _serializer;
 
-        public YamlTraceWriter(string filePath, GameObject autowareEgoCar, Camera sensorCamera,
+        public YamlTraceWriter(string filePath, Camera sensorCamera,
             PerceptionMode perceptionMode, TraceCaptureConfig config)
-            : base(filePath, autowareEgoCar, sensorCamera, perceptionMode, config)
+            : base(filePath, sensorCamera, perceptionMode, config)
         {
             _serializer = new SerializerBuilder().WithIndentedSequences().Build();
             _contents = "states:\n";

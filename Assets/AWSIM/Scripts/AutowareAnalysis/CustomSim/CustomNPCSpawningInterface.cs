@@ -5,8 +5,6 @@ namespace AWSIM.AWAnalysis.CustomSim
 {
     public class CustomNPCSpawningInterface : MonoBehaviour
     {
-        public GameObject autowareEgoCar;
-
         public GameObject trafficLanesParent;
 
         // taxi, hatchback, small car, truck, van prefabs, respectively
@@ -20,6 +18,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         // Start is called before the first frame update
         void Start()
         {
+            var autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
             CustomNPCSpawningManager.Initialize(this.gameObject,
                 trafficLanesParent.GetComponentsInChildren<TrafficLane>(),
                 autowareEgoCar, npcTaxi, npcHatchback,

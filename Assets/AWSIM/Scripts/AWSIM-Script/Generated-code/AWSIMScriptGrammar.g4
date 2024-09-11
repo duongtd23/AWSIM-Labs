@@ -5,33 +5,32 @@ grammar AWSIMScriptGrammar;
 // `positionA back 2` denotes the position behind positionA 2 meters
 // `positionA left -2` denotes the position on the left lane of the lane where positionA is located and 2 meters backward shifted
 positionExp
-    : stringExp ('at' numberExp)? // pair of lane and offset
-    | variableExp 'back' numberExp
-    | variableExp 'forward' numberExp
-    | variableExp 'left' numberExp
-    | variableExp 'right' numberExp
-    | positionExp 'back' numberExp
-    | positionExp 'forward' numberExp
-    | positionExp 'left' numberExp
-    | positionExp 'right' numberExp;
+    : stringExp ('at' (numberExp | variableExp))? // pair of lane and offset
+    | variableExp 'back' (numberExp | variableExp)
+    | variableExp 'forward' (numberExp | variableExp)
+    | variableExp 'left' (numberExp | variableExp)
+    | variableExp 'right' (numberExp | variableExp)
+    | positionExp 'back' (numberExp | variableExp)
+    | positionExp 'forward' (numberExp | variableExp)
+    | positionExp 'left' (numberExp | variableExp)
+    | positionExp 'right' (numberExp | variableExp);
 roadExp
-    : stringExp ('max-velocity' '(' numberExp ')')?
-    | 'change-lane' 'at' numberExp? ('longitudinal-velocity' '(' numberExp ')')? ('lateral-velocity' '(' numberExp ')')?
-    | 'change-lane' 'at' numberExp? 'velocity' '(' numberExp ',' numberExp ')'? 
-    | 'change-lane' 'with' 'dx' '(' numberExp ')' ('longitudinal-velocity' '(' numberExp ')')? ('lateral-velocity' '(' numberExp ')')?
-    | 'change-lane' 'with' 'dx' '(' numberExp ')' 'velocity' '(' numberExp ',' numberExp ')'? ;
+    : stringExp ('max-velocity' '(' (numberExp | variableExp) ')')?
+    | 'change-lane' '(' argumentList? ')'
+    | 'cut-in' '(' argumentList? ')' 
+    | 'cut-out' '(' argumentList? ')';
 configExp
     : 'aggressive-driving'
-    | 'acceleration' '(' numberExp ')'
-    | 'deceleration' '(' numberExp ')'
-    | 'delay-spawn' '(' numberExp ')'
-    | 'delay-move' '(' numberExp ')'
-    | 'delay-spawn-until-ego-move' '(' numberExp ')'
-    | 'delay-move-until-ego-move' '(' numberExp ')'
-    | 'delay-spawn-until-ego-engaged' '(' numberExp ')'
-    | 'delay-move-until-ego-engaged' '(' numberExp ')';
+    | 'acceleration' '(' (numberExp | variableExp) ')'
+    | 'deceleration' '(' (numberExp | variableExp) ')'
+    | 'delay-spawn' '(' (numberExp | variableExp) ')'
+    | 'delay-move' '(' (numberExp | variableExp) ')'
+    | 'delay-spawn-until-ego-move' '(' (numberExp | variableExp) ')'
+    | 'delay-move-until-ego-move' '(' (numberExp | variableExp) ')'
+    | 'delay-spawn-until-ego-engaged' '(' (numberExp | variableExp) ')'
+    | 'delay-move-until-ego-engaged' '(' (numberExp | variableExp) ')';
 egoSettingExp
-    : 'max-velocity' '(' numberExp ')';
+    : 'max-velocity' '(' (numberExp | variableExp) ')';
 simulationSettingExp
     : 'saving-timeout' '(' numberExp ')';
 functionExp

@@ -83,7 +83,7 @@ namespace AWSIM_Script.Object
 		{
 			return HasConfig() &&
 			       Config.HasALaneChange() &&
-			       Config.LaneChange.ChangeOffset == LaneChangeConfig.DUMMY_CHANGE_OFFSET &&
+			       Config.LaneChange.ChangeOffset == ILaneChange.DUMMY_CHANGE_OFFSET &&
 			       InitialPosition.Equals(LaneOffsetPosition.DummyPosition());
 		}
     }

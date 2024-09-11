@@ -15,10 +15,10 @@ namespace AWSIM.AWAnalysis.CustomSim
         private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
         private tier4_planning_msgs.msg.VelocityLimit _maxVelMsg;
 
-        public CustomEgoSetting(GameObject autowareEgoCar, EgoSettings ego)
+        public CustomEgoSetting(EgoSettings ego)
         {
-            _autowareEgoCar = autowareEgoCar;
-            _egoVehicle = autowareEgoCar.GetComponent<Vehicle>();
+            _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
+            _egoVehicle = EgoSingletonInstance.AutowareEgoCarVehicle;
         
             // set initial and goal positions for the Ego
             TrafficLane spawnLane = CustomSimUtils.ParseLane(ego.InitialPosition.GetLane());

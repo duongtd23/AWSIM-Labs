@@ -29,11 +29,9 @@ namespace AWSIM_Script.Parser
         public const string EGO_MAX_VELOCITY = "max-velocity";
         public const string SAVING_TIMEOUT = "saving-timeout";
         public const string CHANGE_LANE = "change-lane";
-        public const string LATERAL_VELOCITY = "lateral-velocity";
-        public const string LONGITUDINAL_VELOCITY = "longitudinal-velocity";
-        public const string VELOCITY = "velocity";
+        public const string CUT_IN = "cut-in";
+        public const string CUT_OUT = "cut-out";
         public const string AT = "at";
-        public const string WITH = "with";
         public const string DX = "dx";
         public const string IGNORE_EXP = "_";
 
@@ -118,7 +116,45 @@ namespace AWSIM_Script.Parser
             {
                 ParseSimulationConfig(runFunc.Parameters[2].children[0], ref simulation);
             }
+            
+            ParsingPostProcess(ref simulation);
+            
             return simulation;
+        }
+
+        private void ParsingPostProcess(ref Simulation simulation)
+        {
+            // assign leading vehicle for the cut-out scenario
+            for (int i = 0; i < simulation.NPCs.Count; i++)
+            {
+                var npc = simulation.NPCs[i];
+                if (npc.HasConfig() &&
+                    npc.Config.HasALaneChange() &&
+                    npc.Config.LaneChange is CutOutLaneChange cutOutLaneChange)
+                {
+                    var others = simulation.NPCs.FindAll(other => 
+                        !other.Equals(npc) && 
+                        !other.HasGoal() &&
+                        other.InitialPosition.Equals(LaneOffsetPosition.DummyPosition()) &&
+                        other.HasDelayOption() &&
+                        other.SpawnDelayOption.ActionDelayed == DelayedAction.SPAWNING &&
+                        other.SpawnDelayOption is NPCDelayTime delayOption &&
+                        delayOption.DelayType == DelayKind.FROM_BEGINNING &&
+                        delayOption.DelayAmount.Equals(NPCDelayTime.DUMMY_DELAY_AMOUNT));
+                    if (others.Count == 0)
+                        throw new InvalidScriptException(
+                            "Cannot detect the leading NPC of the cut-out NPC for the cut-out scenario");
+                    if (others.Count > 1)
+                    {
+                        string allName = "";
+                        others.ForEach(oth => allName += oth.Name + ", ");
+                        Debug.LogError("Found more than one NPCs for the leading NPC of the cut-out NPC: " 
+                                       + allName + " use the first one by default.");
+                    }
+
+                    cutOutLaneChange.LeadVehicle = others[0];
+                }
+            }
         }
 
         private bool RetrieveEgo(FunctionExpContext egoFuncExp, ref Simulation simulation)
@@ -177,7 +213,9 @@ namespace AWSIM_Script.Parser
                 switch (egoSettingExp.children[0].GetText())
                 {
                     case EGO_MAX_VELOCITY:
-                        egoSettings.MaxVelocity = ParserUtils.ParseNumberExp((NumberExpContext)egoSettingExp.children[2]);
+                        bool ok = ParseNumber(egoSettingExp.children[2], out float maxVel);
+                        if (ok)
+                            egoSettings.MaxVelocity = maxVel;
                         return true;
                     default:
                         throw new InvalidScriptException("Cannot parse the config: " + egoSettingExp.GetText());
@@ -267,7 +305,7 @@ namespace AWSIM_Script.Parser
                     // route and speeds limit config
                     case ParamType.ROUTE_AND_SPEEDs_LIMIT:
                         route = ParseRouteAndSpeedsLimit(func.Parameters[3].children[0], 
-                            out bool hasLaneChange, out LaneChangeConfig laneChangeConfig);
+                            out bool hasLaneChange, out ILaneChange laneChangeConfig);
                         if (hasLaneChange)
                         {
                             config.LaneChange = laneChangeConfig;
@@ -314,19 +352,10 @@ namespace AWSIM_Script.Parser
 
         private string ParseVehicleType(IParseTree node)
         {
-            if (node is StringExpContext)
-            {
-                return ParserUtils.ParseStringExp((StringExpContext)node);
-            }
-            if (node is VariableExpContext)
-            {
-                string varName = ((VariableExpContext)node).children[0].GetText();
-                if (!scenarioScore.Variables.ContainsKey(varName))
-                    throw new InvalidScriptException("Undefined variable: " + varName);
-                return ParseVehicleType(scenarioScore.Variables[varName].children[0]);
-            }
-            throw new InvalidScriptException("Cannot parse vehicle type from: " +
-                node.GetText());
+            bool ok = ParseString(node, out string vehicleTypeStr);
+            if (ok)
+                return vehicleTypeStr;
+            throw new InvalidScriptException("Cannot parse vehicle type from: " + node.GetText());
         }
 
         private static VehicleType ParseVehicleType(string vehicleType)
@@ -364,14 +393,17 @@ namespace AWSIM_Script.Parser
                     string laneName = ParserUtils.ParseStringExp(stringExp);
                     float offset = 0;
                     if (positionExp.ChildCount > 2)
-                        offset = ParserUtils.ParseNumberExp((NumberExpContext)positionExp.children[2]);
+                    {
+                        bool ok = ParseNumber(positionExp.children[2], out float offset2);
+                        if (ok) offset = offset2;
+                    }
                     return new LaneOffsetPosition(laneName, offset);
                 }
                 // realtive position
                 else
                 {
                     IPosition reference = ParsePosition(positionExp.children[0]);
-                    float offset = ParserUtils.ParseNumberExp((NumberExpContext)positionExp.children[2]);
+                    ParseNumber(positionExp.children[2], out float offset);
                     switch (positionExp.children[1].GetText())
                     {
                         case RELATIVE_POSITION_LEFT:
@@ -400,32 +432,85 @@ namespace AWSIM_Script.Parser
         }
 
         private List<Tuple<string, float>> ParseRouteAndSpeedsLimit(IParseTree node, 
-            out bool hasLaneChange, out LaneChangeConfig laneChangeConfig)
+            out bool hasLaneChange, out ILaneChange laneChangeConfig)
         {
             if (node is ArrayExpContext arrayExp)
             {
                 hasLaneChange = false;
-                laneChangeConfig = new LaneChangeConfig();
+                laneChangeConfig = null;
                 List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
                 List<Tuple<string, float>> result = new List<Tuple<string, float>>();
                 foreach (var expContext in expContexts)
                 {
-                    // a lane change
-                    if (expContext.children[0] is RoadExpContext roadExp &&
-                        roadExp.children[0].GetText() == CHANGE_LANE)
+                    if (expContext.children[0] is RoadExpContext roadExp)
                     {
-                        hasLaneChange = true;
-                        laneChangeConfig = ParseLaneChange(roadExp);
-                        laneChangeConfig.SourceLane = result.Last().Item1;
+                        // a lane change
+                        if (roadExp.children[0].GetText() == CHANGE_LANE)
+                        {
+                            hasLaneChange = true;
+                            laneChangeConfig = new LaneChangeConfig();
+                            laneChangeConfig.SourceLane = result.Last().Item1;
+                            var arguments =
+                                ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
+                            ParseLaneChange(arguments, ref laneChangeConfig);
+                        }
+                        // cut in
+                        else if (roadExp.children[0].GetText() == CUT_IN)
+                        {
+                            hasLaneChange = true;
+                            laneChangeConfig = new CutInLaneChange();
+                            laneChangeConfig.SourceLane = result.Last().Item1;
+                            var arguments =
+                                ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
+                            ParseLaneChange(arguments, ref laneChangeConfig);
+                            if (arguments.Count < 4)
+                            {
+                                throw new InvalidScriptException("Cut in scenario requires at least 4 arguments. " +
+                                                                 "The 4th argument specifies dx");
+                            }
+
+                            bool ok = ParseNumber(arguments[3], out float dx);
+                            (laneChangeConfig as CutInLaneChange).Dx = dx;
+                        }
+                        // cut out
+                        else if (roadExp.children[0].GetText() == CUT_OUT)
+                        {
+                            hasLaneChange = true;
+                            laneChangeConfig = new CutOutLaneChange();
+                            laneChangeConfig.SourceLane = result.Last().Item1;
+                            var arguments =
+                                ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
+                            ParseLaneChange(arguments, ref laneChangeConfig);
+                            if (arguments.Count < 4)
+                            {
+                                throw new InvalidScriptException("Cut out scenario requires at least 4 arguments. " +
+                                                                 "The 4th argument specifies dx_f");
+                            }
+
+                            bool ok = ParseNumber(arguments[3], out float dx_f);
+                            (laneChangeConfig as CutOutLaneChange).Dxf = dx_f;
+                        }
                     }
-                    else
+                    // pair of traffic lane and desired speed limit
+                    if (expContext.children[0] is StringExpContext ||
+                        (expContext.children[0] is RoadExpContext roadExp2 &&
+                         roadExp2.children[0] is StringExpContext))
                     {
                         ParseRoute(expContext.children[0], ref result);
-                        if (laneChangeConfig.TargetLane == null &&
-                            laneChangeConfig.SourceLane != null &&
-                            laneChangeConfig.SourceLane == result[^2].Item1)
+                        if (laneChangeConfig?.TargetLane == null &&
+                            laneChangeConfig?.SourceLane != null &&
+                            laneChangeConfig?.SourceLane == result[^2].Item1)
+                        {
                             laneChangeConfig.TargetLane = result.Last().Item1;
+                            if (laneChangeConfig.LongitudinalVelocity == 0)
+                            {
+                                string sourceLane = laneChangeConfig.SourceLane;
+                                laneChangeConfig.LongitudinalVelocity =
+                                    result.Find(tuple => tuple.Item1 == sourceLane).Item2;
+                            }
+                        }
                     }
+                
                 }
                 return result;
             }
@@ -456,7 +541,11 @@ namespace AWSIM_Script.Parser
                     string laneName = ParserUtils.ParseStringExp(stringExp);
                     float speed = NPCConfig.DUMMY_SPEED;
                     if (roadExp.ChildCount > 3)
-                        speed = ParserUtils.ParseNumberExp((NumberExpContext)roadExp.children[3]);
+                    {
+                        bool ok = ParseNumber(roadExp.children[3], out float speed2);
+                        if (ok) speed = speed2;
+                    }
+
                     result.Add(new Tuple<string, float>(laneName, speed));
                 }
                 return true;
@@ -465,49 +554,82 @@ namespace AWSIM_Script.Parser
                 node.GetText());
         }
 
-        private LaneChangeConfig ParseLaneChange(RoadExpContext roadExp)
+        /// <returns>false if the expression is variable "_"</returns>
+        private bool ParseNumber(IParseTree node, out float result)
         {
-            LaneChangeConfig result = new LaneChangeConfig();
+            if (node is NumberExpContext numberExp)
+            {
+                result = ParserUtils.ParseNumberExp(numberExp);
+                return true;
+            }
 
-            int index = 0;
-            if (roadExp.children[1].GetText() == AT)
+            if (node is VariableExpContext variableExp)
             {
-                // lane change offset
-                result.ChangeOffset = ParserUtils.ParseNumberExp(roadExp.children[2] as NumberExpContext);
-                index = 3;
+                string varName = variableExp.children[0].GetText();
+                if (varName == IGNORE_EXP)
+                {
+                    result = 0;
+                    return false;
+                }
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return ParseNumber(scenarioScore.Variables[varName], out result);
             }
-            else if (roadExp.children[1].GetText() == WITH)
+
+            if (node is ExpressionContext expContext)
             {
-                result.Dx = ParserUtils.ParseNumberExp(roadExp.children[4] as NumberExpContext);
-                index = 6;
+                return ParseNumber(expContext.children[0], out result);
             }
+            throw new InvalidScriptException($"Expected a number, but get: {node.GetText()}");
+        }
+
+        private bool ParseString(IParseTree node, out string result)
+        {
+            if (node is StringExpContext stringExp)
+            {
+                result = ParserUtils.ParseStringExp(stringExp);
+                return true;
+            }
+
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (varName == IGNORE_EXP)
+                {
+                    result = "";
+                    return false;
+                }
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return ParseString(scenarioScore.Variables[varName], out result);
+            }
+
+            if (node is ExpressionContext expContext)
+            {
+                return ParseString(expContext.children[0], out result);
+            }
+            throw new InvalidScriptException($"Expected a string, but get: {node.GetText()}");
+        }
+
+        private void ParseLaneChange(List<ExpressionContext> argExpContexts, ref ILaneChange laneChangeConfig)
+        {
+            if (argExpContexts.Count < 3)
+            {
+                throw new InvalidScriptException("Change lane expression requires at least 3 arguments " +
+                                                 "including offset position, longitudinal velocity and lateral velocity.");
+            }
+            bool ok = ParseNumber(argExpContexts[0], out float offset);
+            if (!ok)
+                offset = ILaneChange.DUMMY_CHANGE_OFFSET;
+            laneChangeConfig.ChangeOffset = offset;
             
-            if (roadExp.children.Count > index)
-            {
-                if (roadExp.children[index].GetText() == LONGITUDINAL_VELOCITY)
-                {
-                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
-                    index += 4;
-                }
-                else if (roadExp.children[index].GetText() == LATERAL_VELOCITY)
-                {
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
-                    index += 4;
-                }
-                else if (roadExp.children[index].GetText() == VELOCITY)
-                {
-                    result.LongitudinalVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 4] as NumberExpContext);
-                    index += 6;
-                }
-
-                if (roadExp.children.Count > index)
-                {
-                    result.LateralVelocity = ParserUtils.ParseNumberExp(roadExp.children[index + 2] as NumberExpContext);
-                }
-            }
-
-            return result;
+            ok = ParseNumber(argExpContexts[1], out float longVel);
+            laneChangeConfig.LongitudinalVelocity = longVel;
+            
+            ok = ParseNumber(argExpContexts[2], out float latVel);
+            if (!ok)
+                latVel = ILaneChange.DEFAULT_LATERAL_VELOCITY;
+            laneChangeConfig.LateralVelocity = latVel;
         }
 
         private bool ParseConfig(IParseTree node, ref INPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)
@@ -541,10 +663,12 @@ namespace AWSIM_Script.Parser
                         npcConfig.AggresiveDrive = true;
                         return 1;
                     case ACCELERATION:
-                        npcConfig.Acceleration = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+                        bool ok = ParseNumber(configExp.children[2], out float accel);
+                        if (ok) npcConfig.Acceleration = accel;
                         return 1;
                     case DECELERATION:
-                        npcConfig.Deceleration = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+                        bool ok2 = ParseNumber(configExp.children[2], out float decel);
+                        if (ok2) npcConfig.Deceleration = decel;
                         return 1;
                     case DELAY_SPAWN:
                     case DELAY_MOVE:
@@ -571,7 +695,10 @@ namespace AWSIM_Script.Parser
 
         private NPCDelayTime ParseDelayOption(ConfigExpContext configExp)
         {
-            float amount = ParserUtils.ParseNumberExp((NumberExpContext)configExp.children[2]);
+            bool ok = ParseNumber(configExp.children[2], out float amount);
+            // case "_"
+            if (!ok)
+                amount = NPCDelayTime.DUMMY_DELAY_AMOUNT;
             switch (configExp.children[0].GetText())
             {
                 case DELAY_SPAWN:
@@ -600,8 +727,7 @@ namespace AWSIM_Script.Parser
                 {
                     if (simulationConfig.children[0] is SimulationSettingExpContext simulationSettingExp)
                     {
-                        float timeout =
-                            ParserUtils.ParseNumberExp((NumberExpContext)simulationSettingExp.children[2]);
+                        ParseNumber(simulationSettingExp.children[2], out float timeout);
                         simulation.SavingTimeout = timeout;
                     }
                     else throw new InvalidScriptException("Unexpected argument: " + simulationConfig.GetText());
@@ -614,7 +740,7 @@ namespace AWSIM_Script.Parser
         // if node is a param of position
         private ParamType GetParamType(IParseTree node)
         {
-            if (node is StringExpContext || node is PositionExpContext)
+            if (node is StringExpContext or PositionExpContext)
                 return ParamType.POSITION;
             if (node is ArrayExpContext arrayExp)
             {

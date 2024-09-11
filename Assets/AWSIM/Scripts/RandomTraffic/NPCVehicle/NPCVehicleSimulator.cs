@@ -193,17 +193,18 @@ namespace AWSIM.TrafficSimulation
                 customConfig, waypointIndex));
         }
 
-        private int AddaWaypointToSourceLaneChange(ref List<TrafficLane> route, LaneChangeConfig laneChangeConfig)
+        private int AddaWaypointToSourceLaneChange(ref List<TrafficLane> route, ILaneChange laneChangeConfig)
         {
             TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
-            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(sourceLane, laneChangeConfig.ChangeOffset, out int waypointIndex);
+            float changeOffset = laneChangeConfig.ChangeOffset;
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(sourceLane, changeOffset, out int waypointIndex);
             var updateWaypoints = new List<Vector3>(sourceLane.Waypoints);
             updateWaypoints.Insert(waypointIndex,newWaypoint);
             sourceLane.UpdateWaypoints(updateWaypoints.ToArray());
             return waypointIndex;
         }
         
-        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, LaneChangeConfig laneChangeConfig)
+        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, ILaneChange laneChangeConfig)
         {
             TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
             TrafficLane targetLane = route.Find(l => l.name == laneChangeConfig.TargetLane);

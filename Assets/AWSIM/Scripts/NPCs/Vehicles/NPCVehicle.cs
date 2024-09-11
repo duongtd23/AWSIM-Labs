@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 
 namespace AWSIM
 {
@@ -451,6 +452,16 @@ namespace AWSIM
             // var backPos = Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.min.z);
             // return (frontPos + backPos) / 2;
             return Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.center.z);
+        }
+        
+        public NPCDetailObject GetCarInfo()
+        {
+            return new NPCDetailObject()
+            {
+                name = ScriptName,
+                center = new Vector3Object(Bounds.center),
+                extents = new Vector3Object(Bounds.extents)
+            };
         }
     }
 }

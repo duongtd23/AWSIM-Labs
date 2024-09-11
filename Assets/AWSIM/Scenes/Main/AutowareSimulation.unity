@@ -230,6 +230,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9027057599675904505, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 9027057600016992297, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -333,6 +337,10 @@ PrefabInstance:
     - target: {fileID: 9027057600637418030, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: m_IsActive
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057600730853716, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1811,8 +1819,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1743169424}
   m_HandleRect: {fileID: 1743169422}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 0.7712643
+  m_Value: 0
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -3520,6 +3528,7 @@ GameObject:
   - component: {fileID: 717467357}
   - component: {fileID: 717467358}
   - component: {fileID: 717467360}
+  - component: {fileID: 717467361}
   m_Layer: 0
   m_Name: AutowareAnalysis
   m_TagString: Untagged
@@ -3581,6 +3590,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   autowareEgoCar: {fileID: 897708388}
   sensorCamera: {fileID: 344861285}
+--- !u!114 &717467361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 717467354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c1642b0605b86c6794298cf621404e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autowareEgoCar: {fileID: 897708388}
 --- !u!1 &770863574
 GameObject:
   m_ObjectHideFlags: 0

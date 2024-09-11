@@ -54,6 +54,15 @@ namespace AWSIM.TrafficSimulation
                 foreach (var state in States)
                 {
                     var isCloseToTarget = state.DistanceToCurrentWaypoint <= 1f;
+                    var temp = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
+                    if (state.CustomConfig.HasALaneChange() && 
+                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&
+                        state.WaypointIndex == state.CustomConfig.LaneChange.TargetLaneWaypointIndex)
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
+                    else if (state.CustomConfig.HasALaneChange() &&
+                             state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                             state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
 
                     if (!isCloseToTarget)
                         continue;
