@@ -16,7 +16,7 @@ namespace AWSIM_Script.Object
         public DelayKind DelayType { get; set; }
         public DelayedAction ActionDelayed { get; set; }
 
-        public const float DUMMY_DELAY_AMOUNT = -1f;
+        public const float DUMMY_DELAY_AMOUNT = float.MaxValue;
 
         public NPCDelayTime()
         {

@@ -152,6 +152,8 @@ namespace AWSIM_Script.Parser
                                        + allName + " use the first one by default.");
                     }
 
+                    others[0].InitialPosition =
+                        new LaneOffsetPosition(cutOutLaneChange.SourceLane, cutOutLaneChange.ChangeOffset + cutOutLaneChange.Dxf);
                     cutOutLaneChange.LeadVehicle = others[0];
                 }
             }
@@ -680,7 +682,6 @@ namespace AWSIM_Script.Parser
                         return 0;
                     default:
                         throw new InvalidScriptException("Cannot parse the config: " + configExp.GetText());
-
                 }
             }
             if (node is VariableExpContext variableExp)

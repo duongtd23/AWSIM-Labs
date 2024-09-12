@@ -2,13 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.CustomSim;
 using AWSIM.AWAnalysis.TraceExporter;
 using AWSIM_Script.Object;
 using AWSIM_Script.Parser;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
+using AWSIM.TrafficSimulation;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace AWSIM.AWAnalysis
 {
@@ -35,7 +36,6 @@ namespace AWSIM.AWAnalysis
 
     public class AutowareAnalysis : MonoBehaviour
     {
-        public GameObject autowareEgoCar;
         public Camera sensorCamera;
         private TraceWriter _traceWriter;
         private CustomEgoSetting _customEgoSetting;
@@ -66,6 +66,7 @@ namespace AWSIM.AWAnalysis
             }
             Debug.Log("Loading input script " + scriptFilePath);
             Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFilePath);
+            PreProcessingSimulation(ref simulation);
             ExecuteSimulation(simulation);
             return simulation;
         }
@@ -81,13 +82,11 @@ namespace AWSIM.AWAnalysis
                 PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();
                 if (ConfigLoader.Config().TraceFormat == TraceFormat.YAML)
                     _traceWriter = new YamlTraceWriter(outputFilePath,
-                        autowareEgoCar,
                         sensorCamera,
                         perceptionMode,
                         new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
                 else
                     _traceWriter = new MaudeTraceWriter(outputFilePath,
-                        autowareEgoCar,
                         sensorCamera,
                         perceptionMode,
                         new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
@@ -102,7 +101,81 @@ namespace AWSIM.AWAnalysis
                 CustomNPCSpawningManager.SpawnNPC(npcCar);
             }
 
-            _customEgoSetting = new CustomEgoSetting(autowareEgoCar, simulation.Ego);
+            _customEgoSetting = new CustomEgoSetting(simulation.Ego);
+        }
+
+        private void PreProcessingSimulation(ref Simulation simulation)
+        {
+            for (int i = 0; i < simulation.NPCs.Count; i++)
+            {
+                var npc = simulation.NPCs[i];
+                if (npc.HasConfig() &&
+                    npc.Config.HasALaneChange())
+                {
+                    if (npc.Config.LaneChange is CutInLaneChange)
+                    {
+                        PreProcessingCutIn(ref npc, ref simulation);
+                    }
+                }
+            }
+        }
+
+        // compute initial position
+        private void PreProcessingCutIn(ref NPCCar npc, ref Simulation simulation)
+        {
+            EgoDetailObject egoDetailObject = EgoSingletonInstance.GetFixedEgoDetailInfo();
+            NPCDetailObject npcDetailObject = CustomNPCSpawningManager.GetNPCCarInfo(npc.VehicleType);
+            var cutInLaneChange = npc.Config.LaneChange as CutInLaneChange;
+            float desiredDX = cutInLaneChange.Dx;
+            float timeNPCTravelBeforeCutin = ConfigLoader.Config().TimeNPCTravelBeforeCutin;
+            float desiredSpeed = npc.Config.GetDesiredSpeed(cutInLaneChange.SourceLane);
+            float acceleration = npc.Config.Acceleration;
+            float egoSpeed = simulation.Ego.MaxVelocity;
+            float npcTotalTravelDisBeforeCutin = 0.5f * desiredSpeed * desiredSpeed / acceleration +
+                                                 timeNPCTravelBeforeCutin * desiredSpeed;
+            float d0 = (desiredSpeed / acceleration + timeNPCTravelBeforeCutin) * egoSpeed -
+                       npcTotalTravelDisBeforeCutin +
+                       desiredDX +
+                       (float)(egoDetailObject.extents.z + egoDetailObject.center.z) +
+                       (float)(npcDetailObject.extents.z - npcDetailObject.center.z);
+            // d0 is the distance from ego to NPC such that
+            // if NPC starts moving when the distance between ego and NPC reaches this value,
+            // the desired Dx will be satisfied
+            Debug.Log($"Computed D0: {d0}");
+
+            float egoAcceleration = ConfigLoader.Config().EgoNormalAcceleration;
+            float distanceForEgoReachDesiredSpeed = 0.5f * egoSpeed * egoSpeed / egoAcceleration;
+            float timeEgoTravelConstSpeed = ConfigLoader.Config().TimeEgoTravelConstSpeed;
+            float distanceEgoTravelConstSpeed = timeEgoTravelConstSpeed * egoSpeed;
+            Vector3 egoInitPosition = CustomSimUtils.CalculatePosition(simulation.Ego.InitialPosition);
+            TrafficLane sourceLane = CustomSimUtils.ParseLane(cutInLaneChange.SourceLane);
+            float egoOffsetProjectedOnSourceLane = CustomSimUtils.LongitudeDistance(
+                sourceLane.Waypoints[0], 
+                sourceLane.Waypoints[1] - sourceLane.Waypoints[0],
+                egoInitPosition);
+            
+            if (Vector3.Dot(sourceLane.Waypoints[1] - sourceLane.Waypoints[0], 
+                    egoInitPosition - sourceLane.Waypoints[0]) < 0)
+                egoOffsetProjectedOnSourceLane = -egoOffsetProjectedOnSourceLane;
+
+            float initialPosOffset = distanceForEgoReachDesiredSpeed +
+                                     distanceEgoTravelConstSpeed +
+                                     d0 +
+                                     egoOffsetProjectedOnSourceLane;
+            
+            Debug.Log($"NPC initial position offset: {initialPosOffset}");
+            
+            if (sourceLane.TotalLength() <= initialPosOffset)
+            {
+                // TODO: handle the case when lane length is not sufficient
+                throw new InvalidScriptException($"{cutInLaneChange.SourceLane}'s length is not sufficient.");
+            }
+
+            npc.InitialPosition = new LaneOffsetPosition(cutInLaneChange.SourceLane, initialPosOffset);
+            cutInLaneChange.ChangeOffset = initialPosOffset + npcTotalTravelDisBeforeCutin + 
+                                           (float)(npcDetailObject.extents.z + npcDetailObject.center.z -
+                                                   0.3f); // TODO: remove hard code 0.3f
+            npc.SpawnDelayOption = NPCDelayDistance.DelayMove(d0);
         }
     }
 }

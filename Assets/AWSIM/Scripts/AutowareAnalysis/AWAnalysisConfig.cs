@@ -17,7 +17,7 @@ namespace AWSIM.AWAnalysis
         public int PlanTrajectoryMaxStepsRecording { get; set; } = 10;
         public float EgoNormalAcceleration { get; set; } = 1;
         public float TimeEgoTravelConstSpeed { get; set; } = 2;
-        public float TimeHeadWayCutout { get; set; } = 2;
+        public float TimeHeadWay { get; set; } = 2;
     }
 
     [Serializable]

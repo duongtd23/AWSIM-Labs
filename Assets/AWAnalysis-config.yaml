@@ -8,7 +8,7 @@ ComponentsRecording:                        # see enum TraceComponent
   - 1                                       # 1: planning trajectory
 PlanTrajectoryMaxStepsRecording: 10         # maximum number of steps when recording plan trajectories
 # other settings
-TimeNPCTravelBeforeCutin: 5                # the time NPC travel with constant speed before make a cutin
+TimeNPCTravelBeforeCutin: 2                # the time NPC travel with constant speed before make a cutin
 EgoNormalAcceleration: 1                    # The normal acceleration, different from the maximum in Autoware's config
 TimeEgoTravelConstSpeed: 3                  # the time configured for Ego travel with constant (max) speed before NPC start compute the appropriate distance to start moving
-TimeHeadWayCutout: 2
+TimeHeadWay: 2

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using AWSIM_Script.Object;
+using AWSIM.AWAnalysis;
 using AWSIM.AWAnalysis.CustomSim;
 
 namespace AWSIM.TrafficSimulation
@@ -254,6 +255,11 @@ namespace AWSIM.TrafficSimulation
             {
                 var speed = new Vector2(CustomConfig.LaneChange.LongitudinalVelocity,
                     CustomConfig.LaneChange.LateralVelocity).magnitude;
+                return speed;
+            }
+            if (CustomConfig.MaintainSpeedAsEgo)
+            {
+                float speed = EgoSingletonInstance.AutowareEgoCarVehicle.Speed;
                 return speed;
             }
             if (CustomConfig.HasDesiredSpeed(lane.name))

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using AWSIM.TrafficSimulation;
 using AWSIM_Script.Object;
@@ -126,6 +127,10 @@ namespace AWSIM.AWAnalysis.CustomSim
 
                 npcVehicleSimulator.StepOnce(Time.fixedDeltaTime);
                 UpdateDelayingNPCs();
+
+                UpdateCutoutLeadingNPC();
+
+                UpdateDecelerationNPC();
             }
         }
 
@@ -190,13 +195,137 @@ namespace AWSIM.AWAnalysis.CustomSim
                         (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
                          Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
                     {
-                        SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal, npcCar.Name);
+                        if (npcCar.HasGoal())
+                            SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Config, npcCar.Goal, npcCar.Name);
+                        else
+                            PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Name);
                         removeAfter2.Add(npcCar);
                     }
                 }
             }
             foreach (var entry in removeAfter2)
                 delayingSpawnNPCs.Remove(entry);
+        }
+
+        private void UpdateCutoutLeadingNPC()
+        {
+            var cutoutNPC = CutoutVehicle();
+            if (cutoutNPC == null) return;
+            
+            var laneChangeConfig = cutoutNPC.CustomConfig.LaneChange as CutOutLaneChange;
+            var leadingNPC =
+                delayingSpawnNPCs.FirstOrDefault(npcCar => npcCar.Name == laneChangeConfig.LeadVehicle.Name);
+
+            if (leadingNPC != null)
+            {
+                var internalState = npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
+                    state.CustomConfig.HasALaneChange() &&
+                    state.CustomConfig.LaneChange is CutOutLaneChange);
+                if (internalState?.CurrentFollowingLane.name == laneChangeConfig.TargetLane &&
+                    internalState?.WaypointIndex == laneChangeConfig.TargetLaneWaypointIndex &&
+                    leadingNPC.SpawnDelayOption is NPCDelayTime
+                    {
+                        DelayAmount: NPCDelayTime.DUMMY_DELAY_AMOUNT
+                    } delayTime)
+                {
+                    float desired_dx0 = Mathf.Min(_egoVehicle.Velocity.magnitude, cutoutNPC.Velocity.magnitude) *
+                                        ConfigLoader.Config().TimeHeadWay;
+                    float actual_dx0 = CustomSimUtils.DistanceIgnoreYAxis(_egoVehicle.Position, cutoutNPC.Position);
+                    actual_dx0 -= (float)EgoSingletonInstance.GetEgoDetailInfo().extents.z +
+                                  (float)EgoSingletonInstance.GetEgoDetailInfo().center.z;
+                    actual_dx0 -= (float)cutoutNPC.GetCarInfo().extents.z -
+                                  (float)cutoutNPC.GetCarInfo().center.z;
+                    if (actual_dx0 > desired_dx0)
+                        leadingNPC.InitialPosition = new RelativePosition(leadingNPC.InitialPosition,
+                            RelativePositionSide.FORWARD,
+                            desired_dx0 - actual_dx0 +
+                            (float)GetNPCCarInfo(leadingNPC.VehicleType).extents.z -
+                            (float)GetNPCCarInfo(leadingNPC.VehicleType).center.z);
+                    delayTime.DelayType = DelayKind.FROM_BEGINNING;
+                    delayTime.DelayAmount = Time.fixedTime;
+                }
+            }
+        }
+
+        private void UpdateDecelerationNPC()
+        {
+            var decelNPC = DecelerationVehicle();
+            if (decelNPC == null) return;
+            
+            var internalState = npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.AggresiveDrive &&
+                state.CustomConfig.Deceleration >= 9.8f);
+            if (internalState?.SpeedMode == NPCVehicleSpeedMode.STOP)
+            {
+                var unspawnNPC = delayingSpawnNPCs.FirstOrDefault(npcCar =>
+                    npcCar.InitialPosition.Equals(LaneOffsetPosition.DummyPosition()) &&
+                    npcCar.HasDelayOption() &&
+                    npcCar.SpawnDelayOption.ActionDelayed == DelayedAction.SPAWNING &&
+                    npcCar.SpawnDelayOption is NPCDelayTime delayTime &&
+                    delayTime.DelayType == DelayKind.FROM_BEGINNING &&
+                    delayTime.DelayAmount.Equals(NPCDelayTime.DUMMY_DELAY_AMOUNT));
+                if (unspawnNPC != null)
+                {
+                    float desired_dx0 = Mathf.Min(_egoVehicle.Velocity.magnitude, decelNPC.Velocity.magnitude) *
+                                        ConfigLoader.Config().TimeHeadWay;
+                    float actual_dx0 = CustomSimUtils.DistanceIgnoreYAxis(_egoVehicle.Position, decelNPC.Position);
+                    actual_dx0 -= (float)EgoSingletonInstance.GetEgoDetailInfo().extents.z +
+                                  (float)EgoSingletonInstance.GetEgoDetailInfo().center.z;
+                    actual_dx0 -= (float)decelNPC.GetCarInfo().extents.z -
+                                  (float)decelNPC.GetCarInfo().center.z;
+
+                    if (actual_dx0 > desired_dx0)
+                    {
+                        float stopDistance = 0.5f * decelNPC.Velocity.magnitude * decelNPC.Velocity.magnitude /
+                                             decelNPC.CustomConfig.Deceleration;
+                        float shiftBack = actual_dx0 - desired_dx0 - stopDistance;
+                        Vector3 backDirection = decelNPC.Velocity * -1;
+                        Vector3 spawnPosition = decelNPC.Position + backDirection.normalized * shiftBack;
+                        PoseObstacle(unspawnNPC.VehicleType, spawnPosition, backDirection * -1, unspawnNPC.Name);
+                    }
+                    delayingSpawnNPCs.Remove(unspawnNPC);
+                }
+            }
+        }
+
+        private NPCVehicle CutoutVehicle()
+        {
+            var results = GetNPCs().FindAll(npc0 =>
+                npc0.CustomConfig != null &&
+                npc0.CustomConfig.HasALaneChange() &&
+                npc0.CustomConfig.LaneChange is CutOutLaneChange);
+            if (results.Count >= 2)
+            {
+                Debug.LogError("Found more than one possible cutout vehicle. Use the first one by default.");
+            }
+            return results.FirstOrDefault();
+        }
+        
+        private NPCVehicle DecelerationVehicle()
+        {
+            var results = GetNPCs().FindAll(npc0 =>
+                npc0.CustomConfig != null &&
+                npc0.CustomConfig.AggresiveDrive &&
+                npc0.CustomConfig.Deceleration >= 9.8f);
+            if (results.Count >= 2)
+            {
+                Debug.LogError("Found more than one possible deceleration vehicle. Use the first one by default.");
+            }
+            return results.FirstOrDefault();
+        }
+
+        private static NPCVehicle PoseObstacle(VehicleType vehicleType, Vector3 position, Vector3 forwardDirection, string name)
+        {
+            GameObject npcGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(vehicleType),
+                position,
+                Quaternion.LookRotation(forwardDirection));
+            NPCVehicle npc = npcGameObj.GetComponent<NPCVehicle>();
+            npc.VehicleID = SpawnIdGenerator.Generate();
+            if (name != "")
+                npc.ScriptName = name;
+            GetNPCs().Add(npc);
+            return npc;
         }
 
         // spawn a stand still vehicle 
@@ -292,7 +421,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             ValidateNPC(ref npcCar);
             if (!npcCar.HasGoal())
             {
-                PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Name);
+                if (npcCar.HasDelayOption() && npcCar.SpawnDelayOption.ActionDelayed == DelayedAction.SPAWNING)
+                    Manager().delayingSpawnNPCs.Add(npcCar);
+                else
+                    PoseObstacle(npcCar.VehicleType, npcCar.InitialPosition, npcCar.Name);
             }
             else
             {
@@ -318,10 +450,10 @@ namespace AWSIM.AWAnalysis.CustomSim
         // the given NPC might lack of route, etc.
         private static void ValidateNPC(ref NPCCar npcCar)
         {
+            if (!npcCar.HasGoal()) return;
+
             // validate spawn lane
             TrafficLane spawnLane = CustomSimUtils.ParseLane(npcCar.InitialPosition.GetLane());
-            if (!npcCar.HasGoal())
-                return;
             
             // validate goal lane if exists
             TrafficLane goalLane = CustomSimUtils.ParseLane(npcCar.Goal.GetLane());
@@ -334,12 +466,15 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (npcConfig.RouteAndSpeeds == null || npcConfig.RouteAndSpeeds.Count == 0)
             {
                 if (spawnLane == goalLane)
-                    npcCar.Config = new NPCConfig(new List<string> {
+                {
+                    npcCar.Config.UpdateRouteAndSpeeds(new List<string>
+                    {
                         npcCar.InitialPosition.GetLane()
                     });
+                }
                 else if (spawnLane.NextLanes.Contains(goalLane))
                 {
-                    npcCar.Config = new NPCConfig(new List<string> {
+                    npcCar.Config.UpdateRouteAndSpeeds(new List<string> {
                         npcCar.InitialPosition.GetLane(),
                         npcCar.Goal.GetLane()
                     });
@@ -347,25 +482,29 @@ namespace AWSIM.AWAnalysis.CustomSim
                 else
                     throw new InvalidScriptException($"Undefined route from {npcCar.InitialPosition} to {npcCar.Goal}.");
             }
-            
-            // update lane change config
-            TrafficLane sourceLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.SourceLane);
-            TrafficLane targetLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.TargetLane);
 
-            if (npcConfig.LaneChange.LateralVelocity == 0)
-                npcConfig.LaneChange.LateralVelocity = LaneChangeConfig.DEFAULT_LATERAL_VELOCITY;
-            if (npcConfig.LaneChange.LongitudinalVelocity == 0)
+            if (npcCar.Config.HasALaneChange())
             {
-                if (npcConfig.HasDesiredSpeed(npcConfig.LaneChange.SourceLane))
-                    npcConfig.LaneChange.LongitudinalVelocity = 
-                        npcConfig.GetDesiredSpeed(npcConfig.LaneChange.SourceLane);
-                else
-                    npcConfig.LaneChange.LongitudinalVelocity = sourceLaneChange.SpeedLimit;
+                // update lane change config
+                TrafficLane sourceLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.SourceLane);
+                TrafficLane targetLaneChange = CustomSimUtils.ParseLane(npcConfig.LaneChange.TargetLane);
+
+                if (npcConfig.LaneChange.LateralVelocity == 0)
+                    npcConfig.LaneChange.LateralVelocity = ILaneChange.DEFAULT_LATERAL_VELOCITY;
+                if (npcConfig.LaneChange.LongitudinalVelocity == 0)
+                {
+                    if (npcConfig.HasDesiredSpeed(npcConfig.LaneChange.SourceLane))
+                        npcConfig.LaneChange.LongitudinalVelocity =
+                            npcConfig.GetDesiredSpeed(npcConfig.LaneChange.SourceLane);
+                    else
+                        npcConfig.LaneChange.LongitudinalVelocity = sourceLaneChange.SpeedLimit;
+                }
+
+                bool leftLaneChange = CustomSimUtils.OnLeftSide(
+                    targetLaneChange.Waypoints[0],
+                    sourceLaneChange.Waypoints[0], sourceLaneChange.Waypoints[1]);
+                npcConfig.LaneChange.ChangeDirection = leftLaneChange ? Side.LEFT : Side.RIGHT;
             }
-            bool leftLaneChange = CustomSimUtils.OnLeftSide(
-                targetLaneChange.Waypoints[0],
-                sourceLaneChange.Waypoints[0], sourceLaneChange.Waypoints[1]);
-            npcConfig.LaneChange.ChangeDirection = leftLaneChange ? Side.LEFT : Side.RIGHT;
         }
         
         // if the offset of goal exceeds the lane's total length,
@@ -416,15 +555,15 @@ namespace AWSIM.AWAnalysis.CustomSim
             switch (vehicleType)
             {
                 case VehicleType.TAXI:
-                    return CustomSimUtils.GetNPCCarInfo(Manager().npcTaxi.GetComponent<NPCVehicle>());
+                    return Manager().npcTaxi.GetComponent<NPCVehicle>().GetCarInfo();
                 case VehicleType.HATCHBACK:
-                    return CustomSimUtils.GetNPCCarInfo(Manager().npcHatchback.GetComponent<NPCVehicle>());
+                    return Manager().npcHatchback.GetComponent<NPCVehicle>().GetCarInfo();
                 case VehicleType.SMALL_CAR:
-                    return CustomSimUtils.GetNPCCarInfo(Manager().npcSmallCar.GetComponent<NPCVehicle>());
+                    return Manager().npcSmallCar.GetComponent<NPCVehicle>().GetCarInfo();
                 case VehicleType.TRUCK:
-                    return CustomSimUtils.GetNPCCarInfo(Manager().npcTruck.GetComponent<NPCVehicle>());
+                    return Manager().npcTruck.GetComponent<NPCVehicle>().GetCarInfo();
                 case VehicleType.VAN:
-                    return CustomSimUtils.GetNPCCarInfo(Manager().npcVan.GetComponent<NPCVehicle>());
+                    return Manager().npcVan.GetComponent<NPCVehicle>().GetCarInfo();
             }
             throw new InvalidScriptException("Cannot detect the vehicle type `" + vehicleType + "`.");
         }
