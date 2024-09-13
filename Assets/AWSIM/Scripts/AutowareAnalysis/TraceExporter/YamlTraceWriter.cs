@@ -22,6 +22,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
         
         protected override void WriteFile()
         {
+            if (!ValidateFilePath()) return;
+
             // write remaining states
             var temp =
                 _traceObject.states.Skip(Math.Max(0, _traceObject.states.Count - MAX_LAG_FIXED_STEPS + 1));
@@ -29,15 +31,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
             
             // write ego and NPC details
             DumpVehicleDetails();
-            
-            TraceObjectWithoutState temp2 = new TraceObjectWithoutState()
-            {
-                fixedTimestep = _traceObject.fixedTimestep,
-                camera_screen_height = _traceObject.camera_screen_height,
-                camera_screen_width = _traceObject.camera_screen_width,
-                ego_detail = _traceObject.ego_detail,
-                npcs_detail = _traceObject.npcs_detail,
-            };
+
+            TraceObjectWithoutState temp2 = _traceObject.Clone();
             _contents += _serializer.Serialize(temp2);
             
             File.WriteAllText(_filePath, _contents);

@@ -61,8 +61,9 @@ namespace AWSIM.TrafficSimulation
             }
 
             var normalDeceleration = config.Deceleration;
-            if (state.CustomConfig.Deceleration != NPCConfig.DUMMY_DECELERATION)
+            if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
                 normalDeceleration = state.CustomConfig.Deceleration;
+            
             var absoluteStopDistance = CalculateStoppableDistance(state.Speed, config.AbsoluteDeceleration) + MinStopDistance;
             var suddenStopDistance = CalculateStoppableDistance(state.Speed, config.SuddenDeceleration) + 2 * MinStopDistance;
             var stopDistance = CalculateStoppableDistance(state.Speed, normalDeceleration) + 3 * MinStopDistance;

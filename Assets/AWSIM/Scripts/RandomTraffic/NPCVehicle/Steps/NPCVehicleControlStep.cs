@@ -43,13 +43,13 @@ namespace AWSIM.TrafficSimulation
                 case NPCVehicleSpeedMode.NORMAL:
                     targetSpeed = state.TargetSpeed(state.CurrentFollowingLane);
                     acceleration = config.Acceleration;
-                    if (state.CustomConfig.Acceleration != NPCConfig.DUMMY_ACCELERATION)
+                    if (!state.CustomConfig.Acceleration.Equals(NPCConfig.DUMMY_ACCELERATION))
                         acceleration = state.CustomConfig.Acceleration;
                     break;
                 case NPCVehicleSpeedMode.SLOW:
                     targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.TargetSpeed(state.CurrentFollowingLane));
                     acceleration = config.Deceleration;
-                    if (state.CustomConfig.Deceleration != NPCConfig.DUMMY_DECELERATION)
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
                         acceleration = state.CustomConfig.Deceleration;
                     break;
                 case NPCVehicleSpeedMode.SUDDEN_STOP:
@@ -63,7 +63,7 @@ namespace AWSIM.TrafficSimulation
                 case NPCVehicleSpeedMode.STOP:
                     targetSpeed = 0f;
                     acceleration = config.Deceleration;
-                    if (state.CustomConfig.Deceleration != NPCConfig.DUMMY_DECELERATION)
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
                         acceleration = state.CustomConfig.Deceleration;
                     break;
                 default:

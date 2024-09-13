@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using AWSIM.AWAnalysis.CustomSim;
 using autoware_adapi_v1_msgs.msg;
@@ -7,6 +8,7 @@ using autoware_perception_msgs.msg;
 using autoware_vehicle_msgs.msg;
 using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
+using AWSIM.TrafficSimulation;
 using tier4_perception_msgs.msg;
 using ROS2;
 using awTrajectoryPoint = autoware_planning_msgs.msg.TrajectoryPoint;
@@ -15,7 +17,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
 {
     public abstract class TraceWriter
     {
-        protected readonly string _filePath;
+        protected string _filePath;
         protected GameObject _autowareEgoCar;
         protected readonly Vehicle _egoVehicle;
         protected readonly Camera _sensorCamera;
@@ -64,10 +66,19 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         protected void InitializeTraceObj()
         {
-            _traceObject = new TraceObject();
-            _traceObject.fixedTimestep = (int)(Time.fixedDeltaTime * 1000);
-            _traceObject.camera_screen_height = _sensorCamera.pixelHeight;
-            _traceObject.camera_screen_width = _sensorCamera.pixelWidth;
+            _traceObject = new TraceObject
+            {
+                fixedTimestep = (int)(Time.fixedDeltaTime * 1000),
+                camera_screen_height = _sensorCamera.pixelHeight,
+                camera_screen_width = _sensorCamera.pixelWidth
+            };
+
+            if (CustomNPCSpawningManager.GetCutInVehicle() != null)
+                _traceObject.other = new CutInInfoObject();
+            else if (CustomNPCSpawningManager.GetCutOutVehicle() != null)
+                _traceObject.other = new CutOutInfoObject();
+            else if (CustomNPCSpawningManager.GetDecelerationVehicle() != null)
+                _traceObject.other = new DecelerationInfoObject();
         }
         
         public void Start()
@@ -147,6 +158,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     if (_config.SavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
                         _timeNow > _config.SavingTimeout + _startTime)
                     {
+                        _traceObject.comment = "Timeout reached before Ego arrives goal.";
                         _state = TraceCaptureState.EGO_GOAL_ARRIVED;
                         break;
                     }
@@ -294,6 +306,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
 
             WritePlanTrajectoryObj(timeStamp, numberOfState);
+            DumpOtherInfo(timeStamp);
         }
 
         protected PerceptionObject DumpPerceptionObject2Obj(PredictedObject detectedObject)
@@ -583,6 +596,46 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
         }
 
+        // write info related to cut-in, cut-out, deceleration
+        protected void DumpOtherInfo(double timeStamp)
+        {
+            if (_traceObject.other is CutInInfoObject cutInInfo &&
+                cutInInfo.time_cutin_start == 0)
+            {
+                var innerState = CustomNPCSpawningManager.CutInNPCInternalState();
+                if (innerState != null &&
+                    innerState.CurrentFollowingLane.name == innerState.CustomConfig.LaneChange.TargetLane &&
+                    innerState.WaypointIndex == innerState.CustomConfig.LaneChange.TargetLaneWaypointIndex)
+                {
+                    cutInInfo.time_cutin_start = timeStamp;
+                    cutInInfo.cutin_npc_name = CustomNPCSpawningManager.GetCutInVehicle().ScriptName;
+                }
+            }
+            else if (_traceObject.other is CutOutInfoObject cutOutInfo &&
+                     cutOutInfo.time_cutout_start == 0)
+            {
+                var innerState = CustomNPCSpawningManager.CutOutNPCInternalState();
+                if (innerState != null &&
+                    innerState.CurrentFollowingLane.name == innerState.CustomConfig.LaneChange.TargetLane &&
+                    innerState.WaypointIndex == innerState.CustomConfig.LaneChange.TargetLaneWaypointIndex)
+                {
+                    cutOutInfo.time_cutout_start = timeStamp;
+                    cutOutInfo.cutout_npc_name = CustomNPCSpawningManager.GetCutOutVehicle().ScriptName;
+                }
+            }
+            else if (_traceObject.other is DecelerationInfoObject decelInfo &&
+                     decelInfo.time_deceleration_start == 0)
+            {
+                var innerState = CustomNPCSpawningManager.DecelerationNPCInternalState();
+                if (innerState != null &&
+                    innerState.SpeedMode == NPCVehicleSpeedMode.STOP)
+                {
+                    decelInfo.time_deceleration_start = timeStamp;
+                    decelInfo.deceleration_npc_name = CustomNPCSpawningManager.GetDecelerationVehicle().ScriptName;
+                }
+            }
+        }
+
         protected TrajectoryPoint[] DumpTrajectoryPoints(awTrajectoryPoint[] points)
         {
             int no = Math.Min(points.Length, ConfigLoader.Config().PlanTrajectoryMaxStepsRecording);
@@ -604,6 +657,30 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 result[i].pose.quaternion = new QuaternionObject(unityRotation.x, unityRotation.y, unityRotation.z, unityRotation.w);
             }
             return result;
+        }
+
+        protected bool ValidateFilePath()
+        {
+            try
+            {
+                var dirPath = Path.GetDirectoryName(_filePath);
+                var filename = Path.GetFileName(_filePath);
+                if (!filename.Contains("."))
+                {
+                    if (this is MaudeTraceWriter)
+                        filename += ".maude";
+                    else if (this is YamlTraceWriter)
+                        filename += ".yaml";
+                    _filePath = Path.Combine(dirPath, filename);
+                }
+
+                return true;
+            }
+            catch (ArgumentException e)
+            {
+                Debug.LogError($"The path for saving trace file `{_filePath}` seems to be invalid. Exception: {e.Message}");
+            }
+            return false;
         }
     }
 

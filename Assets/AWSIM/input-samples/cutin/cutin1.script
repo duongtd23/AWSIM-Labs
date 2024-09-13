@@ -8,6 +8,6 @@ route1 = [
 
 npc1 = NPC("hatchback", _, goal, route1, [acceleration(12)]);
 
-ego = Ego(spawnPos left 0, "TrafficLane.111" at 190, [max-velocity(8.333)]);
+ego = Ego(spawnPos left 0, "TrafficLane.111" at 190, [max-velocity(9)]);
 
-run(ego, [npc1], [saving-timeout(30)]);
+run(ego, [npc1], [saving-timeout(90)]);

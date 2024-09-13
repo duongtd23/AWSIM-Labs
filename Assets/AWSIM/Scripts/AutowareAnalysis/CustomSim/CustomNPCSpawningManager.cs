@@ -42,6 +42,8 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         // all NPC vehicles spawned
         private List<NPCVehicle> npcs;
+
+        #region constructor and public update
         
         private CustomNPCSpawningManager(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
@@ -133,7 +135,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                 UpdateDecelerationNPC();
             }
         }
+        
+        #endregion
 
+        #region Inner computation
         /// <summary>
         /// Mainly perform 2 tasks:
         /// 1. Scan `delayingMoveNPCs`, i.e., the list of NPCs were spawned but not yet moved,
@@ -301,6 +306,19 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             return results.FirstOrDefault();
         }
+
+        private NPCVehicle CutinVehicle()
+        {
+            var results = GetNPCs().FindAll(npc0 =>
+                npc0.CustomConfig != null &&
+                npc0.CustomConfig.HasALaneChange() &&
+                npc0.CustomConfig.LaneChange is CutInLaneChange);
+            if (results.Count >= 2)
+            {
+                Debug.LogError("Found more than one possible cutin vehicle. Use the first one by default.");
+            }
+            return results.FirstOrDefault();
+        }
         
         private NPCVehicle DecelerationVehicle()
         {
@@ -314,8 +332,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             return results.FirstOrDefault();
         }
-
-        private static NPCVehicle PoseObstacle(VehicleType vehicleType, Vector3 position, Vector3 forwardDirection, string name)
+        
+        #endregion
+    
+        public static NPCVehicle PoseObstacle(VehicleType vehicleType, Vector3 position, Vector3 forwardDirection, string name)
         {
             GameObject npcGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(vehicleType),
                 position,
@@ -327,6 +347,17 @@ namespace AWSIM.AWAnalysis.CustomSim
             GetNPCs().Add(npc);
             return npc;
         }
+        
+        // spawn an NPC (static, no movement)
+        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex,
+            NPCConfig customConfig, string name = "")
+        {
+            var npc = SpawnNPC(vehicleType, spawnPosition, out waypointIndex, name);
+            npc.CustomConfig = customConfig;
+            return npc;
+        }
+        
+        #region APIs for spawning NPCs     
 
         // spawn a stand still vehicle 
         public static NPCVehicle PoseObstacle(VehicleType vehicleType, IPosition spawnPosition, string name = "")
@@ -372,15 +403,6 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (name != "")
                 npc.ScriptName = name;
             GetNPCs().Add(npc);
-            return npc;
-        }
-        
-        // spawn an NPC (static, no movement)
-        private static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition, out int waypointIndex,
-            NPCConfig customConfig, string name = "")
-        {
-            var npc = SpawnNPC(vehicleType, spawnPosition, out waypointIndex, name);
-            npc.CustomConfig = customConfig;
             return npc;
         }
 
@@ -445,6 +467,31 @@ namespace AWSIM.AWAnalysis.CustomSim
                         npcCar.Config, npcCar.Goal, npcCar.Name);
             }
         }
+        
+    #endregion
+
+        #region APIs for retrieve internal state
+
+        public static NPCVehicle GetCutOutVehicle() => Manager().CutoutVehicle();
+        public static NPCVehicle GetCutInVehicle() => Manager().CutinVehicle();
+        public static NPCVehicle GetDecelerationVehicle() => Manager().DecelerationVehicle();
+        public static NPCVehicleInternalState CutOutNPCInternalState() => 
+            Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.HasALaneChange() &&
+                state.CustomConfig.LaneChange is CutOutLaneChange);
+        public static NPCVehicleInternalState CutInNPCInternalState() => 
+            Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.HasALaneChange() &&
+                state.CustomConfig.LaneChange is CutInLaneChange);
+        public static NPCVehicleInternalState DecelerationNPCInternalState() => 
+            Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.AggresiveDrive &&
+                state.CustomConfig.Deceleration >= 9.8f);
+
+        #endregion
 
         // validate (and update if neccessary) a given NPC
         // the given NPC might lack of route, etc.

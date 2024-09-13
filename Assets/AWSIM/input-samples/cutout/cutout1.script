@@ -13,4 +13,4 @@ npc2 = NPC("hatchback", _, [delay-spawn(_)]);
 
 ego = Ego(spawnPos, "TrafficLane.112" at 190, [max-velocity(8.666)]);
 
-run(ego, [npc1,npc2], [saving-timeout(30)]);
+run(ego, [npc1,npc2], [saving-timeout(50)]);

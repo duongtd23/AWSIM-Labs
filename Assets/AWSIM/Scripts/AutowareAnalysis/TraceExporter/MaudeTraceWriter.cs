@@ -20,6 +20,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         protected override void WriteFile()
         {
+            if (!ValidateFilePath()) return;
+            
             // write remaining states
             int numberOfState = _traceObject.states.Count;
             string stateStr = "";
@@ -43,7 +45,28 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _contents += $"  eq boundsCenter(\"{npc.name}\") = {npc.center.DumpMaudeStr()} .\n" +
                              $"  eq boundsExtent(\"{npc.name}\") = {npc.extents.DumpMaudeStr()} .\n";
             }
+            
+            // write cut-in cut-out info
+            if (_traceObject.other is CutInInfoObject cutInInfoObject)
+            {
+                _contents += $"  eq cutinNPC = \"{cutInInfoObject.cutin_npc_name}\" .\n";
+                _contents += $"  eq cutinStartTime = {cutInInfoObject.time_cutin_start} .\n";
+            }
+            else if (_traceObject.other is CutOutInfoObject cutOutInfoObject)
+            {
+                _contents += $"  eq cutoutNPC = \"{cutOutInfoObject.cutout_npc_name}\" .\n";
+                _contents += $"  eq cutoutStartTime = {cutOutInfoObject.time_cutout_start} .\n";
+            }
+            else if (_traceObject.other is DecelerationInfoObject decelInfoObject)
+            {
+                _contents += $"  eq decelerationNPC = \"{decelInfoObject.deceleration_npc_name}\" .\n";
+                _contents += $"  eq decelerationStartTime = {decelInfoObject.time_deceleration_start} .\n";
+            }
+
             _contents += "endm";
+            
+            if (!string.IsNullOrEmpty(_traceObject.comment))
+                _contents += $"\n--- {_traceObject.comment}";
 
             File.WriteAllText(_filePath, _contents);
         }
