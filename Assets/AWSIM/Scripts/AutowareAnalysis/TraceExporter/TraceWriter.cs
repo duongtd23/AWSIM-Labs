@@ -12,6 +12,7 @@ using AWSIM.TrafficSimulation;
 using tier4_perception_msgs.msg;
 using ROS2;
 using awTrajectoryPoint = autoware_planning_msgs.msg.TrajectoryPoint;
+using Shape = autoware_perception_msgs.msg.Shape;
 
 namespace AWSIM.AWAnalysis.TraceExporter
 {
@@ -185,9 +186,10 @@ namespace AWSIM.AWAnalysis.TraceExporter
             
             // ego ground truth
             newState.groundtruth_ego = new EgoGroundTruthObject();
-            newState.groundtruth_ego.pose = new PoseObject();
+            newState.groundtruth_ego.pose = new Pose2Object();
             newState.groundtruth_ego.pose.position = new Vector3Object(_egoVehicle.Position.x, _egoVehicle.Position.y, _egoVehicle.Position.z);
-            newState.groundtruth_ego.pose.quaternion = new QuaternionObject(_egoVehicle.Rotation.x, _egoVehicle.Rotation.y, _egoVehicle.Rotation.z, _egoVehicle.Rotation.w);
+            var egoRotation = _egoVehicle.Rotation.eulerAngles;
+            newState.groundtruth_ego.pose.rotation = new Vector3Object(egoRotation.x, egoRotation.y, egoRotation.z);
             
             newState.groundtruth_ego.twist = new TwistObject();
             newState.groundtruth_ego.twist.linear = new Vector3Object(_egoVehicle.Velocity.x, _egoVehicle.Velocity.y, _egoVehicle.Velocity.z);
@@ -203,13 +205,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
             for (int i = 0; i < npcCount; i++)
             {
                 var npc = CustomNPCSpawningManager.GetNPCs()[i];
-                var centerPos = npc.CenterPosition();
                 newState.groundtruth_NPCs[i] = new NPCGroundTruthObject();
                 newState.groundtruth_NPCs[i].name = npc.ScriptName;
                 
                 newState.groundtruth_NPCs[i].pose = new Pose2Object();
-                newState.groundtruth_NPCs[i].pose.position = new Vector3Object(centerPos.x, centerPos.y, centerPos.z);
-                newState.groundtruth_NPCs[i].pose.rotation = new Vector3Object(0, npc.EulerAnguleY, 0);
+                newState.groundtruth_NPCs[i].pose.position = new Vector3Object(npc.Position.x, npc.Position.y, npc.Position.z);
+                newState.groundtruth_NPCs[i].pose.rotation = new Vector3Object(npc.Rotation.x, npc.Rotation.y, npc.Rotation.z);
                 
                 newState.groundtruth_NPCs[i].twist = new TwistObject();
                 newState.groundtruth_NPCs[i].twist.linear = new Vector3Object(npc.Velocity.x, npc.Velocity.y, npc.Velocity.z);
@@ -346,6 +347,23 @@ namespace AWSIM.AWAnalysis.TraceExporter
             perObj.acceleration.linear = new Vector3Object(accel.Linear.X, accel.Linear.Y, accel.Linear.Z);
             perObj.acceleration.angular = new Vector3Object(accel.Angular.X, accel.Angular.Y, accel.Angular.Z);
 
+            switch (detectedObject.Shape.Type)
+            {
+                case Shape.BOUNDING_BOX:
+                    perObj.shape = new BoxDetectedShapeObject()
+                    {
+                        size = new Vector3Object(detectedObject.Shape.Dimensions.X,
+                            detectedObject.Shape.Dimensions.Y,
+                            detectedObject.Shape.Dimensions.Z),
+                    };
+                    break;
+                case Shape.POLYGON:
+                    Debug.LogWarning("Unhandle the case Detected object's shape type is polygon.");
+                    break;
+                case Shape.CYLINDER:
+                    Debug.LogWarning("Unhandle the case Detected object's shape type is cylinder.");
+                    break;
+            }
             return perObj;
         }
         

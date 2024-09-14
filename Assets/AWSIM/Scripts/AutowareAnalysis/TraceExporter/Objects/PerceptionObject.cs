@@ -10,6 +10,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         public Pose2Object pose;
         public TwistObject twist;
         public AccelerationObject acceleration;
+        public IDetectedShapeObject shape;
 
         public bool Equals(PerceptionObject other)
         {
@@ -54,6 +55,10 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
             if (classStr != "")
                 classStr = classStr[..^2];
 
+            if (shape is BoxDetectedShapeObject bboxDetectedShape)
+                return $"{{id: [{uuid}], epro: {existence_prob}, class: [{classStr}], " +
+                       $"pose: {{{pose.DumpMaudeStr()}}}, twist: {{{twist.DumpMaudeStr()}}}, accel: {{{acceleration.DumpMaudeStr()}}}, " +
+                       $"shape: {bboxDetectedShape.DumpMaudeStr()}}}";
             return $"{{id: [{uuid}], epro: {existence_prob}, class: [{classStr}], " +
                    $"pose: {{{pose.DumpMaudeStr()}}}, twist: {{{twist.DumpMaudeStr()}}}, accel: {{{acceleration.DumpMaudeStr()}}}}}";
         }

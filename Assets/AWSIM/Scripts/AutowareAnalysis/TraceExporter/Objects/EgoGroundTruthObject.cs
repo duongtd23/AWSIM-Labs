@@ -2,7 +2,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
 {
     public class EgoGroundTruthObject
     {
-        public PoseObject pose;
+        public Pose2Object pose;
         public TwistObject twist;
         public AccelerationObject acceleration;
 

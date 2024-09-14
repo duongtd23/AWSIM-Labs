@@ -14,7 +14,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
 
         public string DumpMaudeStr()
         {
-            return $"pos: {position.DumpMaudeStr()}, qua: {quaternion.DumpMaudeStr()}";
+            return $"posi: {position.DumpMaudeStr()}, qua: {quaternion.DumpMaudeStr()}";
         }
     }
 }
