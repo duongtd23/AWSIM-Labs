@@ -438,6 +438,7 @@ namespace AWSIM
         // get information
         public Vector3 Position => rigidbody.position;
         public Vector3 Velocity => lastVelocity;
+        public Vector3 Rotation => rigidbody.rotation.eulerAngles;
         public float EulerAnguleY => rigidbody.rotation.eulerAngles.y;
         public float YawAngularSpeed => yawAngularSpeed;
         public float Acceleration => acceleration;
@@ -445,14 +446,14 @@ namespace AWSIM
         
         public NPCConfig CustomConfig { get; set; }
 
-        public Vector3 CenterPosition()
-        {
-            var yaw = rigidbody.rotation.eulerAngles.y;
-            // var frontPos = Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.max.z);
-            // var backPos = Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.min.z);
-            // return (frontPos + backPos) / 2;
-            return Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.center.z);
-        }
+        // public Vector3 CenterPosition()
+        // {
+        //     var yaw = rigidbody.rotation.eulerAngles.y;
+        //     // var frontPos = Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.max.z);
+        //     // var backPos = Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.min.z);
+        //     // return (frontPos + backPos) / 2;
+        //     return Position + Quaternion.AngleAxis(yaw, Vector3.up) * new Vector3(0, 0, bounds.center.z);
+        // }
         
         public NPCDetailObject GetCarInfo()
         {

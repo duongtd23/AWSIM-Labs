@@ -52,7 +52,7 @@ namespace AWSIM.AWAnalysis
         void FixedUpdate()
         {
             _traceWriter?.Update();
-            _customEgoSetting.UpdateEgo();
+            _customEgoSetting?.UpdateEgo();
         }
 
         private Simulation InitializeCustomSim()
