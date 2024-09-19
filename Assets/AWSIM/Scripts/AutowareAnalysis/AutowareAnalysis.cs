@@ -38,7 +38,6 @@ namespace AWSIM.AWAnalysis
     {
         public Camera sensorCamera;
         private TraceWriter _traceWriter;
-        private CustomEgoSetting _customEgoSetting;
         
         // Start is called before the first frame update
         void Start()
@@ -52,7 +51,7 @@ namespace AWSIM.AWAnalysis
         void FixedUpdate()
         {
             _traceWriter?.Update();
-            _customEgoSetting?.UpdateEgo();
+            EgoSingletonInstance.GetCustomEgoSetting()?.UpdateEgo();
         }
 
         private Simulation InitializeCustomSim()
@@ -101,7 +100,7 @@ namespace AWSIM.AWAnalysis
                 CustomNPCSpawningManager.SpawnNPC(npcCar);
             }
 
-            _customEgoSetting = new CustomEgoSetting(simulation.Ego);
+            EgoSingletonInstance.SetCustomEgoSetting(new CustomEgoSetting(simulation.Ego));
         }
 
         private void PreProcessingSimulation(ref Simulation simulation)

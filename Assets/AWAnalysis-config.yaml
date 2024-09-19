@@ -1,14 +1,16 @@
 ---
 NpcAcceleration: 1.5
 NpcDeceleration: 1.5
-MaxDistanceVisibleonCamera: 130
+MaxDistanceVisibleonCamera: 130             # only write ground truth bounding box of NPC if its distance to Ego less than this config value
 DelaySendingEngageCmd: 1.5
-TraceFormat: 1                              # 0: maude, 1: yaml (see enum TraceFormat)
+TraceFormat: 0                              # 0: maude, 1: yaml (see enum TraceFormat)
 ComponentsRecording:                        # see enum TraceComponent
   - 1                                       # 1: planning trajectory
 PlanTrajectoryMaxStepsRecording: 10         # maximum number of steps when recording plan trajectories
 # other settings
-TimeNPCTravelBeforeCutin: 2                # the time NPC travel with constant speed before make a cutin
+MaudeTraceImportFile: load ../../propositions.maude
+MaudeTraceWriteStateData: true
+TimeNPCTravelBeforeCutin: 2                 # the time NPC travel with constant speed before make a cutin
 EgoNormalAcceleration: 1                    # The normal acceleration, different from the maximum in Autoware's config
 TimeEgoTravelConstSpeed: 3                  # the time configured for Ego travel with constant (max) speed before NPC start compute the appropriate distance to start moving
 TimeHeadWay: 2

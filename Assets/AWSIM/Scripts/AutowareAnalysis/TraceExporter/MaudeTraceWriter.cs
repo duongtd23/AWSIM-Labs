@@ -6,16 +6,24 @@ namespace AWSIM.AWAnalysis.TraceExporter
 {
     public class MaudeTraceWriter : TraceWriter
     {
-        public const string MAUDE_TEMPLATE = "in ../base.maude\n\nmod TRACE is " +
-                                             "\n  pr FORMULAS .\n\n";
+        public const string MAUDE_TEMPLATE = "mod TRACE is\n" +
+                                             "  pr FORMULAS .\n";
         private string _contents;
+        private string _statesStr;
+        private readonly bool _writeStateData;
 
         public MaudeTraceWriter(string filePath, Camera sensorCamera,
             PerceptionMode perceptionMode, TraceCaptureConfig config)
             : base(filePath, sensorCamera, perceptionMode, config)
         {
-            _contents = MAUDE_TEMPLATE + 
-                        "  eq init = ";
+            _writeStateData = ConfigLoader.Config().MaudeTraceWriteStateData;
+            _contents = MAUDE_TEMPLATE;
+            if (_writeStateData)
+                _contents += "  pr STATES .\n";
+            _contents += "\n  eq init = ";
+            _statesStr = "mod STATES is\n" +
+                         "  pr FORMULAS .\n\n" +
+                         "  op state : Nat -> AWState .\n";
         }
 
         protected override void WriteFile()
@@ -29,8 +37,20 @@ namespace AWSIM.AWAnalysis.TraceExporter
             {
                 stateStr = _traceObject.states[i].DumpMaudeStr();
                 _contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
+                if (_writeStateData)
+                {
+                    _statesStr += $"  eq state({i}) = {stateStr} .\n";
+                }
             }
             _contents += $"{stateStr} .\n";
+
+            if (_writeStateData)
+            {
+                _statesStr += "endm\n\n";
+                _contents = _statesStr + _contents + "\n";
+            }
+
+            _contents = ConfigLoader.Config().MaudeTraceImportFile + "\n\n" + _contents;
             
             // write ego and NPC details
             DumpVehicleDetails();
@@ -80,6 +100,10 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 // dump the state
                 string stateStr = _traceObject.states[i].DumpMaudeStr();
                 _contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
+                if (_writeStateData)
+                {
+                    _statesStr += $"  eq state({i}) = {stateStr} .\n";
+                }
             }
         }
     }
