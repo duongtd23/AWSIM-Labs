@@ -10,6 +10,7 @@ namespace AWSIM.AWAnalysis.CustomSim
     {
         private GameObject _autowareEgoCar;
         private Vehicle _egoVehicle;
+        public EgoSettings EgoSettings { get; }
 
         // for ego settings
         private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
@@ -17,6 +18,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         public CustomEgoSetting(EgoSettings ego)
         {
+            EgoSettings = ego;
             _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
             _egoVehicle = EgoSingletonInstance.AutowareEgoCarVehicle;
         

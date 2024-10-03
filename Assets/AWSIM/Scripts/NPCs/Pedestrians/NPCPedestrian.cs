@@ -105,5 +105,7 @@ namespace AWSIM
         {
             return position - referencePoint.position + transform.position;
         }
+        
+        public string ScriptName { get; set; }
     }
 }

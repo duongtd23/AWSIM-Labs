@@ -20,6 +20,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         private GameObject autowareEgoCar;
         private Vehicle _egoVehicle;
         private GameObject npcTaxi, npcHatchback, npcSmallCar, npcTruck, npcVan;
+        private GameObject _casualPedestrian, _elegantPedestrian;
         private LayerMask vehicleLayerMask;
         private LayerMask groundLayerMask;
         private GameObject parentGameObject;
@@ -39,15 +40,18 @@ namespace AWSIM.AWAnalysis.CustomSim
         // 2nd item: waypoint index
         private Dictionary<NPCVehicle, Tuple<int, NPCCar>> delayingMoveNPCs;
         private List<NPCCar> delayingSpawnNPCs;
+        private List<NPCPedes> _delayingSpawnPedestrians;
 
-        // all NPC vehicles spawned
+        // all NPCs spawned
         private List<NPCVehicle> npcs;
+        private List<Tuple<NPCPedes, NPCPedestrian>> _pedestrians;
 
         #region constructor and public update
         
         private CustomNPCSpawningManager(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
             GameObject truck, GameObject van,
+            GameObject casualPedestrian, GameObject elegantPedestrian,
             LayerMask vehicleLM, LayerMask groundLM)
         {
             autowareEgoCar = ego;
@@ -57,6 +61,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             npcSmallCar = smallCar;
             npcTruck = truck;
             npcVan = van;
+            _casualPedestrian = casualPedestrian;
+            _elegantPedestrian = elegantPedestrian;
             vehicleLayerMask = vehicleLM;
             groundLayerMask = groundLM;
             parentGameObject = parent;
@@ -65,7 +71,9 @@ namespace AWSIM.AWAnalysis.CustomSim
             egoEngaged = false;
             delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<int, NPCCar>>();
             delayingSpawnNPCs = new List<NPCCar>();
+            _delayingSpawnPedestrians = new List<NPCPedes>();
             npcs = new List<NPCVehicle>();
+            _pedestrians = new List<Tuple<NPCPedes, NPCPedestrian>>();
 
             _egoVehicle = autowareEgoCar.GetComponent<Vehicle>();
 
@@ -97,10 +105,12 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static CustomNPCSpawningManager Initialize(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback,
             GameObject smallCar, GameObject truck, GameObject van,
+            GameObject casualPedestrian, GameObject elegantPedestrian,
             LayerMask vehicleLM, LayerMask groundLM)
         {
             manager = new CustomNPCSpawningManager(parent, trafficLanes,
                 ego, taxi, hatchback, smallCar, truck, van,
+                casualPedestrian, elegantPedestrian,
                 vehicleLM, groundLM);
             return manager;
         }
@@ -112,6 +122,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         }
 
         public static List<NPCVehicle> GetNPCs() => Manager().npcs;
+        public static List<Tuple<NPCPedes, NPCPedestrian>> GetPedestrians() => Manager()._pedestrians;
+        
         public static TrafficLane[] GetAllTrafficLanes() => Manager().allTrafficLanes;
 
         // this should be called every frame
@@ -128,7 +140,14 @@ namespace AWSIM.AWAnalysis.CustomSim
                     egoEngagedTime = Time.fixedTime;
 
                 npcVehicleSimulator.StepOnce(Time.fixedDeltaTime);
+                
+                // update positions of pedestrians
+                UpdatePedestrians();
+                
                 UpdateDelayingNPCs();
+                
+                // update delaying pedestrians
+                UpdateDelayingPedestrians();
 
                 UpdateCutoutLeadingNPC();
 
@@ -210,6 +229,79 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             foreach (var entry in removeAfter2)
                 delayingSpawnNPCs.Remove(entry);
+        }
+
+        private void UpdateDelayingPedestrians()
+        {
+            List<NPCPedes> removeAfter = new List<NPCPedes>();
+            for (int i = 0; i< _delayingSpawnPedestrians.Count; i++)
+            {
+                var delayPedestrian = _delayingSpawnPedestrians[i];
+                var delayTime = delayPedestrian.Config.Delay;
+                if ((delayTime.DelayType == DelayKind.UNTIL_EGO_MOVE &&
+                     Time.fixedTime - egoStartMovingTime >= delayTime.DelayAmount) ||
+                    (delayTime.DelayType == DelayKind.FROM_BEGINNING && 
+                     Time.fixedTime >= delayTime.DelayAmount) ||
+                    (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
+                     Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
+                {
+                    DoSpawnPedestrian(ref delayPedestrian);
+                    removeAfter.Add(delayPedestrian);
+                }
+            }
+            foreach (var entry in removeAfter)
+                _delayingSpawnPedestrians.Remove(entry);
+        }
+
+        private void UpdatePedestrians()
+        {
+            foreach (var entry in _pedestrians)
+            {
+                NPCPedes npcPedes = entry.Item1;
+                var delayTime = npcPedes.Config?.Delay;
+                if (delayTime == null ||
+                    (delayTime.DelayType == DelayKind.UNTIL_EGO_MOVE &&
+                     Time.fixedTime - egoStartMovingTime >= delayTime.DelayAmount) ||
+                    (delayTime.DelayType == DelayKind.FROM_BEGINNING &&
+                     Time.fixedTime >= delayTime.DelayAmount) ||
+                    (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
+                     Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
+                {
+                    var newPosition = npcPedes.LastPosition +
+                                      npcPedes.LastRotation * Vector3.forward * (npcPedes.Config.Speed * Time.fixedDeltaTime);
+                    if (CustomSimUtils.SignDistance(newPosition, npcPedes.CurrentWaypoint, npcPedes.LastRotation) > -0.02f)
+                    {
+                        npcPedes.LastPosition = newPosition;
+                        entry.Item2.SetPosition(npcPedes.LastPosition);
+                    }
+                    // update the waypoint
+                    else
+                    {
+                        // if this is the last waypoint
+                        if (npcPedes.CurrentWaypointIndex == npcPedes.Waypoints.Count - 1)
+                        {
+                            // loop: turn backward
+                            if (npcPedes.Config != null && npcPedes.Config.Loop)
+                            {
+                                
+                            }
+                            // reached the goal, do nothing
+                            else
+                            {
+                                
+                            }
+                        }
+                        // update rotation to match new waypoint
+                        else
+                        {
+                            npcPedes.LastPosition = npcPedes.CurrentWaypoint;
+                            npcPedes.CurrentWaypointIndex++;
+                            npcPedes.LastRotation = Quaternion.LookRotation(npcPedes.CurrentWaypoint - npcPedes.LastPosition);
+                            entry.Item2.SetRotation(npcPedes.LastRotation);
+                        }
+                    }
+                }
+            }
         }
 
         private void UpdateCutoutLeadingNPC()
@@ -406,7 +498,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             return npc;
         }
 
-        // spawn an NPC and make it move
+        // spawn an NPC and let it move
         // npcConfig.Route $ RouteAndSpeeds must be non-null
         public static NPCVehicle SpawnNPC(VehicleType vehicleType, IPosition spawnPosition,
             NPCConfig npcConfig, IPosition goal, string name = "")
@@ -468,7 +560,45 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
         
-    #endregion
+        #endregion
+    
+        #region APIs for creating pedestrians
+        public static void SpawnPedestrian(NPCPedes pedestrian)
+        {
+            if (pedestrian.HasDelayOption())
+            {
+                switch (pedestrian.Config.Delay.ActionDelayed)
+                {
+                    case DelayedAction.SPAWNING:
+                        Manager()._delayingSpawnPedestrians.Add(pedestrian);
+                        break;
+                    case DelayedAction.MOVING:
+                        DoSpawnPedestrian(ref pedestrian);
+                        break;
+                }
+            }
+            else DoSpawnPedestrian(ref pedestrian);
+        }
+
+        private static NPCPedestrian DoSpawnPedestrian(ref NPCPedes npcPedes)
+        {
+            if (npcPedes.Waypoints?.Count < 2)
+            {
+                throw new InvalidScriptException("Please specify at least 2 waypoints for the pedestrian " + npcPedes.Name);
+            }
+
+            npcPedes.LastPosition = npcPedes.Waypoints[0];
+            npcPedes.LastRotation = Quaternion.LookRotation(npcPedes.Waypoints[1] - npcPedes.Waypoints[0]);
+            GameObject pedesGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(npcPedes.PedType),
+                npcPedes.LastPosition,
+                npcPedes.LastRotation);
+            NPCPedestrian pedestrian = pedesGameObj.GetComponent<NPCPedestrian>();
+            pedestrian.ScriptName = npcPedes.Name;
+            GetPedestrians().Add(Tuple.Create(npcPedes,pedestrian));
+            return pedestrian;
+        }
+
+        #endregion
 
         #region APIs for retrieve internal state
 
@@ -594,6 +724,21 @@ namespace AWSIM.AWAnalysis.CustomSim
                     Debug.LogWarning("[NPCSim] Cannot detect the vehicle type `" + vehicleType + "`. " +
                         "Use `taxi` as the default.");
                     return npcTaxi;
+            }
+        }
+        
+        private GameObject GetNPCPrefab(PedesType pedestrianType)
+        {
+            switch (pedestrianType)
+            {
+                case PedesType.CASUAL:
+                    return _casualPedestrian;
+                case PedesType.ELEGANT:
+                    return _elegantPedestrian;
+                default:
+                    Debug.LogWarning("[NPCSim] Cannot parse the pedestrian type `" + pedestrianType + "`. " +
+                                     "Use `casual` pedestrian as the default.");
+                    return _casualPedestrian;
             }
         }
 

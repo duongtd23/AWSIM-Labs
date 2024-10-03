@@ -3563,13 +3563,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3567bdc928ae242f696b6669ca0fd1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  autowareEgoCar: {fileID: 897708388}
   trafficLanesParent: {fileID: 10387859}
   npcTaxi: {fileID: 714549001370495616, guid: d0094c5a0e9fb6148873c658dbc61a89, type: 3}
   npcHatchback: {fileID: 6604874415271597525, guid: 7e772e9ad7eb79040be629d8d04542ab, type: 3}
   npcSmallCar: {fileID: 3333523281254186578, guid: 589cf2e451adab34eb1332da5701195a, type: 3}
   npcTruck: {fileID: 6850358619771218631, guid: 9bc315af95865dd4bbf4a8f716791609, type: 3}
   npcVan: {fileID: 536101250511469494, guid: 433e715a84edbae418fe585f802f3918, type: 3}
+  casualPedestrian: {fileID: 4234894155293637340, guid: 45451c9dee0017949873d87da14d750a, type: 3}
+  elegantPedestrian: {fileID: 500668027104458449, guid: 27e8a3736efefa447b1f65b33b30908a, type: 3}
   vehicleLayerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -3588,7 +3589,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7cbfa76baac5b4813a09c6deb88caa7b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  autowareEgoCar: {fileID: 897708388}
   sensorCamera: {fileID: 344861285}
 --- !u!114 &717467361
 MonoBehaviour:

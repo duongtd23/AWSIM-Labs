@@ -3,6 +3,7 @@ NpcAcceleration: 1.5
 NpcDeceleration: 1.5
 MaxDistanceVisibleonCamera: 130             # only write ground truth bounding box of NPC if its distance to Ego less than this config value
 DelaySendingEngageCmd: 1.5
+NPCPedestrianSpeed: 1.42
 TraceFormat: 0                              # 0: maude, 1: yaml (see enum TraceFormat)
 ComponentsRecording:                        # see enum TraceComponent
   - 1                                       # 1: planning trajectory

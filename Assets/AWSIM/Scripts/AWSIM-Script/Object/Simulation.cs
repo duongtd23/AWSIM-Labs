@@ -9,9 +9,11 @@ namespace AWSIM_Script.Object
 		public Simulation()
 		{
 			NPCs = new List<NPCCar>();
-        }
+			Pedestrians = new List<NPCPedes>();
+		}
 		// list of NPCs
         public List<NPCCar> NPCs { get; set; }
+        public List<NPCPedes> Pedestrians { get; set; }
 
 		// Ego initial position and goal
 		public EgoSettings Ego { get; set; }

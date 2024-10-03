@@ -9,6 +9,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         // taxi, hatchback, small car, truck, van prefabs, respectively
         public GameObject npcTaxi, npcHatchback, npcSmallCar, npcTruck, npcVan;
+        public GameObject casualPedestrian, elegantPedestrian;
 
         [SerializeField, Tooltip("Vehicle layer for raytracing the collision distances.")]
         private LayerMask vehicleLayerMask;
@@ -23,6 +24,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 trafficLanesParent.GetComponentsInChildren<TrafficLane>(),
                 autowareEgoCar, npcTaxi, npcHatchback,
                 npcSmallCar, npcTruck, npcVan,
+                casualPedestrian,elegantPedestrian,
                 vehicleLayerMask, groundLayerMask);
         }
 

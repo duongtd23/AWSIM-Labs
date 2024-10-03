@@ -26,7 +26,7 @@ namespace AWSIM_Script.Parser
         public const string AGGRESSIVE_DRIVING = "aggressive-driving";
         public const string ACCELERATION = "acceleration";
         public const string DECELERATION = "deceleration";
-        public const string EGO_MAX_VELOCITY = "max-velocity";
+        public const string MAX_VELOCITY = "max-velocity";
         public const string SAVING_TIMEOUT = "saving-timeout";
         public const string CHANGE_LANE = "change-lane";
         public const string CUT_IN = "cut-in";
@@ -34,6 +34,7 @@ namespace AWSIM_Script.Parser
         public const string AT = "at";
         public const string DX = "dx";
         public const string IGNORE_EXP = "_";
+        public const float DEFAULT_Y = 0;
 
         
         private ScenarioScore scenarioScore;
@@ -100,7 +101,7 @@ namespace AWSIM_Script.Parser
                     throw new InvalidScriptException("Expected an array of NPCs, but get: " + runFunc.Parameters[1].GetText());
             }
 
-            // Prase Ego
+            // Parse Ego
             if (egoFuncExp != FunctionExpContext.EmptyContext)
                 RetrieveEgo((FunctionExpContext)egoFuncExp, ref simulation);
 
@@ -214,7 +215,7 @@ namespace AWSIM_Script.Parser
             {
                 switch (egoSettingExp.children[0].GetText())
                 {
-                    case EGO_MAX_VELOCITY:
+                    case MAX_VELOCITY:
                         bool ok = ParseNumber(egoSettingExp.children[2], out float maxVel);
                         if (ok)
                             egoSettings.MaxVelocity = maxVel;
@@ -259,11 +260,22 @@ namespace AWSIM_Script.Parser
         {
             if (npcFuncContext.exception != null)
                 throw new InvalidScriptException("Catch exception: " + npcFuncContext.exception.Message +
-                    " in function " + npcFuncContext.GetText());
+                                                 " in function " + npcFuncContext.GetText());
             FunctionScore func = new FunctionParser(npcFuncContext).Parse();
-            if (func.Name != FunctionParser.FUNCTION_NPC)
-                throw new InvalidScriptException("Expected NPC function but get: " + func.Name);
+            switch (func.Name)
+            {
+                case FunctionParser.FUNCTION_PEDESTRIAN:
+                    return RetrieveNPCPedestrian(func, ref simulation, npcName);
+                case FunctionParser.FUNCTION_NPC:
+                    return RetrieveNPCCar(func, ref simulation, npcName);
+                default:
+                    throw new InvalidScriptException("Expected a function specifying an NPC vehicle (by `NPC`) " +
+                                                     "or an NPC pedestrian (by `Pedes`), but get: " + func.Name);
+            }
+        }
 
+        private bool RetrieveNPCCar(FunctionScore func, ref Simulation simulation, string npcName)
+        {
             if (func.Parameters.Count < 2)
                 throw new InvalidScriptException("NPC function must have at least 2 arguments (vehicle type and position to be spawned): " +
                     ParserUtils.ToString(func.Parameters));
@@ -555,6 +567,160 @@ namespace AWSIM_Script.Parser
             throw new InvalidScriptException("Cannot parse route and speed from: " +
                 node.GetText());
         }
+
+        /// <summary>
+        /// 1st arg of the `Pedes` function must be the human type (either `casual` or `elegant`)
+        /// 2nd arg must be the waypoint list
+        /// 3rd arg (optional): options, e.g., speed, delay
+        /// </summary>
+        /// <param name="func"></param>
+        /// <param name="simulation"></param>
+        /// <param name="npcName"></param>
+        /// <returns></returns>
+        private bool RetrieveNPCPedestrian(FunctionScore func, ref Simulation simulation, string pedesName)
+        {
+            if (func.Parameters.Count < 2)
+                throw new InvalidScriptException("Pedestrian function must have at least 2 arguments (type and waypoint list): " +
+                                                 ParserUtils.ToString(func.Parameters));
+
+            // 1st human type
+            string humanTypeStr = ParseHumanType(func.Parameters[0].children[0]);
+            PedesType humanType = ParseHumanType(humanTypeStr);
+            
+            // 2nd arg: waypoint list
+            List<Vector3> waypoints = Parse2DPointList(func.Parameters[1].children[0]);
+
+            NPCPedes pedestrian = new NPCPedes(pedesName, humanType, waypoints);
+            
+            // 3rd arg (optional): config
+            if (func.Parameters.Count >= 3)
+            {
+                var pedesConfig = new NPCPedesConfig();    
+                bool ok = ParsePedesConfig(func.Parameters[2].children[0], ref pedesConfig);
+                if (ok)
+                    pedestrian.Config = pedesConfig;
+            }
+            
+            simulation.Pedestrians.Add(pedestrian);
+            return true;
+        }
+
+        private List<Vector3> Parse2DPointList(IParseTree node)
+        {
+            if (node is ArrayExpContext arrayExp)
+            {
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
+                List<Vector3> result = new List<Vector3>();
+                foreach (var expContext in expContexts)
+                {
+                    result.Add(Parse2DPoint(expContext.children[0]));
+                }
+                return result;
+            }
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return Parse2DPointList(scenarioScore.Variables[varName].children[0]);
+            }
+            throw new InvalidScriptException("Cannot parse " + node.GetText());
+        }
+
+        private Vector3 Parse2DPoint(IParseTree node)
+        {
+            if (node is Vector2ExpContext vector2Exp)
+            {
+                ParseNumber(vector2Exp.children[0], out float x);
+                ParseNumber(vector2Exp.children[2], out float y);
+                return new Vector3(x, DEFAULT_Y, y);
+            }
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return Parse2DPoint(scenarioScore.Variables[varName].children[0]);
+            }
+            throw new InvalidScriptException("Cannot parse " + node.GetText());
+        }
+        
+        private string ParseHumanType(IParseTree node)
+        {
+            bool ok = ParseString(node, out string humanTypeStr);
+            if (ok)
+                return humanTypeStr;
+            throw new InvalidScriptException("Cannot parse pedestrian type from: " + node.GetText());
+        }
+        
+        private static PedesType ParseHumanType(string humanTypeStr)
+        {
+            switch (humanTypeStr.ToLower())
+            {
+                case "casual":
+                    return PedesType.CASUAL;
+                case "elegant":
+                    return PedesType.ELEGANT;
+                default:
+                    Debug.LogError("Cannot parse the pedestrian type: " + humanTypeStr +
+                                   ". Use the casual human as default.");
+                    return PedesType.CASUAL;
+            }
+        }
+        
+        private bool ParsePedesConfig(IParseTree node, ref NPCPedesConfig pedesConfig)
+        {
+            if (node is ArrayExpContext arrayExp)
+            {
+                List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
+                foreach (var expContext in expContexts)
+                    DoParsePedesConfig(expContext.children[0], ref pedesConfig);
+            }
+            else if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return DoParsePedesConfig(scenarioScore.Variables[varName].children[0], ref pedesConfig);
+            }
+            else
+                throw new InvalidScriptException("Cannot parse config: " + node.GetText());
+            return true;
+        }
+        
+        private bool DoParsePedesConfig(IParseTree node, ref NPCPedesConfig pedesConfig)
+        {
+            if (node is ConfigExpContext configExpContext)
+            {
+                switch (configExpContext.children[0].GetText())
+                {
+                    case MAX_VELOCITY:
+                        bool ok = ParseNumber(configExpContext.children[2], out float speed);
+                        if (ok)
+                            pedesConfig.Speed = speed;
+                        return true;
+                    case DELAY_SPAWN:
+                    case DELAY_MOVE:
+                    case DELAY_SPAWN_UNTIL_EGO_ENGAGED:
+                    case DELAY_MOVE_UNTIL_EGO_ENGAGED:
+                    case DELAY_SPAWN_UNTIL_EGO_MOVE:
+                    case DELAY_MOVE_UNTIL_EGO_MOVE:
+                        pedesConfig.Delay = ParseDelayOption(configExpContext);
+                        return true;
+                    default:
+                        throw new InvalidScriptException("Cannot parse the config: " + configExpContext.GetText());
+                }
+            }
+            if (node is VariableExpContext variableExp)
+            {
+                string varName = variableExp.children[0].GetText();
+                if (!scenarioScore.Variables.ContainsKey(varName))
+                    throw new InvalidScriptException("Undefined variable: " + varName);
+                return DoParsePedesConfig(scenarioScore.Variables[varName].children[0], ref pedesConfig);
+            }
+            throw new InvalidScriptException("Cannot parse the pedestrian config: " + node.GetText());
+        }
+
 
         /// <returns>false if the expression is variable "_"</returns>
         private bool ParseNumber(IParseTree node, out float result)

@@ -29,6 +29,8 @@ configExp
     | 'delay-move-until-ego-move' '(' (numberExp | variableExp) ')'
     | 'delay-spawn-until-ego-engaged' '(' (numberExp | variableExp) ')'
     | 'delay-move-until-ego-engaged' '(' (numberExp | variableExp) ')';
+vector2Exp
+    : ((numberExp | variableExp) '#' (numberExp | variableExp));
 egoSettingExp
     : 'max-velocity' '(' (numberExp | variableExp) ')';
 simulationSettingExp
@@ -46,6 +48,7 @@ variableExp: idExp;
 expression
     : stringExp
     | numberExp
+    | vector2Exp
     | positionExp
     | roadExp
     | arrayExp

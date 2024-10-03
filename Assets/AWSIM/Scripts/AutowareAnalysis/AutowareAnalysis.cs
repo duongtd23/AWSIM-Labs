@@ -99,8 +99,14 @@ namespace AWSIM.AWAnalysis
             {
                 CustomNPCSpawningManager.SpawnNPC(npcCar);
             }
-
-            EgoSingletonInstance.SetCustomEgoSetting(new CustomEgoSetting(simulation.Ego));
+            
+            foreach (var npcPedes in simulation.Pedestrians)
+            {
+                CustomNPCSpawningManager.SpawnPedestrian(npcPedes);
+            }
+            
+            if (simulation.Ego != null)
+                EgoSingletonInstance.SetCustomEgoSetting(new CustomEgoSetting(simulation.Ego));
         }
 
         private void PreProcessingSimulation(ref Simulation simulation)

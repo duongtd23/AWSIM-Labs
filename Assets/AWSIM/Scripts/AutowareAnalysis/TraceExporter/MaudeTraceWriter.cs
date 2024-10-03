@@ -23,7 +23,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
             _contents += "\n  eq init = ";
             _statesStr = "mod STATES is\n" +
                          "  pr FORMULAS .\n\n" +
-                         "  op state : Nat -> AWState .\n";
+                         "  op states : -> List{AWState} .\n" +
+                         "  eq states =";
         }
 
         protected override void WriteFile()
@@ -39,14 +40,14 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
                 if (_writeStateData)
                 {
-                    _statesStr += $"  eq state({i}) = {stateStr} .\n";
+                    _statesStr += $"  ({stateStr})\n";
                 }
             }
             _contents += $"{stateStr} .\n";
 
             if (_writeStateData)
             {
-                _statesStr += "endm\n\n";
+                _statesStr += "  .\nendm\n\n";
                 _contents = _statesStr + _contents + "\n";
             }
 
@@ -102,7 +103,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _contents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
                 if (_writeStateData)
                 {
-                    _statesStr += $"  eq state({i}) = {stateStr} .\n";
+                    _statesStr += $"  ({stateStr})\n";
                 }
             }
         }

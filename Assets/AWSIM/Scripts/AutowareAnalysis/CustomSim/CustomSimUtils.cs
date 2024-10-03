@@ -403,5 +403,54 @@ namespace AWSIM.AWAnalysis.CustomSim
             var angle = Vector3.Angle(forwardDirection, position - root);
             return Mathf.Cos(angle / 180 * Mathf.PI) * ((position - root).magnitude);
         }
+
+        public static bool CalculateOffset(TrafficLane trafficLane, Vector3 position,
+            out float offset, out int waypointIndex)
+        {
+            offset = 0;
+            int i = 0;
+            for (; i < trafficLane.Waypoints.Length - 1; i++)
+            {
+                Vector3 start = trafficLane.Waypoints[i];
+                Vector3 end = trafficLane.Waypoints[i + 1];
+                if (Vector3.Dot(end - start, position - end) > 0)
+                {
+                    offset += DistanceIgnoreYAxis(start, end);
+                }
+                else
+                {
+                    offset += DistanceIgnoreYAxis(start, position);
+                    break;
+                }
+            }
+
+            if (i == trafficLane.Waypoints.Length - 1)
+            {
+                Debug.LogError($"The position {position} exceeds the lane length.");
+                waypointIndex = -1;
+                offset = -1;
+                return false;
+            }
+            waypointIndex = i + 1;
+            return true;
+        }
+        
+        public static bool ForwardLaneOffset(TrafficLane rootLane, Vector3 rootPosition, float distance,
+            out IPosition result, out float offset, out int waypointIndex)
+        {
+            CalculateOffset(rootLane, rootPosition, out float offset2, out waypointIndex);
+            offset = offset2 + distance;
+            result = new RelativePosition(
+                new LaneOffsetPosition(rootLane.name, offset2), 
+                RelativePositionSide.FORWARD,
+                distance);
+            return true;
+        }
+
+        public static float SignDistance(Vector3 root, Vector3 position, Quaternion direction)
+        {
+            var distance = Vector3.Distance(position, root);
+            return Vector3.Dot(position - root, direction * Vector3.forward) > 0 ? distance : -distance;
+        }
     }
 }
