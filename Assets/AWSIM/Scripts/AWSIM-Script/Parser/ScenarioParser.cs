@@ -27,6 +27,7 @@ namespace AWSIM_Script.Parser
         public const string ACCELERATION = "acceleration";
         public const string DECELERATION = "deceleration";
         public const string MAX_VELOCITY = "max-velocity";
+        public const string SPEED = "speed";
         public const string SAVING_TIMEOUT = "saving-timeout";
         public const string CHANGE_LANE = "change-lane";
         public const string CUT_IN = "cut-in";
@@ -595,7 +596,7 @@ namespace AWSIM_Script.Parser
             // 3rd arg (optional): config
             if (func.Parameters.Count >= 3)
             {
-                var pedesConfig = new NPCPedesConfig();    
+                var pedesConfig = pedestrian.Config;    
                 bool ok = ParsePedesConfig(func.Parameters[2].children[0], ref pedesConfig);
                 if (ok)
                     pedestrian.Config = pedesConfig;
@@ -694,7 +695,7 @@ namespace AWSIM_Script.Parser
             {
                 switch (configExpContext.children[0].GetText())
                 {
-                    case MAX_VELOCITY:
+                    case SPEED:
                         bool ok = ParseNumber(configExpContext.children[2], out float speed);
                         if (ok)
                             pedesConfig.Speed = speed;

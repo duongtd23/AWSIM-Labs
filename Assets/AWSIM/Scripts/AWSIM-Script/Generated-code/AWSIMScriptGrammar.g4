@@ -23,6 +23,7 @@ configExp
     : 'aggressive-driving'
     | 'acceleration' '(' (numberExp | variableExp) ')'
     | 'deceleration' '(' (numberExp | variableExp) ')'
+    | 'speed' '(' (numberExp | variableExp) ')'
     | 'delay-spawn' '(' (numberExp | variableExp) ')'
     | 'delay-move' '(' (numberExp | variableExp) ')'
     | 'delay-spawn-until-ego-move' '(' (numberExp | variableExp) ')'
