@@ -181,9 +181,11 @@ namespace AWSIM.TrafficSimulation
             {
                 // add a waypoint to the point where lane change starts
                 int sourceWaypointId = AddaWaypointToSourceLaneChange(ref route, customConfig.LaneChange);
-                
+
+                var laneChange = customConfig.LaneChange;
                 // add a waypoint to the point where lane change complete
-                int targetWaypointId = AddaWaypointToTargetLaneChange(ref route, customConfig.LaneChange);
+                int targetWaypointId = AddaWaypointToTargetLaneChange(ref route, ref laneChange);
+                customConfig.LaneChange = laneChange;
                 
                 customConfig.LaneChange.SourceLaneWaypointIndex = sourceWaypointId;
                 customConfig.LaneChange.TargetLaneWaypointIndex = targetWaypointId;
@@ -204,17 +206,21 @@ namespace AWSIM.TrafficSimulation
             return waypointIndex;
         }
         
-        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, ILaneChange laneChangeConfig)
+        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, ref ILaneChange laneChangeConfig)
         {
-            TrafficLane sourceLane = route.Find(l => l.name == laneChangeConfig.SourceLane);
-            TrafficLane targetLane = route.Find(l => l.name == laneChangeConfig.TargetLane);
-            float timeForLaneChange = sourceLane.Width / laneChangeConfig.LateralVelocity;
-            float longitudeLaneChangeDistance = timeForLaneChange * laneChangeConfig.LongitudinalVelocity;
-            
-            Debug.Log($"[AWAnalysis] Longitude distance for Lane Change: {longitudeLaneChangeDistance}");
+            TrafficLane sourceLane = route[0];
+            int firstTargetLaneIndex = 0;
+            for (int i = 0; i < route.Count; i++)
+            {
+                var lane = route[i];
+                if (lane.name == laneChangeConfig.SourceLane)
+                    sourceLane = lane;
+                if (lane.name == laneChangeConfig.TargetLane)
+                    firstTargetLaneIndex = i;
+            }
 
-            var ok = CustomSimUtils.SideLaneOffset(sourceLane, longitudeLaneChangeDistance + laneChangeConfig.ChangeOffset,
-                new TrafficLane[1] { targetLane },
+            var ok = CustomSimUtils.SideLaneOffset(sourceLane, laneChangeConfig.ChangeOffset,
+                new TrafficLane[1] { route[firstTargetLaneIndex] },
                 laneChangeConfig.ChangeDirection == Side.LEFT,
                 out TrafficLane other, out float offset);
             if (!ok)
@@ -222,11 +228,26 @@ namespace AWSIM.TrafficSimulation
                 throw new InvalidScriptException("Cannot parse the lane change information");
             }
             
-            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(targetLane, offset, out int waypointIndex);
+            float timeForLaneChange = sourceLane.Width / laneChangeConfig.LateralVelocity;
+            float longitudeLaneChangeDistance = timeForLaneChange * laneChangeConfig.LongitudinalVelocity;
+            
+            Debug.Log($"[AWAnalysis] Longitude distance for Lane Change: {longitudeLaneChangeDistance}");
 
-            var updateWaypoints = new List<Vector3>(targetLane.Waypoints);
+            // sequence of lanes after lane-change
+            var targetLaneSequence = route.GetRange(firstTargetLaneIndex, route.Count - firstTargetLaneIndex);
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(targetLaneSequence, 
+                offset + longitudeLaneChangeDistance, 
+                out int targetLaneIndex,
+                out int waypointIndex);
+            
+            // remove redundant lanes
+            if (targetLaneIndex > 0)
+                route.RemoveRange(firstTargetLaneIndex, targetLaneIndex);
+
+            var updateWaypoints = new List<Vector3>(route[firstTargetLaneIndex].Waypoints);
             updateWaypoints.Insert(waypointIndex, newWaypoint);
-            targetLane.UpdateWaypoints(updateWaypoints.ToArray());
+            route[firstTargetLaneIndex].UpdateWaypoints(updateWaypoints.ToArray());
+            laneChangeConfig.TargetLane = route[firstTargetLaneIndex].name;
             return waypointIndex;
         }
     }

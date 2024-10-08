@@ -118,6 +118,47 @@ namespace AWSIM.AWAnalysis.CustomSim
             waypointIndex = lane.Waypoints.Length - 1;
             return lane.Waypoints[waypointIndex];
         }
+        
+        /// <summary>
+        /// </summary>
+        /// <param name="lane"></param>
+        /// <param name="distance"></param>
+        /// <param name="waypointIndex"></param>
+        /// <returns>vector3 representing the point on lane $lane, far $distance m from the starting point of $lane</returns>
+        public static Vector3 CalculatePosition(List<TrafficLane> lanes, float distance, 
+            out int trafficLaneIndex, out int waypointIndex)
+        {
+            float remainDistance = distance;
+            for (int i = 0; i < lanes.Count; i++)
+            {
+                TrafficLane lane = lanes[i];
+                for (int j = 0; j < lane.Waypoints.Length - 1; j++)
+                {
+                    Vector3 startPoint = lane.Waypoints[j];
+                    Vector3 endPoint = lane.Waypoints[j + 1];
+                    if (DistanceIgnoreYAxis(startPoint, endPoint) < remainDistance)
+                    {
+                        remainDistance -= DistanceIgnoreYAxis(startPoint, endPoint);
+                    }
+                    else
+                    {
+                        trafficLaneIndex = i;
+                        if (remainDistance == 0)
+                        {
+                            waypointIndex = j;
+                            return startPoint;
+                        }
+                        else
+                        {
+                            Vector3 temp = (endPoint - startPoint).normalized;
+                            waypointIndex = j + 1;
+                            return startPoint + (temp * remainDistance);
+                        }
+                    }
+                }
+            }
+            throw new LaneNotFoundException("[NPCSim] Cannot find traffic lane and offset.");
+        }
 
         /// <summary>
         /// get the left lane of the $root lane

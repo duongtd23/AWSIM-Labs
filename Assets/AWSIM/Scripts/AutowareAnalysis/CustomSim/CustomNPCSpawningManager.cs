@@ -333,13 +333,15 @@ namespace AWSIM.AWAnalysis.CustomSim
                     actual_dx0 -= (float)cutoutNPC.GetCarInfo().extents.z -
                                   (float)cutoutNPC.GetCarInfo().center.z;
                     if (actual_dx0 > desired_dx0)
-                        leadingNPC.InitialPosition = new RelativePosition(leadingNPC.InitialPosition,
+                    {
+                        var leadingSpawnPos = new RelativePosition(leadingNPC.InitialPosition,
                             RelativePositionSide.FORWARD,
                             desired_dx0 - actual_dx0 +
                             (float)GetNPCCarInfo(leadingNPC.VehicleType).extents.z -
                             (float)GetNPCCarInfo(leadingNPC.VehicleType).center.z);
-                    delayTime.DelayType = DelayKind.FROM_BEGINNING;
-                    delayTime.DelayAmount = Time.fixedTime;
+                        SpawnNPC(leadingNPC.VehicleType, leadingSpawnPos, out int wpId, leadingNPC.Name);
+                    }
+                    delayingSpawnNPCs.Remove(leadingNPC);
                 }
             }
         }
