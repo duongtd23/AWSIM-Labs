@@ -59,6 +59,16 @@ namespace AWSIM.AWAnalysis
         public static Vector3[] NPCLocalBoundsToWorldCorners(NPCVehicle npc)
         {
             Bounds localBounds = npc.Bounds;
+            var localCorners = LocalCorners(localBounds);
+            var worldCorners = new Vector3[8];
+            for (int i = 0; i < 8; i++)
+                worldCorners[i] = npc.transform.TransformPoint(localCorners[i]);
+
+            return worldCorners;
+        }
+
+        public static Vector3[] LocalCorners(Bounds localBounds)
+        {
             var localCorners = new Vector3[8];
             localCorners[0] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
             localCorners[1] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y - localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
@@ -68,16 +78,11 @@ namespace AWSIM.AWAnalysis
             localCorners[5] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z - localBounds.extents.z);
             localCorners[6] = new Vector3(localBounds.center.x + localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
             localCorners[7] = new Vector3(localBounds.center.x - localBounds.extents.x, localBounds.center.y + localBounds.extents.y, localBounds.center.z + localBounds.extents.z);
-
-            var worldCorners = new Vector3[8];
-            for (int i = 0; i < 8; i++)
-                worldCorners[i] = npc.transform.TransformPoint(localCorners[i]);
-
-            return worldCorners;
+            return localCorners;
         }
 
         /// <summary>
-        /// check whether the `npc` is visible by the `camera`.
+        /// check whether the `npc` vehicle is visible by the `camera`.
         /// Even part of the vehicle is visible, true is returned.
         /// NOTE THAT this is not a precise computation,
         /// we only check if at least one of 8 corners of NPC bounds is visible
@@ -89,6 +94,32 @@ namespace AWSIM.AWAnalysis
         public static bool NPCVisibleByCamera(Camera camera, NPCVehicle npc)
         {
             var worldCorners = NPCLocalBoundsToWorldCorners(npc);
+            for (int i = 0; i < 8; i++)
+            {
+                if (PointVisibleByCamera(camera, worldCorners[i]))
+                    return true;
+            }
+            return false;
+        }
+        
+        /// <summary>
+        /// check whether the `pedestrian` is visible by the `camera`.
+        /// Even part of the vehicle is visible, true is returned.
+        /// NOTE THAT this is not a precise computation,
+        /// we only check if at least one of 8 corners of NPC bounds is visible
+        /// to avoid the computation burden
+        /// </summary>
+        /// <param name="camera"></param>
+        /// <param name="npc"></param>
+        /// <returns></returns>
+        public static bool PedestrianVisibleByCamera(Camera camera, NPCPedestrian pedestrian)
+        {
+            Bounds localBounds = pedestrian.GetSuitMeshRenderer().bounds;
+            var localCorners = LocalCorners(localBounds);
+            var worldCorners = new Vector3[8];
+            for (int i = 0; i < 8; i++)
+                worldCorners[i] = pedestrian.transform.TransformPoint(localCorners[i]);
+            
             for (int i = 0; i < 8; i++)
             {
                 if (PointVisibleByCamera(camera, worldCorners[i]))

@@ -7,6 +7,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         public double timeStamp;
         public EgoGroundTruthObject groundtruth_ego;
         public NPCGroundTruthObject[] groundtruth_NPCs;
+        public PedestrianGtObject[] groundtruth_pedestrians;
         
         public List<PerceptionObject> perception_objects;
         public List<BBPerceptionObject> boundingbox_perception_objects;
@@ -19,6 +20,9 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
             if (groundtruth_NPCs != null)   
                 foreach (var npc in groundtruth_NPCs)
                     result += $", {npc.DumpMaudeStr()}";
+            if (groundtruth_pedestrians != null)   
+                foreach (var pedes in groundtruth_pedestrians)
+                    result += $", {pedes.DumpMaudeStr()}";
             if (perception_objects != null)
                 foreach (var perceptionObject in perception_objects)
                     result += $", {perceptionObject.DumpMaudeStr()}";

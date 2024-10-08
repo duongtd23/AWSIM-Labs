@@ -199,7 +199,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             newState.groundtruth_ego.acceleration.linear = new Vector3Object(_egoVehicle.Acceleration.x, _egoVehicle.Acceleration.y, _egoVehicle.Acceleration.z);
             newState.groundtruth_ego.acceleration.angular = new Vector3Object(_egoVehicle.AngularAcceleration.x, _egoVehicle.AngularAcceleration.y, _egoVehicle.AngularAcceleration.z);
             
-            // NPCs ground truth
+            // NPC vehicles ground truth
             int npcCount = CustomNPCSpawningManager.GetNPCs().Count;
             newState.groundtruth_NPCs = new NPCGroundTruthObject[npcCount];
             for (int i = 0; i < npcCount; i++)
@@ -224,6 +224,30 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     if (distanceToEgo < _maxDistanceVisibleOnCamera &&
                         CameraUtils.NPCVisibleByCamera(_sensorCamera, npc))
                         newState.groundtruth_NPCs[i].bounding_box = DumpNPCGtBoundingBox(npc);
+                }
+            }
+            
+            // pedestrians
+            int pedesCount = CustomNPCSpawningManager.GetPedestrians().Count;
+            newState.groundtruth_pedestrians = new PedestrianGtObject[pedesCount];
+            for (int i = 0; i < pedesCount; i++)
+            {
+                var entry = CustomNPCSpawningManager.GetPedestrians()[i];
+                newState.groundtruth_pedestrians[i] = new PedestrianGtObject();
+                newState.groundtruth_pedestrians[i].name = entry.Item1.Name;
+                
+                newState.groundtruth_pedestrians[i].pose = new Pose2Object();
+                newState.groundtruth_pedestrians[i].pose.position = new Vector3Object(entry.Item1.LastPosition.x, entry.Item1.LastPosition.y, entry.Item1.LastPosition.z);
+                newState.groundtruth_pedestrians[i].pose.rotation = new Vector3Object(entry.Item1.LastRotation.x, entry.Item1.LastRotation.y, entry.Item1.LastRotation.z);
+                
+                newState.groundtruth_pedestrians[i].speed = entry.Item1.Config.Speed;
+                
+                if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
+                {
+                    var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(entry.Item1.LastPosition, _egoVehicle.Position);
+                    if (distanceToEgo < _maxDistanceVisibleOnCamera &&
+                        CameraUtils.PedestrianVisibleByCamera(_sensorCamera, entry.Item2))
+                        newState.groundtruth_pedestrians[i].bounding_box = DumpPedestrianGtBoundingBox(entry.Item2);
                 }
             }
             
@@ -550,6 +574,92 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     screenVertices.Add(screenPoint);
                 }
             }
+            float min_x = screenVertices[0].x;
+            float min_y = screenVertices[0].y;
+            float max_x = screenVertices[0].x;
+            float max_y = screenVertices[0].y;
+
+            for (int i = 1; i < screenVertices.Count; i++)
+            {
+                if (screenVertices[i].x < min_x &&
+                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
+                    min_x = screenVertices[i].x;
+                if (screenVertices[i].y < min_y &&
+                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
+                    min_y = screenVertices[i].y;
+                if (screenVertices[i].x > max_x &&
+                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
+                    max_x = screenVertices[i].x;
+                if (screenVertices[i].y > max_y &&
+                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
+                    max_y = screenVertices[i].y;
+            }
+            // if min_x is -0.1
+            min_x = Mathf.Max(0, min_x);
+            min_y = Mathf.Max(0, min_y);
+            max_x = Mathf.Min(_sensorCamera.pixelWidth, max_x);
+            max_y = Mathf.Min(_sensorCamera.pixelHeight, max_y);
+            return new BoundingBoxObject()
+            {
+                x = min_x,
+                y = min_y,
+                width = max_x - min_x,
+                height = max_y - min_y
+            };
+        }
+        
+        /// <summary>
+        /// return the bounding box of `npc`.
+        /// </summary>
+        /// <param name="pedestrian"></param>
+        /// <returns></returns>
+        protected BoundingBoxObject DumpPedestrianGtBoundingBox(NPCPedestrian pedestrian)
+        {
+            var worldVertices = new List<Vector3>();
+
+            // var suitMeshRenderer = pedestrian.GetSuitMeshRenderer();
+            // Vector3 suitLocalPosition = suitMeshRenderer.transform.localPosition;
+            //
+            // Mesh suitMesh = suitMeshRenderer.sharedMesh;
+            // Vector3[] suitLocalVertices = suitMesh.vertices;
+            //
+            // for (int i = 0; i < suitLocalVertices.Length; i+=3)
+            //     worldVertices.Add(pedestrian.transform.TransformPoint(
+            //         suitLocalVertices[i] + suitLocalPosition));
+            
+            var shoesMeshRenderer = pedestrian.GetShoesMeshRenderer();
+            Vector3 shoesLocalPosition = shoesMeshRenderer.transform.localPosition;
+            
+            Mesh shoesMesh = shoesMeshRenderer.sharedMesh;
+            Vector3[] shoesLocalVertices = shoesMesh.vertices;
+            
+            for (int i = 0; i < shoesLocalVertices.Length; i+=10)
+                worldVertices.Add(pedestrian.transform.TransformPoint(
+                    shoesLocalVertices[i] + shoesLocalPosition));
+            
+            var headMeshRenderer = pedestrian.GetHeadMeshRenderer();
+            Vector3 headLocalPosition = headMeshRenderer.transform.localPosition;
+            
+            Mesh headMesh = headMeshRenderer.sharedMesh;
+            Vector3[] headLocalVertices = headMesh.vertices;
+            
+            for (int i = 0; i < headLocalVertices.Length; i+=10)
+                worldVertices.Add(pedestrian.transform.TransformPoint(
+                    headLocalVertices[i] + headLocalPosition));
+
+            var screenVertices = new List<Vector3>();
+            for (int i = 0; i < worldVertices.Count; i++)
+            {
+                var screenPoint = _sensorCamera.WorldToScreenPoint(worldVertices[i]);
+                if (screenPoint.z > 0)
+                {
+                    screenPoint = CameraUtils.FixScreenPoint(screenPoint, _sensorCamera);
+                    screenVertices.Add(screenPoint);
+                }
+            }
+
+            if (screenVertices.Count == 0)
+                return new BoundingBoxObject();
             float min_x = screenVertices[0].x;
             float min_y = screenVertices[0].y;
             float max_x = screenVertices[0].x;

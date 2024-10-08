@@ -593,7 +593,6 @@ namespace AWSIM.AWAnalysis.CustomSim
                 npcPedes.LastPosition,
                 npcPedes.LastRotation);
             NPCPedestrian pedestrian = pedesGameObj.GetComponent<NPCPedestrian>();
-            pedestrian.ScriptName = npcPedes.Name;
             GetPedestrians().Add(Tuple.Create(npcPedes,pedestrian));
             return pedestrian;
         }
