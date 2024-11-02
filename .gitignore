@@ -75,3 +75,11 @@ crashlytics-build.properties
 ProjectSettings/CommonBurstAotSettings.json
 
 ProjectSettings/BurstAotSettings_StandaloneLinux64.json
+
+export
+
+Assets/Vehicle Physics Pro*
+
+export
+
+.gitignore

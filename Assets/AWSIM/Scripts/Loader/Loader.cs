@@ -1,7 +1,11 @@
 using System.Collections;
 using System;
 using System.IO;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis;
+using AWSIM.AWAnalysis.CustomSim;
 using AWSIM.Scripts.Scene;
+using AWSIM.TrafficSimulation;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -97,6 +101,7 @@ namespace AWSIM.Loader
 
         private SceneMetadataDatabase sceneMetadataDatabase;
         private const string SceneMetaDatabasePath = "SceneMetadata/SceneMetadataDatabase";
+        public EgoSettings CustomEgoSettings { get; set; }
 
 
         IEnumerator ReLoadCoroutine()
@@ -141,9 +146,45 @@ namespace AWSIM.Loader
             simulationLoad.allowSceneActivation = true;
             yield return new WaitUntil(() => simulationLoad.isDone);
 
+            // reset initial and goal positions for the Ego
+            string laneName = "";
+            float offset = 0;
+            
+            // if the position is relative, must handle separately since
+            // CustomNPCSpawningManager is not available yet
+            if (CustomEgoSettings.InitialPosition is RelativePosition relativePosition)
+            {
+                var trafficLanesParent = GameObject.Find("TrafficLanes");
+                var lanes = Array.Empty<TrafficLane>();
+                if (trafficLanesParent != null)
+                    lanes = trafficLanesParent.GetComponentsInChildren<TrafficLane>();
+                var ok = relativePosition.ToLaneOffsetPosition(lanes, out LaneOffsetPosition initPos);
+                if (!ok)
+                    throw new ArgumentNullException("Cannot parse the Ego initial position, " +
+                                                    "possibly because the map is not available yet.");
+                laneName = initPos.GetLane();
+                offset = initPos.GetOffset();
+            }
+            else
+            {
+                laneName = CustomEgoSettings.InitialPosition.GetLane();
+                offset = CustomEgoSettings.InitialPosition.GetOffset();
+            }
+            
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(laneName);
+            Vector3 initPosition = CustomSimUtils.CalculatePosition(spawnLane, offset, out int waypointIndex);
+            Vector3 initFwd = waypointIndex == 0 ?
+                spawnLane.Waypoints[1] - spawnLane.Waypoints[0] :
+                spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
+            Quaternion poseRotation = Quaternion.LookRotation(initFwd);
+            
+            egoManager.egoConfiguration.egoPosition = ROS2Utility.UnityToRosMGRS(initPosition);
+            egoManager.egoConfiguration.egoEulerAngles = ROS2Utility.UnityToRosRotation(poseRotation).eulerAngles;
+            
             // Finally configure the scene
             SimConfiguration.Configure(egoManager, mapManager, simulationManager);
-
+            
+            // EgoSingletonInstance.SetEgo(GameObject.FindWithTag("Ego"));
 
             // Hide loading screen and gui
             loadingScreen.SetActive(false);
@@ -152,6 +193,11 @@ namespace AWSIM.Loader
         }
 
         public void Start()
+        {
+
+        }
+
+        public void Activate(AWSIMConfiguration config)
         {
             // Turn off GUI canvases.
             jsonCanvas.SetActive(false);
@@ -167,7 +213,12 @@ namespace AWSIM.Loader
             // Load the SceneMetadataDatabase from the Resources folder
             LoadSceneMetadataDatabase(SceneMetaDatabasePath);
 
-            StartLoader();
+            // StartLoader();
+            if (LoadManagersConfig(config))
+            {
+                // Configuration went well. Load all scenes.
+                Load();
+            }
         }
 
         public void Update()

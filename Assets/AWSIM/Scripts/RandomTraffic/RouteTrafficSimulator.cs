@@ -30,7 +30,7 @@ namespace AWSIM.TrafficSimulation
     /// </summary>
     public class RouteTrafficSimulator : ITrafficSimulator
     {
-        public bool enabled = true;
+        public bool enabled = false;
 
         private TrafficLane[] route;
         private int maximumSpawns = 0;

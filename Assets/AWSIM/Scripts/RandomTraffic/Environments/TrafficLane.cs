@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -35,7 +36,14 @@ namespace AWSIM.TrafficSimulation
         private float speedLimit;
         [SerializeField, Tooltip("Is intersection lane")]
         public bool intersectionLane;
-
+        [SerializeField, Tooltip("Lane's width. Use 3.0 as default if unset.")]
+        private float width = 3.0f;
+        
+        public void UpdateWaypoints(Vector3[] upWaypoints)
+        {
+            this.waypoints = upWaypoints;
+        }
+        
         /// <summary>
         /// Get waypoints in this lane.
         /// </summary>
@@ -96,5 +104,24 @@ namespace AWSIM.TrafficSimulation
             trafficLane.speedLimit = speedLimit;
             return trafficLane;
         }
+        
+        public float DistanceUpToWaypoint(int waypointIndex)
+        {
+            float distance = 0;
+            for (int i = 0; i < waypointIndex; i++)
+                distance += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return distance;
+        }
+
+        public float TotalLength()
+        {
+            float totalLen = 0;
+            for (int i = 0; i < waypoints.Length - 1; i++)
+                totalLen += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return totalLen;
+        }
+
+        public const float DEFAULT_WIDTH = 3.0f;
+        public float Width => width == 0.0f ? DEFAULT_WIDTH : width;
     }
 }

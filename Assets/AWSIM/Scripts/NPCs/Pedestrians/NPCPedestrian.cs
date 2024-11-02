@@ -105,5 +105,22 @@ namespace AWSIM
         {
             return position - referencePoint.position + transform.position;
         }
+        
+        public SkinnedMeshRenderer GetSuitMeshRenderer()
+        {
+            return GetComponentsInChildren<SkinnedMeshRenderer>()[7];
+        }
+        public SkinnedMeshRenderer GetShoesMeshRenderer()
+        {
+            return GetComponentsInChildren<SkinnedMeshRenderer>()[9];
+        }
+        public SkinnedMeshRenderer GetHeadMeshRenderer()
+        {
+            return GetComponentsInChildren<SkinnedMeshRenderer>()[11];
+        }
+        public SkinnedMeshRenderer GetBodyMeshRenderer()
+        {
+            return GetComponentsInChildren<SkinnedMeshRenderer>()[1];
+        }
     }
 }

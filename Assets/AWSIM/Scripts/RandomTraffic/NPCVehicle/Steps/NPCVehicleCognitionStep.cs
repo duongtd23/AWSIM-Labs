@@ -54,19 +54,41 @@ namespace AWSIM.TrafficSimulation
                 foreach (var state in States)
                 {
                     var isCloseToTarget = state.DistanceToCurrentWaypoint <= 1f;
+                    var temp = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
+                    if (state.CustomConfig.HasALaneChange() && 
+                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&
+                        state.WaypointIndex == state.CustomConfig.LaneChange.TargetLaneWaypointIndex)
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
+                    else if (state.CustomConfig.HasALaneChange() &&
+                             state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                             state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
 
                     if (!isCloseToTarget)
                         continue;
-
-                    if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                    
+                                        
+                    // check if change lane soon
+                    if (state.CustomConfig.HasALaneChange() &&
+                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                        state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
                     {
                         state.ExtendFollowingLane();
                         state.RemoveCurrentFollowingLane();
-                        state.WaypointIndex = 1;
+                        state.WaypointIndex = state.CustomConfig.LaneChange.TargetLaneWaypointIndex;
                     }
                     else
                     {
-                        state.WaypointIndex++;
+                        if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                        {
+                            state.ExtendFollowingLane();
+                            state.RemoveCurrentFollowingLane();
+                            state.WaypointIndex = 1;
+                        }
+                        else
+                        {
+                            state.WaypointIndex++;
+                        }
                     }
 
                     // Despawn if there are no lanes to follow.

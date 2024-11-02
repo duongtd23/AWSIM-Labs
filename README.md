@@ -1,64 +1,78 @@
 # AWSIM Labs
 
-<img src="docs/assets/images/E2ESim.png" height="300">
+This is a fork of [Autoware Foundation's AWSIM-Labs](https://github.com/autowarefoundation/AWSIM-Labs).
 
-<img src="docs/assets/images/autoware-foundation.png" height="90"> <img src="docs/assets/images/awsim-labs-logo.png" height="90">
+## Additional Features
 
-[AWSIM Labs](https://github.com/autowarefoundation/AWSIM-Labs) is currently being developed under the [Autoware Labs](https://github.com/orgs/autowarefoundation/discussions/4550) initiative. Main purpose of this fork is to provide faster implementation of features needed by the users of the AWSIM while also ensuring a high-performance simulation environment for the [Autoware](https://github.com/autowarefoundation/autoware).
+- Various options to control NPC behaviors, such as, lane change, different acceleration and deceleration profiles for different NPCs, and motion delays.
+- A scenario specification language called AWSIM-Script to ease the simulation description.
+- A runtime monitor to record data during simulation. This recorded data can be used to analyze Autoware performance in handling the traffic scenario.
 
-This is a fork of [TIER IV's AWSIM](https://github.com/tier4/AWSIM).
+## AWSIM-Script
+### An axample
+An example of the input accepted by AWSIM-Script is as follows:
 
-## Features
+```
+// Position on lane 226, 20 meters from the start point
+spawnPos = "TrafficLane.226" at 20;
+goalPos = "TrafficLane.250" at 40;
+// The route that NPC will travel
+route1 = [
+  "TrafficLane.226" max-velocity(10),
+  "TrafficLane.427" max-velocity(8.33),
+  "TrafficLane.249" max-velocity(8.33),
+  // lane change at offset 8m, with longitudinal and lateral velocities 8.33 and 1, respectively
+  change-lane(8, 8.33, 1),   
+  "TrafficLane.250"
+];
+npc1 = NPC("smallcar", spawnPos, goalPos, route1, [delay-move-until-ego-engaged(1)]);
 
-- Simulator components included (Vehicle, Sensor, Environment, ROS2, etc.)
-- Support for Ubuntu 22.04 and windows10/11
-- ROS2 native communication
-- Open source software
-- Made with Unity Game Engine
-- Multiple scene and vehicle setup
-- Interactable simulation and UI
+route2 = [
+  "TrafficLane.248",
+  "TrafficLane.449",
+  "TrafficLane.264" max-velocity(13.889)
+];
+npc2 = NPC("taxi", "TrafficLane.248" at 10, "TrafficLane.264", route2, 
+  [delay-move-until-ego-move(0), deceleration(9.81), aggressive-driving]);
 
-### Feature differences from the TIER IV/AWSIM
+// A stationary NPC
+npc3 = NPC("hatchback", "TrafficLane.249" at 40);
 
-See [Feature differences from the TIER IV/AWSIM in the Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/tutorials/ad-hoc-simulation/digital-twin-simulation/awsim-tutorial/#feature-differences-from-the-awsim-and-awsim-labs).
+// A pedestrian in elegant style
+pedes = Pedes("elegant", [203 # -222.5,  169 # -235], [speed(1.5)]);
 
-## Tutorial
+// Ego vehicle
+ego = Ego("Lexus RX450h 2015 Sample Sensor", spawnPos back 10, "TrafficLane.263" at 60, [max-velocity(8.33)]);
 
-First, try the tutorial!  
-[AWSIM Labs Documentation - Quick Start Demo](https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/QuickStartDemo/)
+run("Shinjuku", ego, [npc1, npc2, npc3, pedes]);
+```
 
-## Documentation
+- `npc1` is spawned on lane 226, 20 meters from the start point of the lane. 
+It follows three lanes 226, 427, and 249 at speeds of 10 m/s, 8.33 m/s, and 8.33 m/s, respectively.
+After traveling 8 meters on lane 249, it starts making a lane change to the adjacent lane 250 with a lateral velocity of 1 m/s. 
+It stops on lane 250 after reaching the position which is 40 meters away from the lane's start. 
+The last argument of the function `NPC` lets the vehicle delay its movement 1 second after the ego vehicle becomes ready to move.
 
-https://autowarefoundation.github.io/AWSIM-Labs/main/
+- `npc2` is a taxi vehicle with aggressive driving behavior, including sudden stops and high deceleration (9.81 m/s2). It starts moving simultaneously with the ego vehicle.
 
-## How to Contribute
+- `npc3` is a stationary hatchback placed on lane 249.
 
-Everyone is welcome!
-1. Create a issue [here](https://github.com/autowarefoundation/AWSIM-Labs/issues) to discuss the contribution you want to make.
-2. Create a derived branch `feature/***` from the `main` branch.
-3. Create a pull request for the `main` branch.
+- `pedes` is an elegant-style pedestrian, who goes across the crosswalk with a constant speed of 1.5 m/s.
 
-see also [AWSIM Labs Documentation - Git branch](https://autowarefoundation.github.io/AWSIM-Labs/main/ProjectGuide/GitBranch/)
+- `ego` denotes the ego vehicle. Its initial pose is set 10 meters behind npc1 and its goal is on lane 263, 60 meters from the lane’s start point. The script also sets the maximum velocity for the ego at 8.33 m/s.
 
-We recommend [microsoft's C# coding convention](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions?redirectedfrom=MSDN).  
-However, if the logic of the code is good, it does not matter if coding conventions are not followed.
+- The `run` function specifies that the map `Shinjuku` will be used with the participation of the three NPC vehicles and the pedestrian.
 
-## License
 
-AWSIM License
-Applies to `tier4/AWSIM` repositories and all content contained in the [Releases](https://github.com/autowarefoundation/AWSIM-Labs/releases).
+### Language Features
+- Positions: can be represented by traffic lane and offset or can be relative to other point. For example, `A back 10` would place a vehicle 10 meters behind a given point `A` (in ddition to `back`, the relative keywork can be `forward`, `left`, and `right`).
 
-- code : Apache 2.0
-- assets : CC BY-NC
+- NPC Vehicle and pedestrian types: AWSIM-Script supports five vehicle types: taxi, hatchback, van, small car, and truck, along with two pedestrian styles: elegant and casual. 
 
-See also [LICENSE](./LICENSE)
+- Motions for NPCs: For NPC vehicles, their motions can be specified by given a sequence of traffic lanes (and `change-lane`, `cutin`, `cutout`). For NPC pedestrian, their motions should be described through a sequence of (2D) waypoints.
 
-## Contact
+- Ego Configuration: We can set the car model (either "Lexus RX450h 2015 Sample Sensor" or "Lexus RX450h 2015 Sample Sensor Blue"), the initial pose and goal, and the maximum velocity.
 
-日本語/English OK
+- Scenario creation: We can set the map, which is either "Shinjuku" or "ShinjukuNight".
 
-e-mail : takatoki.makino@tier4.jp
-discord : mackie#6141
-twitter : https&#58;//twitter.com/mackierx111
-
-(c) 2022 TIER IV, inc
+- Other options: a wide array of configuration options, such as, delay spawning/movement, acceleration, and deceleration, can be set for each NPC.

@@ -1,0 +1,24 @@
+---
+AWSIMConfig:
+  AllMapNames:
+    - Shinjuku
+    - ShinjukuNight
+  AllEgoModelNames:
+    - Lexus RX450h 2015 Sample Sensor
+    - Lexus RX450h 2015 Sample Sensor Blue
+NpcAcceleration: 1.5
+NpcDeceleration: 1.5
+MaxDistanceVisibleonCamera: 130             # only write ground truth bounding box of NPC if its distance to Ego less than this config value
+DelaySendingEngageCmd: 1.5
+NPCPedestrianSpeed: 1.42
+TraceFormat: 1                              # 0: maude, 1: yaml (see enum TraceFormat)
+ComponentsRecording:                        # see enum TraceComponent
+  - 1                                       # 1: planning trajectory
+PlanTrajectoryMaxStepsRecording: 10         # maximum number of steps when recording plan trajectories
+# other settings
+MaudeTraceImportFile: load ../../propositions.maude
+MaudeTraceWriteStateData: false
+TimeNPCTravelBeforeCutin: 1                 # the time NPC travel with constant speed before make a cutin
+EgoNormalAcceleration: 1                    # The normal acceleration, different from the maximum in Autoware's config
+TimeEgoTravelConstSpeed: 3                  # the time configured for Ego travel with constant (max) speed before NPC start compute the appropriate distance to start moving
+TimeHeadWay: 2

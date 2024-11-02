@@ -317,6 +317,10 @@ namespace AWSIM.Scripts.Vehicles.VPP_Integration
             var lastAngularVelocity = AngularVelocity;
             AngularVelocity = _rigidbody.angularVelocity;
             AngularAcceleration = (AngularVelocity - lastAngularVelocity) / Time.deltaTime;
+            
+            var lastVelocity = _lastVelocity;
+            _lastVelocity = _rigidbody.velocity;
+            Acceleration = (_lastVelocity - lastVelocity) / Time.deltaTime;
         }
 
         // TODO: report jerk state (mozzz)
@@ -402,6 +406,18 @@ namespace AWSIM.Scripts.Vehicles.VPP_Integration
         {
             // Unsubscribe from events
             _egoVehiclePositionManager.OnEgoReset -= ResetEgoPosition;
+        }
+        
+        public Vector3 Position => transform.position;
+        public Quaternion Rotation => transform.rotation;
+        public Vector3 Velocity => _rigidbody.velocity; 
+        public Vector3 Acceleration { get; private set; }
+        private Vector3 _lastVelocity;
+
+        public void SetSpawnPos(Vector3 position, Quaternion rotation)
+        {
+            _rigidbody.position = position;
+            _rigidbody.rotation = rotation;
         }
     }
 }

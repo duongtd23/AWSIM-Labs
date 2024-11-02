@@ -348,8 +348,8 @@ namespace AWSIM
             if (sleep == false)
             {
                 // Update wheel force.
-                var acceleration = AccelerationInput;
-                UpdateWheelsForce(acceleration);
+                var accelerationScalar = AccelerationInput;
+                UpdateWheelsForce(accelerationScalar);
             }
 
             // cache value for next frame.
@@ -533,6 +533,25 @@ namespace AWSIM
             {
                 Debug.LogWarning("No mesh or collider detected on target location. Please ensure that the target location is on a mesh or collider.");
             }
+        }
+        
+        public Vector3 Position => lastPosition;
+        public Quaternion Rotation => lastRotation;
+        private Vector3 acceleration;
+        public Vector3 Acceleration => acceleration;
+        
+        // reset position and rotation
+        public void SetPosition(Vector3 position)
+        {
+            m_rigidbody.position = position;
+        }
+        public void SetRotation(Vector3 rotation)
+        {
+            m_rigidbody.rotation = Quaternion.LookRotation(rotation);
+        }
+        public void SetRotation(Quaternion rotation)
+        {
+            m_rigidbody.rotation = rotation;
         }
     }
 }

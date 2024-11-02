@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Object;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -32,7 +33,7 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private void UpdateSpeed(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             float targetSpeed;
@@ -40,12 +41,16 @@ namespace AWSIM.TrafficSimulation
             switch (state.SpeedMode)
             {
                 case NPCVehicleSpeedMode.NORMAL:
-                    targetSpeed = state.CurrentFollowingLane.SpeedLimit;
+                    targetSpeed = state.TargetSpeed(state.CurrentFollowingLane);
                     acceleration = config.Acceleration;
+                    if (!state.CustomConfig.Acceleration.Equals(NPCConfig.DUMMY_ACCELERATION))
+                        acceleration = state.CustomConfig.Acceleration;
                     break;
                 case NPCVehicleSpeedMode.SLOW:
-                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.CurrentFollowingLane.SpeedLimit);
+                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.TargetSpeed(state.CurrentFollowingLane));
                     acceleration = config.Deceleration;
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
+                        acceleration = state.CustomConfig.Deceleration;
                     break;
                 case NPCVehicleSpeedMode.SUDDEN_STOP:
                     targetSpeed = 0f;
@@ -58,6 +63,8 @@ namespace AWSIM.TrafficSimulation
                 case NPCVehicleSpeedMode.STOP:
                     targetSpeed = 0f;
                     acceleration = config.Deceleration;
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
+                        acceleration = state.CustomConfig.Deceleration;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -88,7 +95,7 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private static void UpdatePose(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             state.Yaw += state.YawSpeed * deltaTime;
