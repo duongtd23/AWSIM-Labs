@@ -33,11 +33,11 @@ namespace AWSIM_Script.Parser
         public const string CHANGE_LANE = "change-lane";
         public const string CUT_IN = "cut-in";
         public const string CUT_OUT = "cut-out";
+        public const string SWERVE = "swerve";
         public const string AT = "at";
         public const string DX = "dx";
         public const string IGNORE_EXP = "_";
         public const float DEFAULT_Y = 0;
-
         
         private ScenarioScore scenarioScore;
         public ScenarioParser(ScenarioScore scenarioScore)
@@ -306,7 +306,6 @@ namespace AWSIM_Script.Parser
             INPCSpawnDelay delay = NPCDelayTime.DummyDelay();
             NPCConfig config = NPCConfig.DummyConfigWithoutRoute();
             
-
             // 3rd arg (optional): goal or config option
             if (func.Parameters.Count >= 3)
             {
@@ -325,6 +324,7 @@ namespace AWSIM_Script.Parser
                             "(it should be goal or delay config): " + func.Parameters[2].children[0].GetText());
                 }
             }
+            
             // 4th arg (optional): route (and speeds limit) or config option
             if (func.Parameters.Count >= 4)
             {
@@ -333,11 +333,12 @@ namespace AWSIM_Script.Parser
                     // route and speeds limit config
                     case ParamType.ROUTE_AND_SPEEDs_LIMIT:
                         route = ParseRouteAndSpeedsLimit(func.Parameters[3].children[0], 
-                            out bool hasLaneChange, out ILaneChange laneChangeConfig);
+                            out bool hasLaneChange, out ILaneChange laneChangeConfig,
+                            out bool hasSwerve, out LateralWandering lateralWanderingConfig);
                         if (hasLaneChange)
-                        {
                             config.LaneChange = laneChangeConfig;
-                        }
+                        if (hasSwerve)
+                            config.LateralWandering = lateralWanderingConfig;
                         break;
                     // config option
                     case ParamType.CONFIG:
@@ -460,12 +461,15 @@ namespace AWSIM_Script.Parser
         }
 
         private List<Tuple<string, float>> ParseRouteAndSpeedsLimit(IParseTree node, 
-            out bool hasLaneChange, out ILaneChange laneChangeConfig)
+            out bool hasLaneChange, out ILaneChange laneChangeConfig,
+            out bool hasSwerve, out LateralWandering lateralWanderingConfig)
         {
             if (node is ArrayExpContext arrayExp)
             {
                 hasLaneChange = false;
                 laneChangeConfig = null;
+                hasSwerve = false;
+                lateralWanderingConfig = null;
                 List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
                 List<Tuple<string, float>> result = new List<Tuple<string, float>>();
                 foreach (var expContext in expContexts)
@@ -518,6 +522,18 @@ namespace AWSIM_Script.Parser
                             bool ok = ParseNumber(arguments[3], out float dx_f);
                             (laneChangeConfig as CutOutLaneChange).Dxf = dx_f;
                         }
+                        
+                        // swerve
+                        else if (roadExp.children[0].GetText() == SWERVE)
+                        {
+                            hasSwerve = true;
+                            lateralWanderingConfig = new LateralWandering();
+                            lateralWanderingConfig.SourceLane = result.Last().Item1;
+                            lateralWanderingConfig.Velocity = result.Last().Item2;
+                            var arguments =
+                                ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
+                            ParseSwerveConfig(arguments, ref lateralWanderingConfig);
+                        }
                     }
                     // pair of traffic lane and desired speed limit
                     if (expContext.children[0] is StringExpContext ||
@@ -548,7 +564,8 @@ namespace AWSIM_Script.Parser
                 if (!scenarioScore.Variables.ContainsKey(varName))
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return ParseRouteAndSpeedsLimit(scenarioScore.Variables[varName].children[0], 
-                    out hasLaneChange, out laneChangeConfig);
+                    out hasLaneChange, out laneChangeConfig,
+                    out hasSwerve, out lateralWanderingConfig);
             }
             throw new InvalidScriptException("Cannot parse route and speeds limit from: " +
                 node.GetText());
@@ -737,8 +754,7 @@ namespace AWSIM_Script.Parser
             }
             throw new InvalidScriptException("Cannot parse the pedestrian config: " + node.GetText());
         }
-
-
+        
         /// <returns>false if the expression is variable "_"</returns>
         private bool ParseNumber(IParseTree node, out float result)
         {
@@ -815,6 +831,54 @@ namespace AWSIM_Script.Parser
             if (!ok)
                 latVel = ILaneChange.DEFAULT_LATERAL_VELOCITY;
             laneChangeConfig.LateralVelocity = latVel;
+        }
+
+        private void ParseSwerveConfig(List<ExpressionContext> argExpContexts, ref LateralWandering lateralWanderingConfig)
+        {
+            if (argExpContexts.Count < 5)
+            {
+                throw new InvalidScriptException("Swerve expression requires at least 5 arguments " +
+                "including offset position, wandering side, lateral velocity, lateral exceeded, and distance on wandering.");
+            }
+            bool ok = ParseNumber(argExpContexts[0], out float offset);
+            if (!ok)
+                throw new InvalidScriptException("The first argument of swerve function must be a number, but was " 
+                                                 + argExpContexts[0].GetText());
+            lateralWanderingConfig.WanderOffset = offset;
+
+            ok = ParseString(argExpContexts[1], out string sideStr);
+            if (!ok)
+                throw new InvalidScriptException("The second argument of swerve function must be either 'left' or 'right', but was " +
+                                                 argExpContexts[1].GetText());
+            lateralWanderingConfig.WanderDirection = ParserUtils.ParseSide(sideStr);
+            
+            ok = ParseNumber(argExpContexts[2], out float latVel);
+            if (!ok)
+                throw new InvalidScriptException("The third argument (lateral velocity) of swerve function must be a number, " +
+                                                 "but was " + argExpContexts[2].GetText());
+            lateralWanderingConfig.LateralVelocity = latVel;
+            
+            ok = ParseNumber(argExpContexts[3], out float latitudeExceeded);
+            if (!ok)
+                throw new InvalidScriptException("The fourth argument (latitude exceeded) of swerve function must be a number, " +
+                                                 "but was " + argExpContexts[3].GetText());
+            lateralWanderingConfig.LatitudeExceeded = latitudeExceeded;
+            
+            ok = ParseNumber(argExpContexts[4], out float longDistance);
+            if (!ok)
+                throw new InvalidScriptException("The fifth argument (longitude distance) of swerve function must be a number, " +
+                                                 "but was " + argExpContexts[4].GetText());
+            lateralWanderingConfig.LongitudeDistance = longDistance;
+
+            // if exists, the 6th arg is the initial distance between ego and NPC
+            if (argExpContexts.Count > 5)
+            {
+                ok = ParseNumber(argExpContexts[5], out float dx0);
+                if (!ok)
+                    throw new InvalidScriptException("The sixth argument (initial dx0) of swerve function must be a number, " +
+                                                     "but was " + argExpContexts[5].GetText());
+                lateralWanderingConfig.Dx = dx0;
+            }
         }
 
         private bool ParseConfig(IParseTree node, ref INPCSpawnDelay spawnDelay, ref NPCConfig npcConfig)

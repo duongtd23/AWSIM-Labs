@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
+using System.Text.RegularExpressions;
 
 namespace AWSIM_Script.Object
 {
@@ -8,7 +10,8 @@ namespace AWSIM_Script.Object
 	{
         // this value will be replaced by the speed limit of the coressponding lane
         public const float DUMMY_SPEED = -1;
-        
+        public const string CLONE_PATTERN = @"(.*)(\(Clone\))(_\d+)?$";
+
         public NPCConfig()
         {
         }
@@ -34,9 +37,20 @@ namespace AWSIM_Script.Object
 
         public bool HasDesiredSpeed(string trafficLane)
         {
+            if (RouteAndSpeeds != null &&
+                RouteAndSpeeds.Exists(entry =>
+                    trafficLane == entry.Item1 && !Mathf.Approximately(entry.Item2, DUMMY_SPEED)))
+                return true;
+            
+            // "TrafficLane.205(Clone)" and "TrafficLane.205(Clone)_0"
+            Regex r = new Regex(CLONE_PATTERN);
+            var matches = r.Match(trafficLane);
+            if (!matches.Success || matches.Groups.Count < 2)
+                return false;
+            string originLaneName = matches.Groups[1].ToString();
             return RouteAndSpeeds != null &&
                    RouteAndSpeeds.Exists(entry => 
-                       entry.Item1 == trafficLane && entry.Item2 != NPCConfig.DUMMY_SPEED);
+                       originLaneName == entry.Item1 && !Mathf.Approximately(entry.Item2, DUMMY_SPEED));
         }
 
         public bool HasALaneChange()
@@ -48,12 +62,23 @@ namespace AWSIM_Script.Object
 
         public float GetDesiredSpeed(string trafficLane)
         {
+            Regex r = new Regex(CLONE_PATTERN);
+            var matches = r.Match(trafficLane);
             if (RouteAndSpeeds == null)
                 return DUMMY_SPEED;
-            return RouteAndSpeeds.First(entry => entry.Item1 == trafficLane).Item2;
+            foreach (var entry in RouteAndSpeeds)
+            {
+                if (entry.Item1 == trafficLane)
+                    return entry.Item2;
+                if (matches.Success && matches.Groups.Count > 1 && matches.Groups[1].ToString() == entry.Item1)
+                    return entry.Item2;
+            }
+            return DUMMY_SPEED;
         }
         
         public ILaneChange LaneChange { get; set; }
+        
+        public LateralWandering LateralWandering { get; set; }
         
         public static NPCConfig DummyConfigWithoutRoute()
         {

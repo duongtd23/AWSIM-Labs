@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using AWSIM_Script.Object;
 using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
@@ -123,5 +125,14 @@ namespace AWSIM.TrafficSimulation
 
         public const float DEFAULT_WIDTH = 3.0f;
         public float Width => width == 0.0f ? DEFAULT_WIDTH : width;
+
+        public string OriginName()
+        {
+            Regex r = new Regex(NPCConfig.CLONE_PATTERN);
+            var matches = r.Match(name);
+            if (!matches.Success || matches.Groups.Count < 2)
+                return name;
+            return matches.Groups[1].ToString();
+        }
     }
 }

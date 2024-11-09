@@ -67,7 +67,7 @@ namespace AWSIM.AWAnalysis
             }
             else if (_traceWriter != null)
             {
-                CustomNPCSpawningManager.Manager()?.UpdateNPCs();
+                CustomSimManager.Manager()?.UpdateNPCs();
                 _traceWriter?.Update();
                 EgoSingletonInstance.CustomEgoSetting?.UpdateEgo();
             }
@@ -84,7 +84,7 @@ namespace AWSIM.AWAnalysis
             var lanes = Array.Empty<TrafficLane>();
             if (_trafficLanesParent != null)
                 lanes = _trafficLanesParent.GetComponentsInChildren<TrafficLane>();
-            CustomNPCSpawningManager.Initialize(this.gameObject,
+            CustomSimManager.Initialize(this.gameObject,
                 lanes,
                 EgoSingletonInstance.AutowareEgoCarGameObject, npcTaxi, npcHatchback,
                 npcSmallCar, npcTruck, npcVan,
@@ -97,6 +97,7 @@ namespace AWSIM.AWAnalysis
             {
                 PreProcessingSimulation(ref _simulation);
                 ExecuteSimulation(_simulation);
+                PreProcessingSwerve(ref _simulation);
                 InitializeTrace(_simulation.SavingTimeout);
             }
         }
@@ -112,6 +113,7 @@ namespace AWSIM.AWAnalysis
             }
             Debug.Log("Loading input script " + scriptFilePath);
             Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFilePath);
+
             return simulation;
         }
 
@@ -121,7 +123,7 @@ namespace AWSIM.AWAnalysis
             var loader = FindObjectOfType<Loader.Loader>();
             if (loader != null)
             {
-                var egoCOnfig = new EgoConfiguration()
+                var egoConfig = new EgoConfiguration()
                 {
                     egoVehicleName = simulation.Ego.ModelName,
                     egoPosition = new Vector3(81381.7f, 49918.8f, 41.6f),
@@ -142,7 +144,7 @@ namespace AWSIM.AWAnalysis
 
                 AWSIMConfiguration config = new AWSIMConfiguration()
                 {
-                    egoConfiguration = egoCOnfig,
+                    egoConfiguration = egoConfig,
                     simulationConfiguration = simConfig,
                     mapConfiguration = mapConfig
                 };
@@ -166,11 +168,17 @@ namespace AWSIM.AWAnalysis
                         _sensorCamera,
                         perceptionMode,
                         new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
-                else
+                else if (ConfigLoader.Config().TraceFormat == TraceFormat.MAUDE)
                     _traceWriter = new MaudeTraceWriter(outputFilePath,
                         _sensorCamera,
                         perceptionMode,
                         new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
+                else if (ConfigLoader.Config().TraceFormat == TraceFormat.ALL)
+                    _traceWriter = new YamlAndMaudeTraceWriter(outputFilePath,
+                        _sensorCamera,
+                        perceptionMode,
+                        new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
+                
                 _traceWriter.Start();
             }
         }
@@ -179,12 +187,12 @@ namespace AWSIM.AWAnalysis
         {
             foreach (NPCCar npcCar in simulation.NPCs)
             {
-                CustomNPCSpawningManager.SpawnNPC(npcCar);
+                CustomSimManager.SpawnNPC(npcCar);
             }
             
             foreach (var npcPedes in simulation.Pedestrians)
             {
-                CustomNPCSpawningManager.SpawnPedestrian(npcPedes);
+                CustomSimManager.SpawnPedestrian(npcPedes);
             }
 
             if (simulation.Ego != null)
@@ -219,7 +227,7 @@ namespace AWSIM.AWAnalysis
         private void PreProcessingCutIn(ref NPCCar npc, ref Simulation simulation)
         {
             EgoDetailObject egoDetailObject = EgoSingletonInstance.GetFixedEgoDetailInfo();
-            NPCDetailObject npcDetailObject = CustomNPCSpawningManager.GetNPCCarInfo(npc.VehicleType);
+            NPCDetailObject npcDetailObject = CustomSimManager.GetNPCCarInfo(npc.VehicleType);
             var cutInLaneChange = npc.Config.LaneChange as CutInLaneChange;
             float desiredDX = cutInLaneChange.Dx;
             float timeNPCTravelBeforeCutin = ConfigLoader.Config().TimeNPCTravelBeforeCutin;
@@ -271,6 +279,89 @@ namespace AWSIM.AWAnalysis
                                            (float)(npcDetailObject.extents.z + npcDetailObject.center.z -
                                                    0.3f); // TODO: remove hard code 0.3f
             npc.SpawnDelayOption = NPCDelayDistance.DelayMove(d0);
+        }
+
+        // mainly compute the NPCDelayDistance for $npc movement
+        private void PreProcessingSwerve(ref Simulation simulation)
+        {
+            for (int j = 0; j < simulation.NPCs.Count; j++)
+            {
+                var npc = simulation.NPCs[j];
+                if (npc.HasConfig() &&
+                    npc.Config.LateralWandering != null &&
+                    !Mathf.Approximately(npc.Config.LateralWandering.Dx, LateralWandering.DUMMY_DX) &&
+                    npc.HasDelayOption() && npc.SpawnDelayOption.ActionDelayed == DelayedAction.MOVING &&
+                    npc.SpawnDelayOption is NPCDelayTime delayTime &&
+                    Mathf.Approximately(delayTime.DelayAmount, NPCDelayTime.DUMMY_DELAY_AMOUNT))
+                {
+                    DoPreProcessingSwerve(ref npc);
+                }
+            }
+        }
+        
+        private void DoPreProcessingSwerve(ref NPCCar npc)
+        {
+            EgoDetailObject egoDetailObject = EgoSingletonInstance.GetFixedEgoDetailInfo();
+            NPCDetailObject npcDetailObject = CustomSimManager.GetNPCCarInfo(npc.VehicleType);
+            
+            string sourceLaneStr = npc.Config.LateralWandering.SourceLane;
+            var acceleration = Mathf.Approximately(npc.Config.Acceleration, NPCConfig.DUMMY_ACCELERATION)
+                ? NPCVehicleConfig.Default().Acceleration
+                : npc.Config.Acceleration;
+            
+            // distance from the spawning point to the waypoint where swerve starts
+            float distance2SwerveWp = 0;
+            // time required for $npc reach the waypoint where swerve starts
+            // Suppose that $npc goes with constant speeds
+            float time2SwerveWp = 0;
+            int i = 0;
+            for (; i < npc.RouteAndSpeeds.Count; i++)
+            {
+                string laneStr = npc.RouteAndSpeeds[i].Item1;
+                if (laneStr == sourceLaneStr)
+                    break;
+                var lane = CustomSimUtils.ParseLane(laneStr);
+                if (i == 0)
+                {
+                    var laneDis = lane.TotalLength() - npc.InitialPosition.GetOffset();
+                    distance2SwerveWp += laneDis;
+                    float speedUpTime = npc.RouteAndSpeeds[i].Item2 / acceleration;
+                    float speedUpDistance = 0.5f * acceleration * speedUpTime * speedUpTime;
+                    time2SwerveWp += speedUpTime + (laneDis - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
+                }
+                else
+                {
+                    var laneDis = lane.TotalLength();
+                    distance2SwerveWp += laneDis;
+                    time2SwerveWp += laneDis / npc.RouteAndSpeeds[i].Item2;
+                }
+            }
+
+            if (i == 0)
+            {
+                distance2SwerveWp = npc.Config.LateralWandering.WanderOffset - 
+                                    npc.InitialPosition.GetOffset() -
+                                    (float)npcDetailObject.RootToFront();
+                float speedUpTime = npc.RouteAndSpeeds[0].Item2 / acceleration;
+                float speedUpDistance = 0.5f * acceleration * speedUpTime * speedUpTime;
+                time2SwerveWp = speedUpTime;
+                // this should always happen
+                if (speedUpDistance < distance2SwerveWp)
+                    time2SwerveWp += (distance2SwerveWp - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
+            }
+            else
+            {
+                distance2SwerveWp += npc.Config.LateralWandering.WanderOffset;
+                time2SwerveWp += npc.Config.LateralWandering.WanderOffset / npc.RouteAndSpeeds[i].Item2;
+            }
+            Debug.Log($"[AWAnalysis] distance2SwerveWp: {distance2SwerveWp}");
+            
+            float distancedelay = npc.Config.LateralWandering.Dx +
+                                  (float)(egoDetailObject.RootToFront() + npcDetailObject.RootToFront()) +
+                                  distance2SwerveWp +
+                                  (time2SwerveWp + Time.fixedDeltaTime) * EgoSingletonInstance.DesiredMaxVelocity();
+            npc.SpawnDelayOption = NPCDelayDistance.DelayMove(distancedelay);
+            Debug.Log($"[AWAnalysis] distance delay is: {distancedelay}");
         }
     }
 }

@@ -19,6 +19,7 @@ namespace AWSIM.AWAnalysis
         public float TimeNPCTravelBeforeCutin { get; set; } = 4;
         public TraceComponent[] ComponentsRecording { get; set; } = Array.Empty<TraceComponent>();
         public int PlanTrajectoryMaxStepsRecording { get; set; } = 10;
+        public float EgoDefaultVelocity { get; set; } = 15 / (float)3.6;
         public float EgoNormalAcceleration { get; set; } = 1;
         public float TimeEgoTravelConstSpeed { get; set; } = 2;
         public float TimeHeadWay { get; set; } = 2;
@@ -27,8 +28,9 @@ namespace AWSIM.AWAnalysis
     [Serializable]
     public enum TraceFormat
     {
-        MAUDE = 0,
-        YAML = 1
+        YAML = 1,
+        MAUDE = 2,
+        ALL = 0
     }
     
     [Serializable]

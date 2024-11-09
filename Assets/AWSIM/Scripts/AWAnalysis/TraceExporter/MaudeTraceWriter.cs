@@ -50,8 +50,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _statesStr += "  .\nendm\n\n";
                 _contents = _statesStr + _contents + "\n";
             }
-
-            _contents = ConfigLoader.Config().MaudeTraceImportFile + "\n\n" + _contents;
+            
+            if (ConfigLoader.Config().MaudeTraceImportFile.Trim() != string.Empty)
+                _contents = ConfigLoader.Config().MaudeTraceImportFile + "\n\n" + _contents;
             
             // write ego and NPC details
             DumpVehicleDetails();
@@ -82,6 +83,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
             {
                 _contents += $"  eq decelerationNPC = \"{decelInfoObject.deceleration_npc_name}\" .\n";
                 _contents += $"  eq decelerationStartTime = {decelInfoObject.time_deceleration_start} .\n";
+            }
+            else if (_traceObject.other is SwerveInfoObject swerveInfoObject)
+            {
+                _contents += $"  eq swerveNPC = \"{swerveInfoObject.swerve_npc_name}\" .\n";
+                _contents += $"  eq swerveStartTime = {swerveInfoObject.time_swerve_start} .\n";
             }
 
             _contents += "endm";

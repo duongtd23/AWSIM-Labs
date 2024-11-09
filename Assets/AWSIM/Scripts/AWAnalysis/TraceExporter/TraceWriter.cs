@@ -75,12 +75,14 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 camera_screen_width = _sensorCamera.pixelWidth
             };
 
-            if (CustomNPCSpawningManager.GetCutInVehicle() != null)
+            if (CustomSimManager.GetCutInVehicle() != null)
                 _traceObject.other = new CutInInfoObject();
-            else if (CustomNPCSpawningManager.GetCutOutVehicle() != null)
+            else if (CustomSimManager.GetCutOutVehicle() != null)
                 _traceObject.other = new CutOutInfoObject();
-            else if (CustomNPCSpawningManager.GetDecelerationVehicle() != null)
+            else if (CustomSimManager.GetDecelerationVehicle() != null)
                 _traceObject.other = new DecelerationInfoObject();
+            else if (CustomSimManager.GetSwerveVehicle() != null)
+                _traceObject.other = new SwerveInfoObject();
         }
         
         public void Start()
@@ -201,11 +203,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
             newState.groundtruth_ego.acceleration.angular = new Vector3Object(_egoAdapter.AngularAcceleration.x, _egoAdapter.AngularAcceleration.y, _egoAdapter.AngularAcceleration.z);
             
             // NPC vehicles ground truth
-            int npcCount = CustomNPCSpawningManager.GetNPCs().Count;
+            int npcCount = CustomSimManager.GetNPCs().Count;
             newState.groundtruth_NPCs = new NPCGroundTruthObject[npcCount];
             for (int i = 0; i < npcCount; i++)
             {
-                var npc = CustomNPCSpawningManager.GetNPCs()[i];
+                var npc = CustomSimManager.GetNPCs()[i];
                 newState.groundtruth_NPCs[i] = new NPCGroundTruthObject();
                 newState.groundtruth_NPCs[i].name = npc.ScriptName;
                 
@@ -229,11 +231,11 @@ namespace AWSIM.AWAnalysis.TraceExporter
             }
             
             // pedestrians
-            int pedesCount = CustomNPCSpawningManager.GetPedestrians().Count;
+            int pedesCount = CustomSimManager.GetPedestrians().Count;
             newState.groundtruth_pedestrians = new PedestrianGtObject[pedesCount];
             for (int i = 0; i < pedesCount; i++)
             {
-                var entry = CustomNPCSpawningManager.GetPedestrians()[i];
+                var entry = CustomSimManager.GetPedestrians()[i];
                 newState.groundtruth_pedestrians[i] = new PedestrianGtObject();
                 newState.groundtruth_pedestrians[i].name = entry.Item1.Name;
                 
@@ -385,19 +387,25 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     Debug.LogWarning("Unhandle the case Detected object's shape type is cylinder.");
                     break;
             }
+            
             // prediction traveling paths
-            perObj.predict_paths = new PredictPathObject[detectedObject.Kinematics.Predicted_paths.Length];
-            for (int i = 0; i < perObj.predict_paths.Length; i++)
+            if (ConfigLoader.CapturePredictionPaths())
             {
-                perObj.predict_paths[i] = new PredictPathObject()
+                perObj.predict_paths = new PredictPathObject[detectedObject.Kinematics.Predicted_paths.Length];
+                for (int i = 0; i < perObj.predict_paths.Length; i++)
                 {
-                    confidence = detectedObject.Kinematics.Predicted_paths[i].Confidence,
-                    time_step = TimestampToDouble(detectedObject.Kinematics.Predicted_paths[i].Time_step)
-                };
-                perObj.predict_paths[i].path = new Pose2Object[detectedObject.Kinematics.Predicted_paths[i].Path.Length];
-                for (int j = 0; j < perObj.predict_paths[i].path.Length; j++)
-                {
-                    perObj.predict_paths[i].path[j] = DumpPose(detectedObject.Kinematics.Predicted_paths[i].Path[j]);
+                    perObj.predict_paths[i] = new PredictPathObject()
+                    {
+                        confidence = detectedObject.Kinematics.Predicted_paths[i].Confidence,
+                        time_step = TimestampToDouble(detectedObject.Kinematics.Predicted_paths[i].Time_step)
+                    };
+                    perObj.predict_paths[i].path =
+                        new Pose2Object[detectedObject.Kinematics.Predicted_paths[i].Path.Length];
+                    for (int j = 0; j < perObj.predict_paths[i].path.Length; j++)
+                    {
+                        perObj.predict_paths[i].path[j] =
+                            DumpPose(detectedObject.Kinematics.Predicted_paths[i].Path[j]);
+                    }
                 }
             }
 
@@ -500,7 +508,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
             };
             
             // NPCs details
-            var npcs = CustomNPCSpawningManager.GetNPCs();
+            var npcs = CustomSimManager.GetNPCs();
             _traceObject.npcs_detail = new NPCDetailObject[npcs.Count];
             for (int i = 0; i < npcs.Count; i++)
             {
@@ -743,36 +751,48 @@ namespace AWSIM.AWAnalysis.TraceExporter
             if (_traceObject.other is CutInInfoObject cutInInfo &&
                 cutInInfo.time_cutin_start == 0)
             {
-                var innerState = CustomNPCSpawningManager.CutInNPCInternalState();
+                var innerState = CustomSimManager.CutInNPCInternalState();
                 if (innerState != null &&
                     innerState.CurrentFollowingLane.name == innerState.CustomConfig.LaneChange.TargetLane &&
                     innerState.WaypointIndex == innerState.CustomConfig.LaneChange.TargetLaneWaypointIndex)
                 {
                     cutInInfo.time_cutin_start = timeStamp;
-                    cutInInfo.cutin_npc_name = CustomNPCSpawningManager.GetCutInVehicle().ScriptName;
+                    cutInInfo.cutin_npc_name = CustomSimManager.GetCutInVehicle().ScriptName;
                 }
             }
             else if (_traceObject.other is CutOutInfoObject cutOutInfo &&
                      cutOutInfo.time_cutout_start == 0)
             {
-                var innerState = CustomNPCSpawningManager.CutOutNPCInternalState();
+                var innerState = CustomSimManager.CutOutNPCInternalState();
                 if (innerState != null &&
                     innerState.CurrentFollowingLane.name == innerState.CustomConfig.LaneChange.TargetLane &&
                     innerState.WaypointIndex == innerState.CustomConfig.LaneChange.TargetLaneWaypointIndex)
                 {
                     cutOutInfo.time_cutout_start = timeStamp;
-                    cutOutInfo.cutout_npc_name = CustomNPCSpawningManager.GetCutOutVehicle().ScriptName;
+                    cutOutInfo.cutout_npc_name = CustomSimManager.GetCutOutVehicle().ScriptName;
                 }
             }
             else if (_traceObject.other is DecelerationInfoObject decelInfo &&
                      decelInfo.time_deceleration_start == 0)
             {
-                var innerState = CustomNPCSpawningManager.DecelerationNPCInternalState();
+                var innerState = CustomSimManager.DecelerationNPCInternalState();
                 if (innerState != null &&
                     innerState.SpeedMode == NPCVehicleSpeedMode.STOP)
                 {
                     decelInfo.time_deceleration_start = timeStamp;
-                    decelInfo.deceleration_npc_name = CustomNPCSpawningManager.GetDecelerationVehicle().ScriptName;
+                    decelInfo.deceleration_npc_name = CustomSimManager.GetDecelerationVehicle().ScriptName;
+                }
+            }
+            else if (_traceObject.other is SwerveInfoObject swerveInfo &&
+                     swerveInfo.time_swerve_start == 0)
+            {
+                var innerState = CustomSimManager.SwerveNPCInternalState();
+                if (innerState != null &&
+                    innerState.CurrentFollowingLane.OriginName() == innerState.CustomConfig.LateralWandering.SourceLane &&
+                    innerState.WaypointIndex == innerState.CustomConfig.LateralWandering.SourceLaneWaypointIndex + 1)
+                {
+                    swerveInfo.time_swerve_start = timeStamp;
+                    swerveInfo.swerve_npc_name = CustomSimManager.GetSwerveVehicle().ScriptName;
                 }
             }
         }

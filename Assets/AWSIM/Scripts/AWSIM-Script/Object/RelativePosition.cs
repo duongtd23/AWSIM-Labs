@@ -38,8 +38,8 @@ namespace AWSIM_Script.Object
 
         public bool ToLaneOffsetPosition(out LaneOffsetPosition laneOffset)
         {
-            while (CustomNPCSpawningManager.Manager() == null);
-            return ToLaneOffsetPosition(CustomNPCSpawningManager.GetAllTrafficLanes(), out laneOffset);
+            while (CustomSimManager.Manager() == null);
+            return ToLaneOffsetPosition(CustomSimManager.GetAllTrafficLanes(), out laneOffset);
         }
 
         // convert to LaneOffsetPosition

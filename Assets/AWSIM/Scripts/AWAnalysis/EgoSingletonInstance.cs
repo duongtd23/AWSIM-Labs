@@ -79,14 +79,15 @@ namespace AWSIM.AWAnalysis
 
         public static float DesiredMaxVelocity()
         {
-            if (Instance._customEgoSetting == null)
-                return 0;
+            if (Instance._customEgoSetting?.EgoSettings == null || 
+                Instance._customEgoSetting.EgoSettings.MaxVelocity == 0)
+                return ConfigLoader.Config().EgoDefaultVelocity;
             return Instance._customEgoSetting.EgoSettings.MaxVelocity;
         }
 
         public static bool ReachMaxSpeed()
         {
-            return Instance._egoAdapter.Velocity.magnitude - DesiredMaxVelocity() >= -0.2f;
+            return Instance._egoAdapter.Velocity.magnitude - DesiredMaxVelocity() >= -0.1f;
         }
     }
 }

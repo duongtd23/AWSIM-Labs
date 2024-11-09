@@ -5,6 +5,7 @@ using AWSIM_Script.Error;
 using static AWSIMScriptGrammarParser;
 using System.Collections.Generic;
 using System.Linq;
+using AWSIM_Script.Object;
 using AWSIM.AWAnalysis;
 
 namespace AWSIM_Script.Parser
@@ -129,6 +130,18 @@ namespace AWSIM_Script.Parser
             return modelName;
         }
 
+        public static Side ParseSide(string sideStr)
+        {
+            switch (sideStr.ToLower().Trim())
+            {
+                case "left":
+                    return Side.LEFT;
+                case "right":
+                    return Side.RIGHT;
+                default:
+                    throw new InvalidScriptException("Cannot parse side: " + sideStr);
+            }
+        }
     }
 }
 

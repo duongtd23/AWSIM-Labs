@@ -18,7 +18,8 @@ roadExp
     : stringExp ('max-velocity' '(' (numberExp | variableExp) ')')?
     | 'change-lane' '(' argumentList? ')'
     | 'cut-in' '(' argumentList? ')' 
-    | 'cut-out' '(' argumentList? ')';
+    | 'cut-out' '(' argumentList? ')'
+    | 'swerve' '(' argumentList? ')' ;
 configExp
     : 'aggressive-driving'
     | 'acceleration' '(' (numberExp | variableExp) ')'

@@ -54,21 +54,28 @@ namespace AWSIM.TrafficSimulation
                 foreach (var state in States)
                 {
                     var isCloseToTarget = state.DistanceToCurrentWaypoint <= 1f;
-                    var temp = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
+                    var tightDis = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
+                    
+                    // during a lane change
                     if (state.CustomConfig.HasALaneChange() && 
-                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&
-                        state.WaypointIndex == state.CustomConfig.LaneChange.TargetLaneWaypointIndex)
-                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
-                    else if (state.CustomConfig.HasALaneChange() &&
-                             state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
-                             state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
-                        isCloseToTarget = state.DistanceToCurrentWaypoint <= temp;
+                        ((state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&
+                          state.WaypointIndex == state.CustomConfig.LaneChange.TargetLaneWaypointIndex) ||
+                         (state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                          state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)))
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= tightDis;
+                    
+                    // during a wandering
+                    else if (state.CustomConfig.LateralWandering != null && 
+                             ((state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.SourceLane &&
+                               state.WaypointIndex == state.CustomConfig.LateralWandering.SourceLaneWaypointIndex) ||
+                              (state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.ReturningLane &&
+                               state.WaypointIndex == state.CustomConfig.LateralWandering.ReturningLaneWaypointIndex)))
+                        isCloseToTarget = state.DistanceToCurrentWaypoint <= tightDis;
 
                     if (!isCloseToTarget)
                         continue;
-                    
                                         
-                    // check if change lane soon
+                    // if change lane soon
                     if (state.CustomConfig.HasALaneChange() &&
                         state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
                         state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)

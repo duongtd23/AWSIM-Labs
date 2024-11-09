@@ -14,10 +14,10 @@ namespace AWSIM.AWAnalysis.CustomSim
 {
     // TODO: check the route given is valid, i.e.,
     // two consecutive lanes are always valid
-    public class CustomNPCSpawningManager
+    public class CustomSimManager
     {
         // singleton instance
-        private static CustomNPCSpawningManager manager;
+        private static CustomSimManager manager;
 
         private GameObject autowareEgoCar;
         private GameObject npcTaxi, npcHatchback, npcSmallCar, npcTruck, npcVan;
@@ -49,7 +49,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         #region constructor and public update
         
-        private CustomNPCSpawningManager(GameObject parent, TrafficLane[] trafficLanes,
+        private CustomSimManager(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
             GameObject truck, GameObject van,
             GameObject casualPedestrian, GameObject elegantPedestrian,
@@ -101,20 +101,20 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
-        public static CustomNPCSpawningManager Initialize(GameObject parent, TrafficLane[] trafficLanes,
+        public static CustomSimManager Initialize(GameObject parent, TrafficLane[] trafficLanes,
             GameObject ego, GameObject taxi, GameObject hatchback,
             GameObject smallCar, GameObject truck, GameObject van,
             GameObject casualPedestrian, GameObject elegantPedestrian,
             LayerMask vehicleLM, LayerMask groundLM)
         {
-            manager = new CustomNPCSpawningManager(parent, trafficLanes,
+            manager = new CustomSimManager(parent, trafficLanes,
                 ego, taxi, hatchback, smallCar, truck, van,
                 casualPedestrian, elegantPedestrian,
                 vehicleLM, groundLM);
             return manager;
         }
 
-        public static CustomNPCSpawningManager Manager()
+        public static CustomSimManager Manager()
         {
             return manager;
         }
@@ -150,6 +150,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                 UpdateCutoutLeadingNPC();
 
                 UpdateDecelerationNPC();
+
+                UpdateSwerveNPC();
             }
         }
         
@@ -189,6 +191,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
                 else if (idelay is NPCDelayDistance delayDistance)
                 {
+                    // TODO: handle a curve lane (but straight)
                     if (EgoSingletonInstance.AutowareEgoCarAdapter.Velocity.magnitude > 0.1f &&
                         CustomSimUtils.LongitudeDistance(
                             EgoSingletonInstance.AutowareEgoCarAdapter.Position,
@@ -409,6 +412,11 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
+        private void UpdateSwerveNPC()
+        {
+            
+        }
+
         private NPCVehicle CutoutVehicle()
         {
             var results = GetNPCs().FindAll(npc0 =>
@@ -444,6 +452,18 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (results.Count >= 2)
             {
                 Debug.LogError("Found more than one possible deceleration vehicle. Use the first one by default.");
+            }
+            return results.FirstOrDefault();
+        }
+        
+        private NPCVehicle SwerveVehicle()
+        {
+            var results = GetNPCs().FindAll(npc =>
+                npc.CustomConfig != null &&
+                npc.CustomConfig.LateralWandering != null);
+            if (results.Count >= 2)
+            {
+                Debug.LogError("Found more than one possible swerve vehicle. Use the first one by default.");
             }
             return results.FirstOrDefault();
         }
@@ -627,6 +647,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static NPCVehicle GetCutOutVehicle() => Manager().CutoutVehicle();
         public static NPCVehicle GetCutInVehicle() => Manager().CutinVehicle();
         public static NPCVehicle GetDecelerationVehicle() => Manager().DecelerationVehicle();
+        public static NPCVehicle GetSwerveVehicle() => Manager().SwerveVehicle();
+        
         public static NPCVehicleInternalState CutOutNPCInternalState() => 
             Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
                 state.CustomConfig != null &&
@@ -642,7 +664,11 @@ namespace AWSIM.AWAnalysis.CustomSim
                 state.CustomConfig != null &&
                 state.CustomConfig.AggresiveDrive &&
                 state.CustomConfig.Deceleration >= 9.8f);
-
+        public static NPCVehicleInternalState SwerveNPCInternalState() => 
+            Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.LateralWandering != null);
+        
         #endregion
 
         // validate (and update if neccessary) a given NPC
@@ -782,7 +808,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             throw new InvalidScriptException("Cannot detect the vehicle type `" + vehicleType + "`.");
         }
 
-        private static void EnsureNonNullInstance(CustomNPCSpawningManager instance)
+        private static void EnsureNonNullInstance(CustomSimManager instance)
         {
             if (instance == null)
             {

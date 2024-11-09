@@ -226,6 +226,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9027057598912506404, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057599023733265, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057599194262557, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057599446965214, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057599939605447, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
     - target: {fileID: 9027057600016992297, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -234,6 +254,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9027057600417155164, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
     - target: {fileID: 9027057600502630240, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -241,6 +265,14 @@ PrefabInstance:
     - target: {fileID: 9027057600637418030, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
       propertyPath: m_IsActive
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057600671741340, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9027057600802523368, guid: 58d73df60b244d146bdf5f5896f78355, type: 3}
+      propertyPath: width
+      value: 3.3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -36,13 +36,13 @@ namespace AWSIM.AWAnalysis.CustomSim
         // parse traffic name from a given name
         public static TrafficLane ParseLane(string laneName)
         {
-            if (CustomNPCSpawningManager.Manager() != null &&
-                CustomNPCSpawningManager.GetAllTrafficLanes() != null)
+            if (CustomSimManager.Manager() != null &&
+                CustomSimManager.GetAllTrafficLanes() != null)
             {
                 int laneIndex = ParseLaneIndex(laneName);
                 if (laneIndex != -1 &&
-                    laneIndex < CustomNPCSpawningManager.GetAllTrafficLanes().Length)
-                    return CustomNPCSpawningManager.GetAllTrafficLanes()[laneIndex];
+                    laneIndex < CustomSimManager.GetAllTrafficLanes().Length)
+                    return CustomSimManager.GetAllTrafficLanes()[laneIndex];
             }
             GameObject obj = GameObject.Find(laneName);
             if (obj == null)
@@ -158,6 +158,51 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             }
             throw new LaneNotFoundException("[NPCSim] Cannot find traffic lane and offset.");
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="lane"></param>
+        /// <param name="startPoint"></param>
+        /// <param name="distance"></param>
+        /// <param name="waypointIndex"> should be on $lane</param>
+        /// <param name="startWaypointIndex"> the first waypoint index after $startPoint</param>
+        /// <returns>the point on $lane, $distance meters far from the startPoint</returns>
+        public static Vector3 CalculatePosition(TrafficLane lane, Vector3 startPoint, float distance,
+            out int waypointIndex, int startWaypointIndex = 1)
+        {
+            float remainDistance = distance;
+            for (int j = startWaypointIndex; j < lane.Waypoints.Length; j++)
+            {
+                Vector3 startP = j == startWaypointIndex ? startPoint : lane.Waypoints[j - 1];
+                Vector3 endPoint = lane.Waypoints[j];
+                if (DistanceIgnoreYAxis(startP, endPoint) < remainDistance)
+                {
+                    remainDistance -= DistanceIgnoreYAxis(startP, endPoint);
+                }
+                else
+                {
+                    Vector3 temp = (endPoint - startP).normalized;
+                    waypointIndex = j;
+                    return startP + (temp * remainDistance);
+                }
+            }
+            waypointIndex = -1;
+            return Vector3.zero;
+        }
+
+        public static float DistanceToEndingLane(TrafficLane lane, Vector3 startPoint, int startWaypointIndex = 1)
+        {
+            float result = 0;
+            for (int id = startWaypointIndex; id < lane.Waypoints.Length; id++)
+            {
+                Vector3 startP = id == startWaypointIndex ? startPoint : lane.Waypoints[id - 1];
+                Vector3 endPoint = lane.Waypoints[id];
+                result += DistanceIgnoreYAxis(startP, endPoint);
+            }
+            
+            return result;
         }
 
         /// <summary>
