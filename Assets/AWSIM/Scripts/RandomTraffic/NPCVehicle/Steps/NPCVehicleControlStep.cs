@@ -82,12 +82,21 @@ namespace AWSIM.TrafficSimulation
             var steeringDirection = state.TargetPoint - state.FrontCenterPosition;
             steeringDirection.y = 0f;
             var steeringAngle = Vector3.SignedAngle(state.Forward, steeringDirection, Vector3.up);
-            var targetYawSpeed = steeringAngle * state.Speed * NPCVehicleConfig.YawSpeedMultiplier;
+            var yawSpeedMultiplier = NPCVehicleConfig.YawSpeedMultiplier;
+            var yawSpeedLerpFactor = NPCVehicleConfig.YawSpeedLerpFactor;
+            if ((state.CustomConfig.HasALaneChange() &&
+                 state.CustomConfig.LaneChange is CutInLaneChange or CutOutLaneChange) ||
+                (state.CustomConfig.LateralWandering != null))
+            {
+                yawSpeedMultiplier = 0.35f;
+                yawSpeedLerpFactor = 8f;
+            }
+            var targetYawSpeed = steeringAngle * state.Speed * yawSpeedMultiplier;
             // Change YawSpeed gradually to eliminate steering shake.
             state.YawSpeed = Mathf.Lerp(
                 state.YawSpeed,
                 targetYawSpeed,
-                NPCVehicleConfig.YawSpeedLerpFactor * deltaTime);
+                yawSpeedLerpFactor * deltaTime);
         }
 
         /// <summary>

@@ -46,7 +46,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _maudecontents += $"{stateStr} .\n  rl  {stateStr}\n  =>  ";
             }
             _maudecontents += $"{stateStr} .\n";
-            if (ConfigLoader.Config().MaudeTraceImportFile.Trim() != string.Empty)
+            if (ConfigLoader.Config().MaudeTraceImportFile?.Trim() != string.Empty)
                 _maudecontents = ConfigLoader.Config().MaudeTraceImportFile + "\n\n" + _maudecontents;
 
             

@@ -51,7 +51,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _contents = _statesStr + _contents + "\n";
             }
             
-            if (ConfigLoader.Config().MaudeTraceImportFile.Trim() != string.Empty)
+            if (ConfigLoader.Config().MaudeTraceImportFile?.Trim() != string.Empty)
                 _contents = ConfigLoader.Config().MaudeTraceImportFile + "\n\n" + _contents;
             
             // write ego and NPC details

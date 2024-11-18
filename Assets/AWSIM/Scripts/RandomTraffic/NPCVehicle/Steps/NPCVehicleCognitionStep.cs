@@ -67,9 +67,10 @@ namespace AWSIM.TrafficSimulation
                     // during a wandering
                     else if (state.CustomConfig.LateralWandering != null && 
                              ((state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.SourceLane &&
-                               state.WaypointIndex == state.CustomConfig.LateralWandering.SourceLaneWaypointIndex) ||
+                               state.WaypointIndex >= state.CustomConfig.LateralWandering.SourceLaneWaypointIndex &&
+                               state.WaypointIndex <= state.CustomConfig.LateralWandering.SourceLaneWaypointIndex + 2) ||
                               (state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.ReturningLane &&
-                               state.WaypointIndex == state.CustomConfig.LateralWandering.ReturningLaneWaypointIndex)))
+                              state.WaypointIndex == state.CustomConfig.LateralWandering.ReturningLaneWaypointIndex)))
                         isCloseToTarget = state.DistanceToCurrentWaypoint <= tightDis;
 
                     if (!isCloseToTarget)
