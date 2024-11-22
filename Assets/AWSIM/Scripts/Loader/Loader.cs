@@ -147,29 +147,8 @@ namespace AWSIM.Loader
             yield return new WaitUntil(() => simulationLoad.isDone);
 
             // reset initial and goal positions for the Ego
-            string laneName = "";
-            float offset = 0;
-            
-            // if the position is relative, must handle separately since
-            // CustomNPCSpawningManager is not available yet
-            if (CustomEgoSettings.InitialPosition is RelativePosition relativePosition)
-            {
-                var trafficLanesParent = GameObject.Find("TrafficLanes");
-                var lanes = Array.Empty<TrafficLane>();
-                if (trafficLanesParent != null)
-                    lanes = trafficLanesParent.GetComponentsInChildren<TrafficLane>();
-                var ok = relativePosition.ToLaneOffsetPosition(lanes, out LaneOffsetPosition initPos);
-                if (!ok)
-                    throw new ArgumentNullException("Cannot parse the Ego initial position, " +
-                                                    "possibly because the map is not available yet.");
-                laneName = initPos.GetLane();
-                offset = initPos.GetOffset();
-            }
-            else
-            {
-                laneName = CustomEgoSettings.InitialPosition.GetLane();
-                offset = CustomEgoSettings.InitialPosition.GetOffset();
-            }
+            string laneName = CustomEgoSettings.InitialPosition.GetLane();
+            float offset = CustomEgoSettings.InitialPosition.GetOffset();
             
             TrafficLane spawnLane = CustomSimUtils.ParseLane(laneName);
             Vector3 initPosition = CustomSimUtils.CalculatePosition(spawnLane, offset, out int waypointIndex);

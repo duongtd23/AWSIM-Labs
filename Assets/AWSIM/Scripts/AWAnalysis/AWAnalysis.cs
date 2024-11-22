@@ -43,18 +43,29 @@ namespace AWSIM.AWAnalysis
         [SerializeField, Tooltip("Ground layer for raytracing the collision distances.")]
         private LayerMask groundLayerMask;
         
-        private GameObject _trafficLanesParent;
         private Camera _sensorCamera;
         private TraceWriter _traceWriter;
         private bool _activated;
         private Simulation _simulation;
-        
-        public void Start()
+        private CustomEgoSetting _customEgoSetting;
+
+        public void Awake()
         {
+            CustomSimManager.Initialize(this.gameObject,
+                npcTaxi, npcHatchback,
+                npcSmallCar, npcTruck, npcVan,
+                casualPedestrian,elegantPedestrian,
+                vehicleLayerMask, groundLayerMask);
+            
             _simulation = ParseSimulationScenario();
             if (_simulation != null)
             {
                 InitializeAWSIM(_simulation);
+                if (_simulation.Ego != null)
+                {
+                    _customEgoSetting = new CustomEgoSetting(_simulation.Ego);
+                    EgoSingletonInstance.SetCustomEgoSetting(_customEgoSetting);
+                }
             }
         }
 
@@ -64,6 +75,7 @@ namespace AWSIM.AWAnalysis
             {
                 _activated = true;
                 Activate();
+                InitializeEgo();
             }
             else if (_traceWriter != null)
             {
@@ -80,18 +92,8 @@ namespace AWSIM.AWAnalysis
 
         private void Activate()
         {
-            _trafficLanesParent = GameObject.Find("TrafficLanes");
-            var lanes = Array.Empty<TrafficLane>();
-            if (_trafficLanesParent != null)
-                lanes = _trafficLanesParent.GetComponentsInChildren<TrafficLane>();
-            CustomSimManager.Initialize(this.gameObject,
-                lanes,
-                EgoSingletonInstance.AutowareEgoCarGameObject, npcTaxi, npcHatchback,
-                npcSmallCar, npcTruck, npcVan,
-                casualPedestrian,elegantPedestrian,
-                vehicleLayerMask, groundLayerMask);
-            
             _sensorCamera = EgoSingletonInstance.GetObjectDetectionCamera();
+            CustomSimManager.InitializeEgo(EgoSingletonInstance.AutowareEgoCarGameObject);
 
             if (_simulation != null)
             {
@@ -101,8 +103,17 @@ namespace AWSIM.AWAnalysis
                 InitializeTrace(_simulation.SavingTimeout);
             }
         }
+
+        private void InitializeEgo()
+        {
+            if (FindObjectOfType<Loader.Loader>() == null)
+            {
+                _customEgoSetting.SetInitPose();
+            }
+            _customEgoSetting.SetGoal();
+        }
         
-        private Simulation ParseSimulationScenario()
+        public static Simulation ParseSimulationScenario()
         {
             bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
             if (!argDefined)
@@ -193,17 +204,6 @@ namespace AWSIM.AWAnalysis
             foreach (var npcPedes in simulation.Pedestrians)
             {
                 CustomSimManager.SpawnPedestrian(npcPedes);
-            }
-
-            if (simulation.Ego != null)
-            {
-                var customEgoSetting = new CustomEgoSetting(simulation.Ego);
-                EgoSingletonInstance.SetCustomEgoSetting(customEgoSetting);
-                if (FindObjectOfType<Loader.Loader>() == null)
-                {
-                    customEgoSetting.SetInitPose();
-                }
-                customEgoSetting.SetGoal();
             }
         }
 

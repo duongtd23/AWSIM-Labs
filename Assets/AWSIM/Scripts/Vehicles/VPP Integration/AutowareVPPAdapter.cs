@@ -416,8 +416,7 @@ namespace AWSIM.Scripts.Vehicles.VPP_Integration
 
         public void SetSpawnPos(Vector3 position, Quaternion rotation)
         {
-            _rigidbody.position = position;
-            _rigidbody.rotation = rotation;
+            ResetEgoPosition(position, rotation);
         }
     }
 }

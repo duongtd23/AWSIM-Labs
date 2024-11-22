@@ -17,7 +17,7 @@ namespace AWSIM.AWAnalysis.CustomSim
     public class CustomSimManager
     {
         // singleton instance
-        private static CustomSimManager manager;
+        private static CustomSimManager _manager;
 
         private GameObject autowareEgoCar;
         private GameObject npcTaxi, npcHatchback, npcSmallCar, npcTruck, npcVan;
@@ -48,39 +48,35 @@ namespace AWSIM.AWAnalysis.CustomSim
         private List<Tuple<NPCPedes, NPCPedestrian>> _pedestrians;
 
         #region constructor and public update
-        
-        private CustomSimManager(GameObject parent, TrafficLane[] trafficLanes,
-            GameObject ego, GameObject taxi, GameObject hatchback, GameObject smallCar,
-            GameObject truck, GameObject van,
+        private CustomSimManager()
+        {
+        }
+
+        public static void Initialize(GameObject parent,
+            GameObject taxi, GameObject hatchback,
+            GameObject smallCar, GameObject truck, GameObject van,
             GameObject casualPedestrian, GameObject elegantPedestrian,
             LayerMask vehicleLM, LayerMask groundLM)
         {
-            autowareEgoCar = ego;
-            allTrafficLanes = trafficLanes;
-            npcTaxi = taxi;
-            npcHatchback = hatchback;
-            npcSmallCar = smallCar;
-            npcTruck = truck;
-            npcVan = van;
-            _casualPedestrian = casualPedestrian;
-            _elegantPedestrian = elegantPedestrian;
-            vehicleLayerMask = vehicleLM;
-            groundLayerMask = groundLM;
-            parentGameObject = parent;
-            egoStartMovingTime = -1;
-            egoEngagedTime = -1;
-            egoEngaged = false;
-            delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<int, NPCCar>>();
-            delayingSpawnNPCs = new List<NPCCar>();
-            _delayingSpawnPedestrians = new List<NPCPedes>();
-            npcs = new List<NPCVehicle>();
-            _pedestrians = new List<Tuple<NPCPedes, NPCPedestrian>>();
-
-            NPCVehicleConfig vehicleConfig = NPCVehicleConfig.Default();
-            vehicleConfig.Acceleration = ConfigLoader.Config().NpcAcceleration;
-            vehicleConfig.Deceleration = ConfigLoader.Config().NpcDeceleration;
-            npcVehicleSimulator = new NPCVehicleSimulator(vehicleConfig, vehicleLayerMask, groundLayerMask, 10, autowareEgoCar);
-            npcVehicleSpawner = new NPCVehicleSpawner(parentGameObject, new GameObject[] { }, new TrafficLane[] { });
+            var manager = Manager();
+            manager.npcTaxi = taxi;
+            manager.npcHatchback = hatchback;
+            manager.npcSmallCar = smallCar;
+            manager.npcTruck = truck;
+            manager.npcVan = van;
+            manager._casualPedestrian = casualPedestrian;
+            manager._elegantPedestrian = elegantPedestrian;
+            manager.vehicleLayerMask = vehicleLM;
+            manager.groundLayerMask = groundLM;
+            manager.parentGameObject = parent;
+            manager.egoStartMovingTime = -1;
+            manager.egoEngagedTime = -1;
+            manager.egoEngaged = false;
+            manager.delayingMoveNPCs = new Dictionary<NPCVehicle, Tuple<int, NPCCar>>();
+            manager.delayingSpawnNPCs = new List<NPCCar>();
+            manager._delayingSpawnPedestrians = new List<NPCPedes>();
+            manager.npcs = new List<NPCVehicle>();
+            manager._pedestrians = new List<Tuple<NPCPedes, NPCPedestrian>>();
 
             try
             {
@@ -90,7 +86,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                         if (msg.Engage_)
                         {
                             Debug.Log("[AWAnalysis] Got /autoware/engage message: " + msg);
-                            egoEngaged = true;
+                            manager.egoEngaged = true;
                         }
                     });
             }
@@ -101,28 +97,43 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
-        public static CustomSimManager Initialize(GameObject parent, TrafficLane[] trafficLanes,
-            GameObject ego, GameObject taxi, GameObject hatchback,
-            GameObject smallCar, GameObject truck, GameObject van,
-            GameObject casualPedestrian, GameObject elegantPedestrian,
-            LayerMask vehicleLM, LayerMask groundLM)
+        public static void InitializeEgo(GameObject ego)
         {
-            manager = new CustomSimManager(parent, trafficLanes,
-                ego, taxi, hatchback, smallCar, truck, van,
-                casualPedestrian, elegantPedestrian,
-                vehicleLM, groundLM);
-            return manager;
+            var manager = Manager();
+            manager.autowareEgoCar = ego;
+            NPCVehicleConfig vehicleConfig = NPCVehicleConfig.Default();
+            vehicleConfig.Acceleration = ConfigLoader.Config().NpcAcceleration;
+            vehicleConfig.Deceleration = ConfigLoader.Config().NpcDeceleration;
+            manager.npcVehicleSpawner = new NPCVehicleSpawner(manager.parentGameObject, 
+                new GameObject[] { }, new TrafficLane[] { });
+            
+            manager.npcVehicleSimulator = new NPCVehicleSimulator(vehicleConfig, 
+                manager.vehicleLayerMask, manager.groundLayerMask, 10, ego);
         }
 
         public static CustomSimManager Manager()
         {
-            return manager;
+            if (_manager == null)
+            {
+                _manager = new CustomSimManager();
+            }
+            return _manager;
         }
 
         public static List<NPCVehicle> GetNPCs() => Manager().npcs;
         public static List<Tuple<NPCPedes, NPCPedestrian>> GetPedestrians() => Manager()._pedestrians;
-        
-        public static TrafficLane[] GetAllTrafficLanes() => Manager().allTrafficLanes;
+
+        public static TrafficLane[] GetAllTrafficLanes()
+        {
+            if (Manager().allTrafficLanes == null)
+            {
+                var trafficLanesParent = GameObject.Find("TrafficLanes");
+                if (trafficLanesParent != null)
+                    Manager().allTrafficLanes = trafficLanesParent.GetComponentsInChildren<TrafficLane>();
+            }
+
+            return Manager().allTrafficLanes;
+        }
 
         // this should be called every frame
         public void UpdateNPCs()
