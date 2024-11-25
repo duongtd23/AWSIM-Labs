@@ -1,6 +1,9 @@
 using System.Collections;
 using System;
 using System.IO;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.CustomSim;
+using AWSIM.TrafficSimulation;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -85,9 +88,11 @@ namespace AWSIM.Loader
 
         [Header("Parameters")]
         [SerializeField] private int targetFramerate;
-
+        
         bool usingConfigFile = false;
         bool configFileLoaded = false;
+
+        public EgoSettings CustomEgoSettings { get; set; }
 
         IEnumerator ReLoadCoroutine()
         {
@@ -130,9 +135,23 @@ namespace AWSIM.Loader
             simulationLoad.allowSceneActivation = true;
             yield return new WaitUntil(() => simulationLoad.isDone);
 
+            // reset initial and goal positions for the Ego
+            string laneName = CustomEgoSettings.InitialPosition.GetLane();
+            float offset = CustomEgoSettings.InitialPosition.GetOffset();
+            
+            TrafficLane spawnLane = CustomSimUtils.ParseLane(laneName);
+            Vector3 initPosition = CustomSimUtils.CalculatePosition(spawnLane, offset, out int waypointIndex);
+            Vector3 initFwd = waypointIndex == 0 ?
+                spawnLane.Waypoints[1] - spawnLane.Waypoints[0] :
+                spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
+            Quaternion poseRotation = Quaternion.LookRotation(initFwd);
+            
+            egoManager.egoConfiguration.egoPosition = ROS2Utility.UnityToRosMGRS(initPosition);
+            egoManager.egoConfiguration.egoEulerAngles = ROS2Utility.UnityToRosRotation(poseRotation).eulerAngles;
+            
             // Finally configure the scene
             SimConfiguration.Configure(egoManager, mapManager, simulationManager);
-
+            
             // Hide loading screen and gui
             loadingScreen.SetActive(false);
             rootGuiObject.SetActive(false);
@@ -140,6 +159,10 @@ namespace AWSIM.Loader
         }
 
         public void Start()
+        {
+        }
+
+        public void Activate(AWSIMConfiguration config)
         {
             // Turn off GUI canvases.
             jsonCanvas.SetActive(false);
@@ -152,7 +175,12 @@ namespace AWSIM.Loader
 
             Application.targetFrameRate = targetFramerate;
 
-            StartLoader();
+            // StartLoader();
+            if (LoadManagersConfig(config))
+            {
+                // Configuration went well. Load all scenes.
+                Load();
+            }
         }
 
         public void Update()

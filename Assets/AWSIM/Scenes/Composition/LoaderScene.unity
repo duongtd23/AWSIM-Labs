@@ -1120,6 +1120,63 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &319248812
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 319248813}
+  - component: {fileID: 319248814}
+  m_Layer: 0
+  m_Name: AWAnalysis
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &319248813
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 319248812}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &319248814
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 319248812}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db56735ad5424842a3762d442a1e9fb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  npcTaxi: {fileID: 714549001370495616, guid: d0094c5a0e9fb6148873c658dbc61a89, type: 3}
+  npcHatchback: {fileID: 6604874415271597525, guid: 7e772e9ad7eb79040be629d8d04542ab, type: 3}
+  npcSmallCar: {fileID: 3333523281254186578, guid: 589cf2e451adab34eb1332da5701195a, type: 3}
+  npcTruck: {fileID: 6850358619771218631, guid: 9bc315af95865dd4bbf4a8f716791609, type: 3}
+  npcVan: {fileID: 536101250511469494, guid: 433e715a84edbae418fe585f802f3918, type: 3}
+  casualPedestrian: {fileID: 4234894155293637340, guid: 45451c9dee0017949873d87da14d750a, type: 3}
+  elegantPedestrian: {fileID: 500668027104458449, guid: 27e8a3736efefa447b1f65b33b30908a, type: 3}
+  vehicleLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
 --- !u!1 &330343789
 GameObject:
   m_ObjectHideFlags: 0
@@ -6883,7 +6940,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.00012207031, y: -0.0007372491}
+  m_AnchoredPosition: {x: 0.000061035156, y: -0.0007372491}
   m_SizeDelta: {x: -12.2252, y: 0}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &1558658280
@@ -9486,3 +9543,4 @@ SceneRoots:
   - {fileID: 1232284681922757689}
   - {fileID: 1587144228}
   - {fileID: 1256442458}
+  - {fileID: 319248813}

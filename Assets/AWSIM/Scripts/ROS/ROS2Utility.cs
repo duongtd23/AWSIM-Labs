@@ -78,6 +78,14 @@ namespace AWSIM
                                (float)(rosPosition.Z - offset.z),
                                (float)(rosPosition.X - offset.x));
         }
+        
+        public static Vector3 UnityToRosMGRS(Vector3 position)
+        {
+            var offset = Environment.Instance.MgrsOffsetPosition;
+            return new Vector3(position.z + offset.x,
+                -position.x + offset.y,
+                position.y + offset.z);
+        }
 
         /// <summary>
         /// Convert position from ROS to Unity.

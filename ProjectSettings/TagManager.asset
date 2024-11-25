@@ -17,6 +17,7 @@ TagManager:
   - MainCanvas
   - CameraOutputCanvas
   - InteractiveNpcs
+  - ObjectDetectionCamera
   layers:
   - Default
   - TransparentFX

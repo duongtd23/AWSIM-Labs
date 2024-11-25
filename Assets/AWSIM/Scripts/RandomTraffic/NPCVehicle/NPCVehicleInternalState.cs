@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis;
+using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -232,6 +235,7 @@ namespace AWSIM.TrafficSimulation
                 Width = vehicle.Bounds.size.x
             };
             state.FollowingLanes.Add(lane);
+            state.CustomConfig = NPCConfig.DummyConfigWithoutRoute();
             return state;
         }
 
@@ -240,6 +244,120 @@ namespace AWSIM.TrafficSimulation
             var state = NPCVehicleInternalState.Create(vehicle, route.First(), waypointIndex);
             state.Route = route;
             return state;
+        }
+        
+        // return the desired speed for a given lane
+        public float TargetSpeed(TrafficLane lane)
+        {
+            // velocity during lane change
+            if (CustomConfig.HasALaneChange() &&
+                CurrentFollowingLane.name == CustomConfig.LaneChange.TargetLane &&
+                WaypointIndex == CustomConfig.LaneChange.TargetLaneWaypointIndex)
+            {
+                var speed = new Vector2(CustomConfig.LaneChange.LongitudinalVelocity,
+                    CustomConfig.LaneChange.LateralVelocity).magnitude;
+                return speed;
+            }
+            if (CustomConfig.MaintainSpeedAsEgo)
+            {
+                float speed = EgoSingletonInstance.AutowareEgoVehicle.Velocity.magnitude;
+                return speed;
+            }
+            if (CustomConfig.HasDesiredSpeed(lane.name))
+                return CustomConfig.GetDesiredSpeed(lane.name);
+            return lane.SpeedLimit;
+        }
+
+        /// <summary>
+        /// calculate the distance has gone on the current lane, i.e., CurrentFollowingLane
+        /// when the position of the vehicle behind the start point of the lane,
+        /// returns a minus value
+        /// </summary>
+        /// <returns></returns>
+        public float DistanceHasGoneOnLane()
+        {
+            if (IsChangingLane() || !HasPassedPoint(CurrentFollowingLane.Waypoints[0]))
+                return 0;
+            Vector3 position = Position;
+            position.y = 0f;
+            if (!ReallyOnlane())
+            {
+                return -Vector3.Distance(position, CurrentFollowingLane.Waypoints[0]);
+            }
+            
+            float distanceGone = 0;
+            int idx = 1;
+            for (; idx < WaypointIndex; idx++)
+            {
+                if (HasPassedPoint(CurrentFollowingLane.Waypoints[idx]))
+                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[idx-1], CurrentFollowingLane.Waypoints[idx]);
+                else
+                {
+                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[idx-1], position);
+                    break;
+                }
+            }
+            return distanceGone;
+        }
+
+        public bool HasPassedPoint(Vector3 point)
+        {
+            return Vector3.Dot(Forward, point - Position) < 0f;
+        }
+
+        /// <summary>
+        /// check if the Position of the vehicle is really on CurrentFollowingLane.
+        /// Note that there exists the case when
+        ///  the front point approach the ending of lane l1 with distance less than 1m,
+        ///  the CurrentFollowingLane will be set to the next lane, say l2, of l1.
+        ///  So in such a case, the position of the vehicle is behind the CurrentFollowingLane
+        /// </summary>
+        /// <returns></returns>
+        public bool ReallyOnlane()
+        {
+            if (WaypointIndex > 1)
+                return true;
+            var position = Position;
+            position.y = 0f;
+            Vector3 laneStartingPoint = CurrentFollowingLane.Waypoints[0];
+            laneStartingPoint.y = 0f;
+            return Vector3.Dot(Forward, laneStartingPoint - position) < 0f;
+        }
+        
+        // goal, defined as a pair of lane name and distance (from the starting point)
+        private IPosition goal;
+        public IPosition Goal => goal;
+        public bool GoalArrived { get; set; }
+        
+        // custom config
+        public NPCConfig CustomConfig { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="route"></param>
+        /// <param name="goal"></param>
+        /// <param name="customConfig"></param>
+        /// <param name="waypointIndex"></param>
+        /// <returns></returns>
+        public static NPCVehicleInternalState Create(NPCVehicle vehicle, List<TrafficLane> route,
+            IPosition goal, NPCConfig customConfig, int waypointIndex = 0)
+        {
+            var state = Create(vehicle, route, waypointIndex);
+            state.goal = goal;
+            state.CustomConfig = customConfig;
+            return state;
+        }
+
+        public bool IsChangingLane()
+        {
+            if (!CustomConfig.HasALaneChange())
+                return false;
+            return CurrentFollowingLane.name == CustomConfig.LaneChange.TargetLane &&
+                   WaypointIndex == CustomConfig.LaneChange.TargetLaneWaypointIndex;
         }
     }
 }

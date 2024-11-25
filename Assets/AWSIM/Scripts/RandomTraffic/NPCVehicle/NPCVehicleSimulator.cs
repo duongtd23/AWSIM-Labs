@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Error;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 using UnityEngine.Profiling;
+using Object = UnityEngine.Object;
 
 namespace AWSIM.TrafficSimulation
 {
@@ -159,6 +163,214 @@ namespace AWSIM.TrafficSimulation
         public void Dispose()
         {
             cognitionStep?.Dispose();
+        }
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="waypointIndex"></param>
+        /// <param name="goal">must be validated (offet does not exceed total length)</param>
+        /// <param name="customConfig">its Route and RouteAndSpeeds must be non-null</param>
+        public void Register(NPCVehicle vehicle, int waypointIndex,
+            IPosition goal, NPCConfig customConfig)
+        {
+            var routeStr = customConfig.Route;
+            var route = CustomSimUtils.ParseLanes(routeStr);
+            
+            // if there is a lane change
+            if (customConfig.HasALaneChange())
+            {
+                TrafficLane sourceLane = route.Find(l => l.name == customConfig.LaneChange.SourceLane);
+                float changeOffset = customConfig.LaneChange.ChangeOffset;
+                
+                // add a waypoint where lane change starts
+                int sourceWaypointId = AddaWaypointToSourceLane(ref sourceLane, changeOffset);
+
+                var laneChange = customConfig.LaneChange;
+                // add a waypoint to the point where lane change complete
+                int targetWaypointId = AddaWaypointToTargetLaneChange(ref route, ref laneChange);
+                customConfig.LaneChange = laneChange;
+                
+                customConfig.LaneChange.SourceLaneWaypointIndex = sourceWaypointId;
+                customConfig.LaneChange.TargetLaneWaypointIndex = targetWaypointId;
+            }
+
+            // if there is a lateral wandering
+            if (customConfig.LateralWandering != null)
+            {
+                // TrafficLane sourceLane = route.Find(l => l.name == customConfig.LateralWandering.SourceLane);
+                var sourceLaneIndex = route.FindIndex(l => l.name == customConfig.LateralWandering.SourceLane);
+                var sourceLaneClone = Object.Instantiate(route[sourceLaneIndex]);
+                
+                float wanderOffset = customConfig.LateralWandering.WanderOffset;
+                
+                // add a waypoint where lane change starts
+                int sourceWaypointId = AddaWaypointToSourceLane(ref sourceLaneClone, wanderOffset);
+                customConfig.LateralWandering.SourceLaneWaypointIndex = sourceWaypointId;
+
+                var updatedLateralWandering = customConfig.LateralWandering;
+                TrafficLane nextLaneClone = null;
+                int nextLaneIndex = 0;
+                for (; nextLaneIndex < route.Count; nextLaneIndex++)
+                    if (route[nextLaneIndex].name == customConfig.LateralWandering.SourceLane)
+                        break;
+                nextLaneIndex++;
+                if (nextLaneIndex < route.Count)
+                {
+                    nextLaneClone = Object.Instantiate(route[nextLaneIndex]);
+                }
+                
+                ComputeWanderingWaypoints(ref sourceLaneClone, sourceWaypointId, 
+                    ref updatedLateralWandering, ref nextLaneClone,
+                    vehicle);
+                customConfig.LateralWandering = updatedLateralWandering;
+                route[sourceLaneIndex] = sourceLaneClone;
+                if (nextLaneClone != null && nextLaneIndex < route.Count)
+                    route[nextLaneIndex] = nextLaneClone;
+            }
+            
+            vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, goal, 
+                customConfig, waypointIndex));
+        }
+
+        private int AddaWaypointToSourceLane(ref TrafficLane sourceLane, float offset)
+        {
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(sourceLane, offset, out int waypointIndex);
+            Debug.Log($"[AWAnalysis] Adding waypoint {newWaypoint} at {waypointIndex} to source lane.");
+            var updateWaypoints = new List<Vector3>(sourceLane.Waypoints);
+            updateWaypoints.Insert(waypointIndex,newWaypoint);
+            sourceLane.UpdateWaypoints(updateWaypoints.ToArray());
+            return waypointIndex;
+        }
+        
+        private int AddaWaypointToTargetLaneChange(ref List<TrafficLane> route, ref ILaneChange laneChangeConfig)
+        {
+            TrafficLane sourceLane = route[0];
+            int firstTargetLaneIndex = 0;
+            for (int i = 0; i < route.Count; i++)
+            {
+                var lane = route[i];
+                if (lane.name == laneChangeConfig.SourceLane)
+                    sourceLane = lane;
+                if (lane.name == laneChangeConfig.TargetLane)
+                    firstTargetLaneIndex = i;
+            }
+
+            var ok = CustomSimUtils.SideLaneOffset(sourceLane, laneChangeConfig.ChangeOffset,
+                new TrafficLane[1] { route[firstTargetLaneIndex] },
+                laneChangeConfig.ChangeDirection == Side.LEFT,
+                out TrafficLane other, out float offset);
+            if (!ok)
+            {
+                throw new InvalidScriptException("Cannot parse the lane change information");
+            }
+            
+            float timeForLaneChange = sourceLane.Width / laneChangeConfig.LateralVelocity;
+            float longitudeLaneChangeDistance = timeForLaneChange * laneChangeConfig.LongitudinalVelocity;
+            
+            Debug.Log($"[AWAnalysis] Longitude distance for Lane Change: {longitudeLaneChangeDistance}");
+
+            // sequence of lanes after lane-change
+            var targetLaneSequence = route.GetRange(firstTargetLaneIndex, route.Count - firstTargetLaneIndex);
+            Vector3 newWaypoint = CustomSimUtils.CalculatePosition(targetLaneSequence, 
+                offset + longitudeLaneChangeDistance, 
+                out int targetLaneIndex,
+                out int waypointIndex);
+            
+            // remove redundant lanes
+            if (targetLaneIndex > 0)
+                route.RemoveRange(firstTargetLaneIndex, targetLaneIndex);
+
+            var updateWaypoints = new List<Vector3>(route[firstTargetLaneIndex].Waypoints);
+            updateWaypoints.Insert(waypointIndex, newWaypoint);
+            route[firstTargetLaneIndex].UpdateWaypoints(updateWaypoints.ToArray());
+            laneChangeConfig.TargetLane = route[firstTargetLaneIndex].name;
+            return waypointIndex;
+        }
+
+        // compute the waypoints on the wandering (2 points) and
+        // determine the lane after going back along with the waypoint index
+        private void ComputeWanderingWaypoints(ref TrafficLane sourceLane, int sourceWaypointId, 
+            ref LateralWandering lateralWandering, ref TrafficLane nextLane,
+            NPCVehicle vehicle)
+        {
+            Vector3 vehDirection = sourceWaypointId == 0 ?
+                sourceLane.Waypoints[1] - sourceLane.Waypoints[0] :
+                sourceLane.Waypoints[sourceWaypointId + 1] - sourceLane.Waypoints[sourceWaypointId];
+            var originRot = Quaternion.LookRotation(vehDirection, Vector3.up).eulerAngles;
+
+            var vehicleHalfWidth = vehicle.GetCarInfo().extents.x;
+            var rotateRadian = (float)Math.Asin(lateralWandering.LateralVelocity / lateralWandering.Velocity);
+            var diagonalDistance = (lateralWandering.LatitudeExceeded - vehicleHalfWidth + sourceLane.Width / 2) / Math.Sin(rotateRadian); 
+            
+            if (lateralWandering.WanderDirection == Side.LEFT)
+                originRot -= new Vector3(0, rotateRadian * 180 / (float)Math.PI, 0);
+            else 
+                originRot += new Vector3(0, rotateRadian * 180 / (float)Math.PI, 0);
+            
+            var normalizedDirection = Quaternion.Euler(originRot) * Vector3.forward;
+
+            var waypoints = new List<Vector3>();
+            waypoints.Add(sourceLane.Waypoints[sourceWaypointId] + (normalizedDirection * (float)diagonalDistance));
+            waypoints.Add(waypoints[0] + (vehDirection.normalized * lateralWandering.LongitudeDistance));
+            
+            var longitudeProjected = diagonalDistance * Math.Cos(rotateRadian);
+              
+            for (int id = sourceWaypointId; id < sourceLane.Waypoints.Length - 1; id++)
+            {
+                var startWp = sourceLane.Waypoints[id];
+                var endWp = sourceLane.Waypoints[id + 1];
+                if (CustomSimUtils.ProjectionOnLine(waypoints[1], startWp, endWp))
+                {
+                    var projectedPoint = Vector3.Project(waypoints[1] - startWp, endWp - startWp) + startWp;
+                    var newWp = CustomSimUtils.CalculatePosition(sourceLane, projectedPoint, (float)longitudeProjected,
+                        out int returnWpId, id + 1);
+                    if (newWp == Vector3.zero)
+                    {
+                        if (nextLane == null)
+                            throw new InvalidScriptException("Longitudinal wandering exceeds the ending route.");
+                        var remainDistance = longitudeProjected - 
+                                         CustomSimUtils.DistanceToEndingLane(sourceLane, projectedPoint, id + 1);
+                        
+                        newWp = CustomSimUtils.CalculatePosition(nextLane, (float)remainDistance, out int returnWpId2);
+                        
+                        // source lane: remove waypoints after wp[sourceWaypointId] and
+                        // add two new wandering waypoints
+                        var sourceWps = new List<Vector3>(sourceLane.Waypoints);
+                        sourceWps.RemoveRange(sourceWaypointId + 1, 
+                            sourceLane.Waypoints.Length - sourceWaypointId - 1);
+                        sourceWps.AddRange(waypoints);
+                        sourceLane.UpdateWaypoints(sourceWps.ToArray());
+                        
+                        // returning lane: add a returning waypoint (on lane), and
+                        // remove redundant waypoints before it
+                        var returningWps = new List<Vector3>(nextLane.Waypoints);
+                        returningWps.RemoveRange(0, returnWpId2);
+                        returningWps.Insert(0, newWp);
+                        nextLane.UpdateWaypoints(returningWps.ToArray());
+                        
+                        lateralWandering.ReturningLane = nextLane.name;
+                        lateralWandering.ReturningLaneWaypointIndex = returnWpId2;
+                    }
+                    else
+                    {
+                        // remove waypoints between sourceWaypointId + 1 and returnWpId
+                        // add two new wandering waypoints and the returning waypoint (on lane)
+                        var sourceWps = new List<Vector3>(sourceLane.Waypoints);
+                        sourceWps.RemoveRange(sourceWaypointId + 1,
+                            returnWpId - sourceWaypointId - 1);
+                        sourceWps.Insert(sourceWaypointId + 1, newWp);
+                        sourceWps.InsertRange(sourceWaypointId + 1, waypoints);
+                        sourceLane.UpdateWaypoints(sourceWps.ToArray());
+
+                        lateralWandering.ReturningLane = sourceLane.name;
+                        lateralWandering.ReturningLaneWaypointIndex = sourceWaypointId + 3;
+                    }
+                    break;
+                }
+            }
+            
         }
     }
 }

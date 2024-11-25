@@ -20,7 +20,7 @@ namespace AWSIM.TrafficSimulation
         /// <summary>
         /// Slow speed at which the vehicle can immediately stop.
         /// </summary>
-        public const float SlowSpeed = 5f;
+        public const float SlowSpeed = 4f;
 
         public float Acceleration;
         public float Deceleration;
