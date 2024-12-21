@@ -34,6 +34,7 @@ namespace AWSIM_Script.Parser
         public const string CUT_IN = "cut-in";
         public const string CUT_OUT = "cut-out";
         public const string SWERVE = "swerve";
+        public const string U_TURN = "uturn";
         public const string AT = "at";
         public const string DX = "dx";
         public const string IGNORE_EXP = "_";
@@ -334,11 +335,14 @@ namespace AWSIM_Script.Parser
                     case ParamType.ROUTE_AND_SPEEDs_LIMIT:
                         route = ParseRouteAndSpeedsLimit(func.Parameters[3].children[0], 
                             out bool hasLaneChange, out ILaneChange laneChangeConfig,
-                            out bool hasSwerve, out LateralWandering lateralWanderingConfig);
+                            out bool hasSwerve, out LateralWandering lateralWanderingConfig,
+                            out bool hasUTurn, out UTurn uTurnConfig);
                         if (hasLaneChange)
                             config.LaneChange = laneChangeConfig;
                         if (hasSwerve)
                             config.LateralWandering = lateralWanderingConfig;
+                        if (hasUTurn)
+                            config.UTurn = uTurnConfig;
                         break;
                     // config option
                     case ParamType.CONFIG:
@@ -462,7 +466,8 @@ namespace AWSIM_Script.Parser
 
         private List<Tuple<string, float>> ParseRouteAndSpeedsLimit(IParseTree node, 
             out bool hasLaneChange, out ILaneChange laneChangeConfig,
-            out bool hasSwerve, out LateralWandering lateralWanderingConfig)
+            out bool hasSwerve, out LateralWandering lateralWanderingConfig,
+            out bool hasUTurn, out UTurn uTurnConfig)
         {
             if (node is ArrayExpContext arrayExp)
             {
@@ -470,6 +475,9 @@ namespace AWSIM_Script.Parser
                 laneChangeConfig = null;
                 hasSwerve = false;
                 lateralWanderingConfig = null;
+                hasUTurn = false;
+                uTurnConfig = null;
+                
                 List<ExpressionContext> expContexts = ParserUtils.ParseArray(arrayExp);
                 List<Tuple<string, float>> result = new List<Tuple<string, float>>();
                 foreach (var expContext in expContexts)
@@ -534,6 +542,20 @@ namespace AWSIM_Script.Parser
                                 ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
                             ParseSwerveConfig(arguments, ref lateralWanderingConfig);
                         }
+                        
+                        // U-Turn behavior
+                        else if (roadExp.children[0].GetText() == U_TURN)
+                        {
+                            hasUTurn = true;
+                            uTurnConfig = new UTurn()
+                            {
+                                SourceLane = result.Last().Item1,
+                                Velocity = result.Last().Item2
+                            };
+                            var arguments =
+                                ParserUtils.ParseFuncArgs((ArgumentListContext)roadExp.children[2]);
+                            ParseUTurnConfig(arguments, ref uTurnConfig);
+                        }
                     }
                     // pair of traffic lane and desired speed limit
                     if (expContext.children[0] is StringExpContext ||
@@ -565,7 +587,8 @@ namespace AWSIM_Script.Parser
                     throw new InvalidScriptException("Undefined variable: " + varName);
                 return ParseRouteAndSpeedsLimit(scenarioScore.Variables[varName].children[0], 
                     out hasLaneChange, out laneChangeConfig,
-                    out hasSwerve, out lateralWanderingConfig);
+                    out hasSwerve, out lateralWanderingConfig,
+                    out hasUTurn, out uTurnConfig);
             }
             throw new InvalidScriptException("Cannot parse route and speeds limit from: " +
                 node.GetText());
@@ -878,6 +901,30 @@ namespace AWSIM_Script.Parser
                     throw new InvalidScriptException("The sixth argument (initial dx0) of swerve function must be a number, " +
                                                      "but was " + argExpContexts[5].GetText());
                 lateralWanderingConfig.Dx = dx0;
+            }
+        }
+        
+        private void ParseUTurnConfig(List<ExpressionContext> argExpContexts, ref UTurn uTurnConfig)
+        {
+            if (argExpContexts.Count < 1)
+            {
+                throw new InvalidScriptException("U-Turn expression requires at least 1 argument " +
+                "of offset position where the U-Turn starts.");
+            }
+            bool ok = ParseNumber(argExpContexts[0], out float offset);
+            if (!ok)
+                throw new InvalidScriptException("The first argument of uturn function must be a number, but was " 
+                                                 + argExpContexts[0].GetText());
+            uTurnConfig.UTurnOffset = offset;
+
+            // if exists, the 2nd arg is the initial distance between ego and NPC
+            if (argExpContexts.Count > 1)
+            {
+                ok = ParseNumber(argExpContexts[1], out float dx0);
+                if (!ok)
+                    throw new InvalidScriptException("The second argument (initial dx0) of uturn function must be a number, " +
+                                                     "but was " + argExpContexts[1].GetText());
+                uTurnConfig.Dx = dx0;
             }
         }
 

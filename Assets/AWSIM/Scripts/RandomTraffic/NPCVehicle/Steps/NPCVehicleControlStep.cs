@@ -84,9 +84,7 @@ namespace AWSIM.TrafficSimulation
             var steeringAngle = Vector3.SignedAngle(state.Forward, steeringDirection, Vector3.up);
             var yawSpeedMultiplier = NPCVehicleConfig.YawSpeedMultiplier;
             var yawSpeedLerpFactor = NPCVehicleConfig.YawSpeedLerpFactor;
-            if ((state.CustomConfig.HasALaneChange() &&
-                 state.CustomConfig.LaneChange is CutInLaneChange or CutOutLaneChange) ||
-                (state.CustomConfig.LateralWandering != null))
+            if (NeedAggressiveTurn(state))
             {
                 yawSpeedMultiplier = 0.35f;
                 yawSpeedLerpFactor = 8f;
@@ -99,6 +97,24 @@ namespace AWSIM.TrafficSimulation
                 yawSpeedLerpFactor * deltaTime);
         }
 
+        private static bool NeedAggressiveTurn(NPCVehicleInternalState state)
+        {
+            // needed when has a lane change
+            if (state.CustomConfig.HasALaneChange() &&
+                state.CustomConfig.LaneChange is CutInLaneChange or CutOutLaneChange)
+                return true;
+            
+            // needed when has a swerve behavior
+            if (state.CustomConfig.LateralWandering != null)
+                return true;
+            
+            // needed for U-Turn behavior
+            if (state.CustomConfig.UTurn != null)
+                return true;
+
+            return false;
+        }
+
         /// <summary>
         /// Update <see cref="NPCVehicleInternalState.Position"/> and <see cref="NPCVehicleInternalState.Yaw"/> according to <see cref="NPCVehicleInternalState.Speed"/> and <see cref="NPCVehicleInternalState.YawSpeed"/>.
         /// </summary>
@@ -109,7 +125,7 @@ namespace AWSIM.TrafficSimulation
 
             state.Yaw += state.YawSpeed * deltaTime;
             var position = state.Position;
-            position += state.Forward * state.Speed * deltaTime;
+            position += state.Forward * (state.Speed * deltaTime);
             position.y = state.TargetPoint.y;
             state.Position = position;
         }

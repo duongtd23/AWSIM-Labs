@@ -790,7 +790,7 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     innerState.CurrentFollowingLane.OriginName() == innerState.CustomConfig.LateralWandering.SourceLane &&
                     innerState.WaypointIndex == innerState.CustomConfig.LateralWandering.SourceLaneWaypointIndex + 1)
                 {
-                    swerveInfo.time_swerve_start = timeStamp;
+                    swerveInfo.time_swerve_start = Math.Round(timeStamp + Time.fixedDeltaTime, 3);
                     swerveInfo.swerve_npc_name = CustomSimManager.GetSwerveVehicle().ScriptName;
                 }
             }

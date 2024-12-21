@@ -80,6 +80,8 @@ namespace AWSIM_Script.Object
         
         public LateralWandering LateralWandering { get; set; }
         
+        public UTurn UTurn { get; set; }
+        
         public static NPCConfig DummyConfigWithoutRoute()
         {
             return new NPCConfig();

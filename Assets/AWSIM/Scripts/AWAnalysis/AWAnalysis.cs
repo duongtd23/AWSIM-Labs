@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using AWSIM_Script.Error;
 using AWSIM_Script.Object;
 using AWSIM_Script.Parser;
@@ -99,7 +100,7 @@ namespace AWSIM.AWAnalysis
             {
                 PreProcessingSimulation(ref _simulation);
                 ExecuteSimulation(_simulation);
-                PreProcessingSwerve(ref _simulation);
+                PostProcessingSimulation(ref _simulation);
                 InitializeTrace(_simulation.SavingTimeout);
             }
         }
@@ -281,8 +282,8 @@ namespace AWSIM.AWAnalysis
             npc.SpawnDelayOption = NPCDelayDistance.DelayMove(d0);
         }
 
-        // mainly compute the NPCDelayDistance for $npc movement
-        private void PreProcessingSwerve(ref Simulation simulation)
+        // mainly compute NPCDelayDistance for $npc movement and Swerve, U-Turn behaviors
+        private void PostProcessingSimulation(ref Simulation simulation)
         {
             for (int j = 0; j < simulation.NPCs.Count; j++)
             {
@@ -294,74 +295,137 @@ namespace AWSIM.AWAnalysis
                     npc.SpawnDelayOption is NPCDelayTime delayTime &&
                     Mathf.Approximately(delayTime.DelayAmount, NPCDelayTime.DUMMY_DELAY_AMOUNT))
                 {
-                    DoPreProcessingSwerve(ref npc);
+                    PostProcessingSwerve(ref npc);
+                }
+                
+                else if (npc.HasConfig() &&
+                         npc.Config.UTurn != null &&
+                         !Mathf.Approximately(npc.Config.UTurn.Dx, UTurn.DUMMY_DX) &&
+                         npc.HasDelayOption() && npc.SpawnDelayOption.ActionDelayed == DelayedAction.MOVING &&
+                         npc.SpawnDelayOption is NPCDelayTime delayTime2 &&
+                         Mathf.Approximately(delayTime2.DelayAmount, NPCDelayTime.DUMMY_DELAY_AMOUNT))
+                {
+                    PostProcessingUTurn(ref npc);
                 }
             }
         }
         
-        private void DoPreProcessingSwerve(ref NPCCar npc)
+        /// <summary>
+        /// mainly to compute the $distancedelay.
+        /// When the distance between Ego and NPC falls below $distancedelay, NPC will start moving
+        /// </summary>
+        /// <param name="npc"></param>
+        private void PostProcessingSwerve(ref NPCCar npc)
         {
             EgoDetailObject egoDetailObject = EgoSingletonInstance.GetFixedEgoDetailInfo();
             NPCDetailObject npcDetailObject = CustomSimManager.GetNPCCarInfo(npc.VehicleType);
-            
+
             string sourceLaneStr = npc.Config.LateralWandering.SourceLane;
+            float sourceLaneSpeed = npc.RouteAndSpeeds
+                .First(entry => entry.Item1 == sourceLaneStr)
+                .Item2;
+            
+            float distance2SwerveWp = DistanceAndTimeToWp(npc, npcDetailObject,
+                sourceLaneStr,
+                npc.Config.LateralWandering.WanderOffset, out float time2SwerveWp);
+            // Debug.Log($"[AWAnalysis] distance2SwerveWp: {distance2SwerveWp}");
+
+            float distancedelay = npc.Config.LateralWandering.Dx +
+                                  (float)(egoDetailObject.RootToFront() + npcDetailObject.RootToFront()) +
+                                  distance2SwerveWp +
+                                  (time2SwerveWp + Time.fixedDeltaTime) * EgoSingletonInstance.DesiredMaxVelocity() +
+                                  Time.fixedDeltaTime * (EgoSingletonInstance.DesiredMaxVelocity() + sourceLaneSpeed) * 1.3f;
+            npc.SpawnDelayOption = NPCDelayDistance.DelayMove(distancedelay);
+            Debug.Log($"[AWAnalysis] distance delay is: {distancedelay}");
+        }
+        
+        private void PostProcessingUTurn(ref NPCCar npc)
+        {
+            EgoDetailObject egoDetailObject = EgoSingletonInstance.GetFixedEgoDetailInfo();
+            NPCDetailObject npcDetailObject = CustomSimManager.GetNPCCarInfo(npc.VehicleType);
+
+            string sourceLaneStr = npc.Config.UTurn.SourceLane;
+            float sourceLaneSpeed = npc.RouteAndSpeeds
+                .First(entry => entry.Item1 == sourceLaneStr)
+                .Item2;
+            
+            float distance2UTurnWp = DistanceAndTimeToWp(npc, npcDetailObject,
+                sourceLaneStr,
+                npc.Config.UTurn.UTurnOffset, out float time2UTurnWp);
+
+            float distancedelay = npc.Config.UTurn.Dx +
+                                  (float)(egoDetailObject.RootToFront() + npcDetailObject.RootToFront()) +
+                                  distance2UTurnWp +
+                                  (time2UTurnWp + Time.fixedDeltaTime) * EgoSingletonInstance.DesiredMaxVelocity() +
+                                  Time.fixedDeltaTime * (EgoSingletonInstance.DesiredMaxVelocity() + sourceLaneSpeed) * 1.3f;
+            npc.SpawnDelayOption = NPCDelayDistance.DelayMove(distancedelay);
+            Debug.Log($"[AWAnalysis] distance delay is: {distancedelay}");
+        }
+
+
+        /// <summary>
+        /// compute distance and time required to reach the $waypoint from the spawning position
+        /// with predefined acceleration in the input script
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <param name="wpLaneStr"> the lane that $waypoint belongs to</param>
+        /// <param name="waypointOffset">offset of the waypoint where swerve/u-turn starts</param>
+        /// <param name="timeRequired">time required for $npc reach $waypoint</param>
+        /// <returns></returns>
+        private float DistanceAndTimeToWp(NPCCar npc, NPCDetailObject npcDetailObject,
+            string wpLaneStr, float waypointOffset, out float timeRequired)
+        {
             var acceleration = Mathf.Approximately(npc.Config.Acceleration, NPCConfig.DUMMY_ACCELERATION)
                 ? NPCVehicleConfig.Default().Acceleration
                 : npc.Config.Acceleration;
             
             // distance from the spawning point to the waypoint where swerve starts
-            float distance2SwerveWp = 0;
-            // time required for $npc reach the waypoint where swerve starts
+            float distance2Wp = 0;
+            // 
             // Suppose that $npc goes with constant speeds
-            float time2SwerveWp = 0;
+            timeRequired = 0;
             int i = 0;
             for (; i < npc.RouteAndSpeeds.Count; i++)
             {
                 string laneStr = npc.RouteAndSpeeds[i].Item1;
-                if (laneStr == sourceLaneStr)
+                if (laneStr == wpLaneStr)
                     break;
                 var lane = CustomSimUtils.ParseLane(laneStr);
                 if (i == 0)
                 {
                     var laneDis = lane.TotalLength() - npc.InitialPosition.GetOffset();
-                    distance2SwerveWp += laneDis;
+                    distance2Wp += laneDis;
                     float speedUpTime = npc.RouteAndSpeeds[i].Item2 / acceleration;
                     float speedUpDistance = 0.5f * acceleration * speedUpTime * speedUpTime;
-                    time2SwerveWp += speedUpTime + (laneDis - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
+                    timeRequired += speedUpTime + (laneDis - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
                 }
                 else
                 {
                     var laneDis = lane.TotalLength();
-                    distance2SwerveWp += laneDis;
-                    time2SwerveWp += laneDis / npc.RouteAndSpeeds[i].Item2;
+                    distance2Wp += laneDis;
+                    timeRequired += laneDis / npc.RouteAndSpeeds[i].Item2;
                 }
             }
 
             if (i == 0)
             {
-                distance2SwerveWp = npc.Config.LateralWandering.WanderOffset - 
+                distance2Wp = waypointOffset - 
                                     npc.InitialPosition.GetOffset() -
                                     (float)npcDetailObject.RootToFront();
                 float speedUpTime = npc.RouteAndSpeeds[0].Item2 / acceleration;
                 float speedUpDistance = 0.5f * acceleration * speedUpTime * speedUpTime;
-                time2SwerveWp = speedUpTime;
+                timeRequired = speedUpTime;
                 // this should always happen
-                if (speedUpDistance < distance2SwerveWp)
-                    time2SwerveWp += (distance2SwerveWp - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
+                if (speedUpDistance < distance2Wp)
+                    timeRequired += (distance2Wp - speedUpDistance) / npc.RouteAndSpeeds[i].Item2;
             }
             else
             {
-                distance2SwerveWp += npc.Config.LateralWandering.WanderOffset;
-                time2SwerveWp += npc.Config.LateralWandering.WanderOffset / npc.RouteAndSpeeds[i].Item2;
+                distance2Wp += waypointOffset;
+                timeRequired += waypointOffset / npc.RouteAndSpeeds[i].Item2;
             }
-            Debug.Log($"[AWAnalysis] distance2SwerveWp: {distance2SwerveWp}");
-            
-            float distancedelay = npc.Config.LateralWandering.Dx +
-                                  (float)(egoDetailObject.RootToFront() + npcDetailObject.RootToFront()) +
-                                  distance2SwerveWp +
-                                  (time2SwerveWp + Time.fixedDeltaTime) * EgoSingletonInstance.DesiredMaxVelocity();
-            npc.SpawnDelayOption = NPCDelayDistance.DelayMove(distancedelay);
-            Debug.Log($"[AWAnalysis] distance delay is: {distancedelay}");
+
+            return distance2Wp;
         }
     }
 }

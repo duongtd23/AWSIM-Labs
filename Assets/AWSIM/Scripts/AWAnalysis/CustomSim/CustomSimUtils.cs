@@ -538,5 +538,19 @@ namespace AWSIM.AWAnalysis.CustomSim
             var distance = Vector3.Distance(position, root);
             return Vector3.Dot(position - root, direction * Vector3.forward) > 0 ? distance : -distance;
         }
+
+        // project point $point on line made by two points $start and $end
+        public static Vector3 ProjectPointOnLine(Vector3 point, Vector3 start, Vector3 end)
+        {
+            return Vector3.Project((point - start),(end - start)) + start;
+        }
+        
+        // rotate point $point around pivot $pivot an angle around Y-axis (clockwise direction)
+        public static Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, float angle)
+        {
+            var v = point - pivot;
+            v = Quaternion.Euler(0,angle,0) * v;
+            return pivot + v;
+        }
     }
 }

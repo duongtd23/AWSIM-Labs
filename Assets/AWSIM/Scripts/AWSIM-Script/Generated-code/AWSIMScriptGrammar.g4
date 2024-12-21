@@ -19,7 +19,8 @@ roadExp
     | 'change-lane' '(' argumentList? ')'
     | 'cut-in' '(' argumentList? ')' 
     | 'cut-out' '(' argumentList? ')'
-    | 'swerve' '(' argumentList? ')' ;
+    | 'swerve' '(' argumentList? ')'
+    | 'uturn' '(' argumentList? ')' ;
 configExp
     : 'aggressive-driving'
     | 'acceleration' '(' (numberExp | variableExp) ')'
