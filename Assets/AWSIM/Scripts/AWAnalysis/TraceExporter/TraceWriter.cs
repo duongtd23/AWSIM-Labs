@@ -374,9 +374,9 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 case Shape.BOUNDING_BOX:
                     perObj.shape = new BoxDetectedShapeObject()
                     {
-                        size = new Vector3Object(detectedObject.Shape.Dimensions.X,
-                            detectedObject.Shape.Dimensions.Y,
-                            detectedObject.Shape.Dimensions.Z),
+                        size = new Vector3Object(detectedObject.Shape.Dimensions.Y,
+                            detectedObject.Shape.Dimensions.Z,
+                            detectedObject.Shape.Dimensions.X),
                     };
                     break;
                 case Shape.POLYGON:

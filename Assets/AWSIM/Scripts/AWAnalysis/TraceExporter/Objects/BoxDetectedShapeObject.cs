@@ -8,7 +8,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         {
             if (size == null)
                 return "";
-            return $"{size.y} {size.z} {size.x}";
+            return $"{size.x} {size.y} {size.z}";
         }
     }
 }
