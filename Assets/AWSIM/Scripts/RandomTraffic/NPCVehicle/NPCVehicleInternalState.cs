@@ -359,5 +359,17 @@ namespace AWSIM.TrafficSimulation
             return CurrentFollowingLane.name == CustomConfig.LaneChange.TargetLane &&
                    WaypointIndex == CustomConfig.LaneChange.TargetLaneWaypointIndex;
         }
+
+        public bool IsInUTurn()
+        {
+            var uTurnConfig = CustomConfig.UTurn;
+            if (uTurnConfig == null)
+                return false;
+            return(CurrentFollowingLane.OriginName() == uTurnConfig.SourceLane &&
+                   WaypointIndex >= uTurnConfig.SourceLaneWaypointIndex)
+                ||
+                (CurrentFollowingLane.name == uTurnConfig.NextLane &&
+                 WaypointIndex == uTurnConfig.NextLaneWaypointIndex);
+        }
     }
 }

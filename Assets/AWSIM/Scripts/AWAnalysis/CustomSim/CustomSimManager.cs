@@ -194,7 +194,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                     {
                         npcVehicleSimulator.Register(npcVehicle, waypointIndex,
                             npcCar.Goal,
-                            npcCar.Config);
+                            npcCar.Config,
+                            npcCar.VehicleType);
                         removeAfter.Add(npcVehicle);
                     }
                 }
@@ -209,7 +210,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                     {
                         npcVehicleSimulator.Register(npcVehicle, waypointIndex, 
                             npcCar.Goal,
-                            npcCar.Config);
+                            npcCar.Config,
+                            npcCar.VehicleType);
                         removeAfter.Add(npcVehicle);
                     }
                 }
@@ -477,6 +479,18 @@ namespace AWSIM.AWAnalysis.CustomSim
             return results.FirstOrDefault();
         }
         
+        private NPCVehicle UTurnVehicle()
+        {
+            var results = GetNPCs().FindAll(npc =>
+                npc.CustomConfig != null &&
+                npc.CustomConfig.UTurn != null);
+            if (results.Count >= 2)
+            {
+                Debug.LogError("Found more than one possible U-Turn vehicle. Use the first one by default.");
+            }
+            return results.FirstOrDefault();
+        }
+        
         #endregion
     
         public static NPCVehicle PoseObstacle(VehicleType vehicleType, Vector3 position, Vector3 forwardDirection, string name)
@@ -559,7 +573,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             NPCVehicle npc = SpawnNPC(vehicleType, spawnPosition, out int waypointIndex, npcConfig, name);
             Manager().npcVehicleSimulator.Register(npc, waypointIndex,
                 ValidateGoal(goal),
-                npcConfig);
+                npcConfig,
+                vehicleType);
             return npc;
         }
 
@@ -657,6 +672,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static NPCVehicle GetCutInVehicle() => Manager().CutinVehicle();
         public static NPCVehicle GetDecelerationVehicle() => Manager().DecelerationVehicle();
         public static NPCVehicle GetSwerveVehicle() => Manager().SwerveVehicle();
+        public static NPCVehicle GetUTurnVehicle() => Manager().UTurnVehicle();
         
         public static NPCVehicleInternalState CutOutNPCInternalState() => 
             Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
@@ -677,7 +693,10 @@ namespace AWSIM.AWAnalysis.CustomSim
             Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
                 state.CustomConfig != null &&
                 state.CustomConfig.LateralWandering != null);
-        
+        public static NPCVehicleInternalState UTurnNPCInternalState() => 
+            Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
+                state.CustomConfig != null &&
+                state.CustomConfig.UTurn != null);
         #endregion
 
         // validate (and update if neccessary) a given NPC
@@ -813,6 +832,24 @@ namespace AWSIM.AWAnalysis.CustomSim
                     return Manager().npcTruck.GetComponent<NPCVehicle>().GetCarInfo();
                 case VehicleType.VAN:
                     return Manager().npcVan.GetComponent<NPCVehicle>().GetCarInfo();
+            }
+            throw new InvalidScriptException("Cannot detect the vehicle type `" + vehicleType + "`.");
+        }
+        
+        public static Tuple<float,float> GetWheelBaseAndTurningWheelAngle(VehicleType vehicleType)
+        {
+            switch (vehicleType)
+            {
+                case VehicleType.TAXI:
+                    return Tuple.Create(2.7f, 30f);
+                case VehicleType.HATCHBACK:
+                    return Tuple.Create(2.5f, 30f);
+                case VehicleType.SMALL_CAR:
+                    return Tuple.Create(2.5f, 30f);
+                case VehicleType.TRUCK:
+                    return Tuple.Create(4.5f, 35f);
+                case VehicleType.VAN:
+                    return Tuple.Create(2.7f, 30f);
             }
             throw new InvalidScriptException("Cannot detect the vehicle type `" + vehicleType + "`.");
         }

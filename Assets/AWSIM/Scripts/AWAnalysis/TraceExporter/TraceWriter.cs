@@ -82,6 +82,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _traceObject.other = new DecelerationInfoObject();
             else if (CustomSimManager.GetSwerveVehicle() != null)
                 _traceObject.other = new SwerveInfoObject();
+            else if (CustomSimManager.GetUTurnVehicle() != null)
+                _traceObject.other = new UTurnInfoObject();
         }
         
         public void Start()
@@ -792,6 +794,18 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 {
                     swerveInfo.time_swerve_start = Math.Round(timeStamp + Time.fixedDeltaTime, 3);
                     swerveInfo.swerve_npc_name = CustomSimManager.GetSwerveVehicle().ScriptName;
+                }
+            }
+            else if (_traceObject.other is UTurnInfoObject uTurnInfo &&
+                     uTurnInfo.time_uturn_start == 0)
+            {
+                var innerState = CustomSimManager.UTurnNPCInternalState();
+                if (innerState != null &&
+                    innerState.CurrentFollowingLane.OriginName() == innerState.CustomConfig.UTurn.SourceLane &&
+                    innerState.WaypointIndex == innerState.CustomConfig.UTurn.SourceLaneWaypointIndex + 1)
+                {
+                    uTurnInfo.time_uturn_start = Math.Round(timeStamp + Time.fixedDeltaTime, 3);
+                    uTurnInfo.uturn_npc_name = CustomSimManager.GetUTurnVehicle().ScriptName;
                 }
             }
         }

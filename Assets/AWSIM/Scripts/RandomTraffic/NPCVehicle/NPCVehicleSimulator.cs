@@ -174,7 +174,7 @@ namespace AWSIM.TrafficSimulation
         /// <param name="goal">must be validated (offet does not exceed total length)</param>
         /// <param name="customConfig">its Route and RouteAndSpeeds must be non-null</param>
         public void Register(NPCVehicle vehicle, int waypointIndex,
-            IPosition goal, NPCConfig customConfig)
+            IPosition goal, NPCConfig customConfig, VehicleType vehicleType = VehicleType.HATCHBACK)
         {
             var routeStr = customConfig.Route;
             var route = CustomSimUtils.ParseLanes(routeStr);
@@ -249,15 +249,17 @@ namespace AWSIM.TrafficSimulation
                 customConfig.UTurn.NextLane = nextLane.name;
 
                 // compute turning radius, and update waypoints for the next lane
-                float diameter = CustomSimUtils.LateralDistance(
-                    sourceLaneClone.Waypoints[sourceWaypointId], nextLane, out int nextWaypointId);
-                Vector3 turningFinishPoint = CustomSimUtils.ProjectPointOnLine(
-                    sourceLaneClone.Waypoints[sourceWaypointId], nextLane.Waypoints[nextWaypointId], nextLane.Waypoints[nextWaypointId + 1]);
-                customConfig.UTurn.NextLaneWaypointIndex = nextWaypointId + 1;
+                Tuple<float, float> wheelBaseAndTurningAngle =
+                    CustomSimManager.GetWheelBaseAndTurningWheelAngle(vehicleType);
+                var rightUTurn = CustomSimUtils.OnLeftSide(sourceLaneClone.Waypoints[sourceWaypointId],
+                    nextLane.Waypoints[1], nextLane.Waypoints[0]);
                 
-                // compute the waypoints for the source lane
-                AddWaypointsToUTurnSourceLane(ref sourceLaneClone, sourceWaypointId, turningFinishPoint, diameter);
+                // modify waypoints of the source lane to make the turn
+                int nextWaypointId = AddUTurnWaypoints(ref sourceLaneClone, sourceWaypointId,
+                    ref nextLane,
+                    wheelBaseAndTurningAngle.Item1, wheelBaseAndTurningAngle.Item2, rightUTurn);
 
+                customConfig.UTurn.NextLaneWaypointIndex = nextWaypointId;
                 route[sourceLaneIndex] = sourceLaneClone;
             }
             vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, route, goal, 
@@ -407,30 +409,45 @@ namespace AWSIM.TrafficSimulation
         
         // Add new waypoint to the cloned source lane to make the smooth turn,
         // and remove redundant existing waypoints behind
-        private void AddWaypointsToUTurnSourceLane(ref TrafficLane sourceLaneClone, int sourceWaypointId,
-            Vector3 turningFinishPoint, float turnDiameter)
+        private int AddUTurnWaypoints(ref TrafficLane sourceLaneClone, int sourceWaypointId,
+            ref TrafficLane nextLane,
+            float wheelBase, float turningWheelAngle, bool rightUTurnSide = true)
         {
             Vector3 startPoint = sourceLaneClone.Waypoints[sourceWaypointId];
-            var waypoints = sourceLaneClone.Waypoints.ToList();
+            float turningRadius = wheelBase / Mathf.Sin(turningWheelAngle * Mathf.PI / 180) - 0.5f;
+            int direction = rightUTurnSide ? 1 : -1;
 
-            // add 1 meter to the finish waypoint
-            turningFinishPoint = (turningFinishPoint - startPoint).normalized * (turnDiameter + 1.0f) + startPoint;
+            var tempVec = 
+                ((sourceLaneClone.Waypoints[sourceWaypointId - 1] - startPoint).normalized)
+                * turningRadius;
+            Vector3 turningCenter = CustomSimUtils.RotatePointAroundPivot(
+                tempVec + startPoint,
+                startPoint,
+                (90 - turningWheelAngle) * -direction);
             
-            Vector3 centerPoint = (startPoint + turningFinishPoint) / 2;
-            int direction = 
-                CustomSimUtils.OnRightSide(turningFinishPoint, sourceLaneClone.Waypoints[sourceWaypointId - 1], startPoint) 
-                    ? 1 : -1;
+            var waypoints = sourceLaneClone.Waypoints.ToList();
+            
+            Vector3 turningFinishPoint = turningCenter + turningCenter - startPoint;
             
             // remove redundant waypoints
             waypoints.RemoveRange(sourceWaypointId + 1, waypoints.Count - sourceWaypointId - 1);
             
             // add new waypoints to make a turn
-            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, centerPoint, 45 * direction));
-            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, centerPoint, 90 * direction));
-            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, centerPoint, 135 * direction));
+            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, turningCenter, 30 * direction));
+            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, turningCenter, 60 * direction));
+            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, turningCenter, 90 * direction));
+            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, turningCenter, 120 * direction));
+            waypoints.Add(CustomSimUtils.RotatePointAroundPivot(startPoint, turningCenter, 150 * direction));
             waypoints.Add(turningFinishPoint);
             
+            CustomSimUtils.LateralDistance(turningFinishPoint, nextLane, out int nextWaypointId);
+            // Vector3 tempP = CustomSimUtils.ProjectPointOnLine(
+                // turningFinishPoint, nextLane.Waypoints[nextWaypointId], nextLane.Waypoints[nextWaypointId + 1]);
+            // waypoints.Add((tempP + nextLane.Waypoints[nextWaypointId + 1]) / 2);
+            
             sourceLaneClone.UpdateWaypoints(waypoints.ToArray());
+
+            return nextWaypointId;
         }
     }
 }

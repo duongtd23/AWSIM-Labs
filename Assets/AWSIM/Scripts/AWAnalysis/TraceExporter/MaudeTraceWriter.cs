@@ -89,6 +89,12 @@ namespace AWSIM.AWAnalysis.TraceExporter
                 _contents += $"  eq swerveNPC = \"{swerveInfoObject.swerve_npc_name}\" .\n";
                 _contents += $"  eq swerveStartTime = {swerveInfoObject.time_swerve_start} .\n";
             }
+            else if (_traceObject.other is UTurnInfoObject uturnInfoObject)
+            {
+                _contents += $"  eq swerveNPC = \"{uturnInfoObject.uturn_npc_name}\" .\n";
+                _contents += $"  eq swerveStartTime = {uturnInfoObject.time_uturn_start} .\n";
+            }
+
 
             _contents += "endm";
             
