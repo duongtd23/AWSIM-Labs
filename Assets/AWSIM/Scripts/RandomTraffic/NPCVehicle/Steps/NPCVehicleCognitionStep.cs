@@ -53,6 +53,11 @@ namespace AWSIM.TrafficSimulation
             {
                 foreach (var state in States)
                 {
+                    if (state.CurrentFollowingLane == null)
+                    {
+                        state.ShouldDespawn = true;
+                        continue;
+                    }
                     bool isCloseToTarget = IsCloseToTarget(state);
                     if (!isCloseToTarget)
                         continue;

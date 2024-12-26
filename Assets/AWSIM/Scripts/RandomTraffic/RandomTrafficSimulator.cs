@@ -32,7 +32,7 @@ namespace AWSIM.TrafficSimulation
     public class RandomTrafficSimulator : ITrafficSimulator
     {
         [SerializeField, Tooltip("Is the traffic enabled")]
-        public bool enabled = true;
+        public bool enabled = false;
 
         private int maximumSpawns = 0;
         private NPCVehicleSimulator npcVehicleSimulator;

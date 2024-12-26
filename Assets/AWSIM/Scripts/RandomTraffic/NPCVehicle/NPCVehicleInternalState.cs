@@ -188,10 +188,11 @@ namespace AWSIM.TrafficSimulation
         {
             // If the internal state has route - use it. Otherwise, choose next lane randomly.
             var lastLane = FollowingLanes.Last();
-            TrafficLane nextLane;
+            TrafficLane nextLane = null;
             if (Route == null || Route.Count == 0 || routeIndex + 1 == Route.Count)
             {
-                nextLane = RandomTrafficUtils.GetRandomElement(lastLane.NextLanes);
+                if (Goal == null || Goal.GetLane() == "")
+                    nextLane = RandomTrafficUtils.GetRandomElement(lastLane.NextLanes);
             }
             else
             {
@@ -365,7 +366,7 @@ namespace AWSIM.TrafficSimulation
             var uTurnConfig = CustomConfig.UTurn;
             if (uTurnConfig == null)
                 return false;
-            return(CurrentFollowingLane.OriginName() == uTurnConfig.SourceLane &&
+            return (CurrentFollowingLane.OriginName() == uTurnConfig.SourceLane &&
                    WaypointIndex >= uTurnConfig.SourceLaneWaypointIndex)
                 ||
                 (CurrentFollowingLane.name == uTurnConfig.NextLane &&
