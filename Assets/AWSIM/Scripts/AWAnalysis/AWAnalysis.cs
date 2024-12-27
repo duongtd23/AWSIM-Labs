@@ -357,7 +357,7 @@ namespace AWSIM.AWAnalysis
                                   (float)(egoDetailObject.RootToFront() + npcDetailObject.RootToFront()) +
                                   distance2UTurnWp +
                                   (time2UTurnWp + Time.fixedDeltaTime) * EgoSingletonInstance.DesiredMaxVelocity() +
-                                  Time.fixedDeltaTime * (EgoSingletonInstance.DesiredMaxVelocity() + sourceLaneSpeed) * 1.3f;
+                                  Time.fixedDeltaTime * (EgoSingletonInstance.DesiredMaxVelocity() + sourceLaneSpeed);
             npc.SpawnDelayOption = NPCDelayDistance.DelayMove(distancedelay);
             Debug.Log($"[AWAnalysis] distance delay is: {distancedelay}");
         }

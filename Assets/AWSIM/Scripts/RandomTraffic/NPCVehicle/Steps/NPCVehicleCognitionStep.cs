@@ -55,7 +55,7 @@ namespace AWSIM.TrafficSimulation
                 {
                     if (state.CurrentFollowingLane == null)
                     {
-                        state.ShouldDespawn = true;
+                        state.SpeedMode = NPCVehicleSpeedMode.STOP;
                         continue;
                     }
                     bool isCloseToTarget = IsCloseToTarget(state);

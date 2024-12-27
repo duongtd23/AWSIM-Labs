@@ -287,19 +287,29 @@ namespace AWSIM.TrafficSimulation
             }
             
             float distanceGone = 0;
-            int idx = 1;
-            for (; idx < WaypointIndex; idx++)
+            int idx = 0;
+            for (; idx < WaypointIndex - 2; idx++)
             {
-                if (HasPassedPoint(CurrentFollowingLane.Waypoints[idx]))
-                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
-                        CurrentFollowingLane.Waypoints[idx-1], CurrentFollowingLane.Waypoints[idx]);
-                else
-                {
-                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
-                        CurrentFollowingLane.Waypoints[idx-1], position);
-                    break;
-                }
+                distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                    CurrentFollowingLane.Waypoints[idx], CurrentFollowingLane.Waypoints[idx + 1]);
             }
+            
+            // WaypointIndex should always >= 1
+            if (WaypointIndex >= 1 && !HasPassedPoint(CurrentFollowingLane.Waypoints[WaypointIndex - 1]))
+            {
+                if (WaypointIndex >= 2)
+                    distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[WaypointIndex - 2], position);
+            }
+            else
+            {
+                if (WaypointIndex >= 2)
+                   distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                        CurrentFollowingLane.Waypoints[WaypointIndex - 2], CurrentFollowingLane.Waypoints[WaypointIndex - 1]);
+                distanceGone += CustomSimUtils.DistanceIgnoreYAxis(
+                    CurrentFollowingLane.Waypoints[WaypointIndex - 1], position);
+            }
+
             return distanceGone;
         }
 
