@@ -9,6 +9,8 @@ using AWSIM.AWAnalysis.TraceExporter.Objects;
 using UnityEngine;
 using AWSIM.Loader;
 using AWSIM.TrafficSimulation;
+using autoware_vehicle_msgs.msg;
+using autoware_adapi_v1_msgs.msg;
 
 namespace AWSIM.AWAnalysis
 {
@@ -72,17 +74,20 @@ namespace AWSIM.AWAnalysis
 
         public void FixedUpdate()
         {
-            if (!_activated && Ready())
+            if (_simulation == null)
+                return;
+            if (_activated)
+            {
+                CustomSimManager.Manager()?.UpdateNPCs();
+                EgoSingletonInstance.CustomEgoSetting?.UpdateEgo();
+                if (_traceWriter != null)
+                    _traceWriter?.Update();
+            }
+            else if(Ready())
             {
                 _activated = true;
                 Activate();
                 InitializeEgo();
-            }
-            else if (_traceWriter != null)
-            {
-                CustomSimManager.Manager()?.UpdateNPCs();
-                _traceWriter?.Update();
-                EgoSingletonInstance.CustomEgoSetting?.UpdateEgo();
             }
         }
         
@@ -119,8 +124,8 @@ namespace AWSIM.AWAnalysis
             bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
             if (!argDefined)
             {
-                Debug.LogError("[AWAnalysis] Input script is not given. " +
-                                "Specify it by argument `-script <path-to-script-file>`.");
+                Debug.LogWarning("[AWAnalysis] Input script is not given. " +
+                                 "Specify it by passing argument `-script <path-to-script-file>`.");
                 return null;
             }
             Debug.Log("Loading input script " + scriptFilePath);
@@ -170,8 +175,26 @@ namespace AWSIM.AWAnalysis
         {
             bool argDefined = CommandLineArgsManager.GetTraceSavingPathArg(out string outputFilePath);
             if (!argDefined)
-                Debug.LogError("[AWAnalysis] Path to save trace output is not given. " +
-                               "Specify it by argument `-output <path-to-save-trace-file>`.");
+            {
+                Debug.LogWarning("[AWAnalysis] Trace will not recorded since path to save trace output is not given. " +
+                                 "Specify it by passing argument `-output <path-to-save-trace-file>`.");
+                
+                // subscribe to operation mode ready event
+                // once the state becomes ready, send the engage command
+                SimulatorROS2Node.CreateSubscription<OperationModeState>(
+                    TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
+                    {
+                        if (msg.Is_autonomous_mode_available)
+                        {
+                            // sending engage command
+                            Debug.LogWarning("Sending engage command");
+                            var engageMsg = new Engage();
+                            engageMsg.Engage_ = true;
+                            SimulatorROS2Node.CreatePublisher<Engage>(
+                                TopicName.TOPIC_AUTOWARE_ENGAGE).Publish(engageMsg);
+                        }
+                    });
+            }
             else
             {
                 PerceptionMode perceptionMode = CommandLineArgsManager.GetPerceptionModeArg();

@@ -1484,7 +1484,8 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8564315040437214504, guid: 164645b2d105b6b4ab4e3d2e7c65dab2, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 6087599136518086831, guid: 164645b2d105b6b4ab4e3d2e7c65dab2, type: 3}
       insertIndex: -1
@@ -1729,8 +1730,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1743169424}
   m_HandleRect: {fileID: 1743169422}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 1
+  m_Value: 1.0000002
+  m_Size: 0.704023
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
