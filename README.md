@@ -1,12 +1,39 @@
 # AWSIM Labs
 
-This is a fork of [Autoware Foundation's AWSIM-Labs](https://github.com/autowarefoundation/AWSIM-Labs).
+This is a fork and extended version of [Autoware Foundation's AWSIM-Labs](https://github.com/autowarefoundation/AWSIM-Labs), supporting some advanced behaviors for NPC vehicles and pedestrians. 
 
 ## Additional Features
 
 - Various options to control NPC behaviors, such as, lane change, different acceleration and deceleration profiles for different NPCs, and motion delays.
 - A scenario specification language called AWSIM-Script to ease the simulation description.
 - A runtime monitor to record data during simulation. This recorded data can be used to analyze Autoware performance in handling the traffic scenario.
+
+## Installation
+
+The environment requirements are list here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/#environment-preparation.
+
+### Steps
+
+1. Clone the repo and checkout branch `v1.3` (this is the stable branch):
+```
+git clone -b v1.3 https://github.com/duongtd23/AW-Runtime-Verification.git
+```
+
+2. Follow the setup guide provided by Autoware Foundation here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/.
+
+3. Build the project to export an executable file, assume that its name is `awsimlabs.x86_64`
+
+4. Prepare an input script and Use the following command to run the simulation:
+```
+./awsimlabs.x86_64 -script <path-to-script-file> -output <path-to-save-traces>
+```
+where `<path-to-script-file>` and `p<ath-to-save-traces>` are path to the input script file (a content example is available below) and path to save the trace files, respectively.
+Some other available command line arguments are:
+
+- `-noise false`, which will disable noise in lidar data (check details [here](https://github.com/RobotecAI/RobotecGPULidar/blob/develop/docs/GaussianNoise.md)).
+
+- `-perception_mode camera_lidar_fusion`, which launches the camera-lidar fusion mode. Note that the setup requirement for Autoware (to enable processing camera sensor data) must be done saperately. The lidar-only perception mode is launched when replacing `camera_lidar_fusion` by `lidar` or skipping the `-perception_mode` argument.
+
 
 ## AWSIM-Script
 ### An axample
