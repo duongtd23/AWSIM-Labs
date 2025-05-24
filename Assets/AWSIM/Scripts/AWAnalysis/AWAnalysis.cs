@@ -11,6 +11,7 @@ using AWSIM.Loader;
 using AWSIM.TrafficSimulation;
 using autoware_vehicle_msgs.msg;
 using autoware_adapi_v1_msgs.msg;
+using RGLUnityPlugin;
 
 namespace AWSIM.AWAnalysis
 {
@@ -88,6 +89,7 @@ namespace AWSIM.AWAnalysis
                 _activated = true;
                 Activate();
                 InitializeEgo();
+                ConfigLidarNoise();
             }
         }
         
@@ -117,6 +119,28 @@ namespace AWSIM.AWAnalysis
                 _customEgoSetting.SetInitPose();
             }
             _customEgoSetting.SetGoal();
+        }
+
+        // enable/disable noise in lidar data
+        // precondition: Ego GameObject is ready (non-null)
+        private void ConfigLidarNoise()
+        {
+            bool argDefined = CommandLineArgsManager.GetNoiseConfigArg(out bool isNoiseEnable);
+
+            // if not defined, noise is enabled by default
+            if (!argDefined)
+                isNoiseEnable = true;
+            Debug.Log($"[AWAnalysis] Enabling lidar noise: {isNoiseEnable}.");            
+
+            if (isNoiseEnable)
+                return;
+
+            var lidarSensors = EgoSingletonInstance.AutowareEgoCarGameObject.GetComponentsInChildren<LidarSensor>();
+            foreach (var lidarSensor in lidarSensors)
+            {
+                lidarSensor.applyDistanceGaussianNoise = false;
+                lidarSensor.applyAngularGaussianNoise = false;
+            }
         }
         
         public static Simulation ParseSimulationScenario()

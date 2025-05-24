@@ -13,8 +13,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         public EgoSettings EgoSettings { get; private set; }
 
         // for ego settings
-        private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
-        private tier4_planning_msgs.msg.VelocityLimit _maxVelMsg;
+        private Publisher<autoware_internal_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
+        private autoware_internal_planning_msgs.msg.VelocityLimit _maxVelMsg;
 
         public CustomEgoSetting(EgoSettings ego)
         {
@@ -22,17 +22,23 @@ namespace AWSIM.AWAnalysis.CustomSim
             // setting max velocity
             if (EgoSettings.MaxVelocity > 0.0)
             {
-                var maxVelMsg = new tier4_planning_msgs.msg.VelocityLimit();
+                var maxVelMsg = new autoware_internal_planning_msgs.msg.VelocityLimit();
                 maxVelMsg.Max_velocity = EgoSettings.MaxVelocity;
                 maxVelMsg.Use_constraints = false;
-                maxVelMsg.Constraints = new tier4_planning_msgs.msg.VelocityLimitConstraints();
+                maxVelMsg.Constraints = new autoware_internal_planning_msgs.msg.VelocityLimitConstraints();
                 maxVelMsg.Constraints.Max_jerk = 0;
                 maxVelMsg.Constraints.Min_jerk = 0;
                 maxVelMsg.Constraints.Min_acceleration = 0;
                 maxVelMsg.Sender = "";
+                
+                // @duongtd: 2025/05/22 Autoware Foundation migrated the topic type
+                // _maxVelPublisher = 
+                //     SimulatorROS2Node.CreatePublisher<tier4_planning_msgs.msg.VelocityLimit>(
+                //         TopicName.TOPIC_MAX_VELOCITY);
                 _maxVelPublisher = 
-                    SimulatorROS2Node.CreatePublisher<tier4_planning_msgs.msg.VelocityLimit>(
+                    SimulatorROS2Node.CreatePublisher<autoware_internal_planning_msgs.msg.VelocityLimit>(
                         TopicName.TOPIC_MAX_VELOCITY);
+
                 _maxVelPublisher.Publish(maxVelMsg);
                 _maxVelMsg = maxVelMsg;
             }

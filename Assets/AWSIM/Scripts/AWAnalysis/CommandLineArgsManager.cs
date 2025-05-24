@@ -12,6 +12,7 @@ namespace AWSIM.AWAnalysis
         public const string SCRIPT_ARG = "-script";
         public const string TRACE_SAVING_PATH_ARG = "-output";
         public const string PERCEPTION_MODE_ARG = "-perception_mode";
+        public const string NOISE_CONFIG_ARG = "-noise";
 
         // singleton instance
         private static CommandLineArgsManager instance;
@@ -46,6 +47,11 @@ namespace AWSIM.AWAnalysis
                     string filePath = ExtractArgValue(arguments, ref i, TRACE_SAVING_PATH_ARG);
                     args.Add(TRACE_SAVING_PATH_ARG, filePath);
                 }
+                else if (arguments[i].StartsWith(NOISE_CONFIG_ARG))
+                {
+                    string noiseConfig = ExtractArgValue(arguments, ref i, NOISE_CONFIG_ARG);
+                    args.Add(NOISE_CONFIG_ARG, noiseConfig.ToLower());
+                }
             }
         }
 
@@ -56,8 +62,21 @@ namespace AWSIM.AWAnalysis
             {
                 index += 1;
                 if (index >= arguments.Length)
-                    throw new CustomSimException("Value of " + 
-                        argName + " argument is not provided.");
+                {
+                    if (argName == NOISE_CONFIG_ARG)
+                        return "true";
+                    throw new CustomSimException("Value of " +
+                                                 argName + " argument is not provided.");
+                }
+
+                // when the arg is solely "-noise" (without true and false suffix)
+                if (argName == NOISE_CONFIG_ARG && 
+                    arguments[index].ToLower() != "true" && arguments[index].ToLower() != "false")
+                {
+                    index -= 1;
+                    return "true";
+                }
+
                 return arguments[index];
             }
             // when arguments[index] is `-script=/tmp/input.txt`
@@ -103,6 +122,19 @@ namespace AWSIM.AWAnalysis
             outputFilePath = _args[TRACE_SAVING_PATH_ARG];
             return true;
         }
+        
+        public static bool GetNoiseConfigArg(out bool isNoiseEnable)
+        {
+            Dictionary<string, string> _args = Instance().args;
+            if (!_args.ContainsKey(NOISE_CONFIG_ARG))
+            {
+                isNoiseEnable = true;
+                return false;
+            }
+            isNoiseEnable = _args[NOISE_CONFIG_ARG].ToLower() == "true";
+            return true;
+        }
+
 
         public static float TraceSavingTimeout { get; set; } = Simulation.DUMMY_SAVING_TIMEOUT;
     }
