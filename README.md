@@ -10,7 +10,7 @@ This is a fork and extended version of [Autoware Foundation's AWSIM-Labs](https:
 
 ## Installation
 
-The environment requirements are list here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/#environment-preparation.
+The environment requirements are listed here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/#environment-preparation.
 
 ### Steps
 
@@ -27,16 +27,16 @@ git clone -b v1.3 https://github.com/duongtd23/AW-Runtime-Verification.git
 ```
 ./awsimlabs.x86_64 -script <path-to-script-file> -output <path-to-save-traces>
 ```
-where `<path-to-script-file>` and `p<ath-to-save-traces>` are path to the input script file (a content example is available below) and path to save the trace files, respectively.
+where `<path-to-script-file>` and `<path-to-save-traces>` are path to the input script file (a content example is available below) and path to save the trace files, respectively.
 Some other available command line arguments are:
 
-- `-noise false`, which will disable noise in lidar data (check details [here](https://github.com/RobotecAI/RobotecGPULidar/blob/develop/docs/GaussianNoise.md)).
+- `-noise false`, which will disable noise in lidar data (check details [here](https://github.com/RobotecAI/RobotecGPULidar/blob/develop/docs/GaussianNoise.md)). By default, noise is enabled.
 
-- `-perception_mode camera_lidar_fusion`, which launches the camera-lidar fusion mode. Note that the setup requirement for Autoware (to enable processing camera sensor data) must be done saperately. The lidar-only perception mode is launched when replacing `camera_lidar_fusion` by `lidar` or skipping the `-perception_mode` argument.
+- `-perception_mode camera_lidar_fusion`, which launches the camera-lidar fusion mode. Note that the setup requirement for Autoware (to enable processing camera sensor data) must be done separately. The lidar-only perception mode is launched by default or by replacing `camera_lidar_fusion` by `lidar`.
 
 
 ## AWSIM-Script
-### An axample
+### An example
 An example of the input accepted by AWSIM-Script is as follows:
 
 ```
