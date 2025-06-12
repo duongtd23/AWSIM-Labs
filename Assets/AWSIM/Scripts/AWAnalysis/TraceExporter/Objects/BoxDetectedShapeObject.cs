@@ -3,7 +3,7 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
     public class BoxDetectedShapeObject : IDetectedShapeObject
     {
         public Vector3Object size;
-        public string shape_type = "box";
+        public readonly string shape_type = "box";
         public string DumpMaudeStr()
         {
             if (size == null)

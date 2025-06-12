@@ -382,7 +382,18 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     };
                     break;
                 case Shape.POLYGON:
-                    Debug.LogWarning("Unhandle the case Detected object's shape type is polygon.");
+                    var polygonShape = new PolygonDetectedShapeObject()
+                    {
+                        footprint = new Vector3Object[detectedObject.Shape.Footprint.Points.Length]
+                    };
+                    for (int i = 0; i < detectedObject.Shape.Footprint.Points.Length; i++)
+                    {
+                        polygonShape.footprint[i] = new Vector3Object(
+                            detectedObject.Shape.Footprint.Points[i].X,
+                            detectedObject.Shape.Footprint.Points[i].Y,
+                            detectedObject.Shape.Footprint.Points[i].Z);
+                    };
+                    perObj.shape = polygonShape;
                     break;
                 case Shape.CYLINDER:
                     Debug.LogWarning("Unhandle the case Detected object's shape type is cylinder.");
