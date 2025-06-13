@@ -1,7 +1,4 @@
 # Contact
 
-English/日本語 OK
-
-e-mail : takatoki.makino@tier4.jp
-
-twitter : https&#58;//twitter.com/mackierx111
+If you have any questions, please follow our support guidelines and create a discussion thread.
+- [Autoware Foundation Discussions](https://autowarefoundation.github.io/autoware-documentation/main/support/support-guidelines/#2-create-a-new-question-thread)

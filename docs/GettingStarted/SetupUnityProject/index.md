@@ -47,13 +47,13 @@ AWSIM comes with a *standalone* flavor of [`Ros2ForUnity`](../../Components/ROS2
 
 !!! info
 
-    AWSIM's Unity version is currently **2022.3.36f1**
+    AWSIM's Unity version is currently **2022.3.62f1**
 
 Follow the steps below to install Unity on your machine:
 
 #### Install UnityHub:
 1. Install UnityHub to manage Unity projects. Please go to [Unity download page](https://unity3d.com/get-unity/download) and download latest `UnityHub.AppImage`.
-2. Install Unity 2022.3.36f1 via UnityHub:
+2. Install Unity 2022.3.62f1 via UnityHub:
     - Open new terminal, navigate to directory where `UnityHub.AppImage` is download and execute the following command:
 ```
 ./UnityHub.AppImage
@@ -68,7 +68,7 @@ Follow the steps below to install Unity on your machine:
        === "Ubuntu 22"
        - *NOTE: If the installation process has not started after clicking the download/install button, please copy the hyperlink (by right clicking the button and selecting `Copy link address`) and add it as an argument for Unity Hub app. An example command:
        ```
-       ./UnityHub.AppImage unityhub://2022.3.21f1/d91830b65d9b
+       ./UnityHub.AppImage unityhub://2022.3.62f1/d91830b65d9b
        ```
 
 4. After successful installation the version will be available in the `Installs` tab in Unity Hub.
@@ -130,9 +130,9 @@ To open the Unity AWSIM project in Unity Editor:
 
 To properly run and use AWSIM project in Unity it is required to download map package which is not included in the repository.
 
-1. Download and import `Nishishinjuku_URP_v0.1.0.unitypackage`
+1. Download and import `Nishishinjuku_URP_v0.2.0.unitypackage`
 
-    [Download Map Package](https://drive.google.com/drive/folders/1Q6PolpCIwiVRdPNMjSBAQ5t2TcCoY-KZ){.md-button .md-button--primary}
+    [Download Map Package](https://autoware-files.s3.us-west-2.amazonaws.com/awsim-labs/Nishishinjuku_URP_v0.2.0.unitypackage){.md-button .md-button--primary}
 
 2. In Unity Editor, from the menu bar at the top, select `Assets -> Import Package -> Custom Package...` and navigate the `Nishishinjuku_URP.unitypackage` file you've downloaded and open.
 3. Click `Import` button in the popup window to import the package.
