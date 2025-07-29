@@ -2,6 +2,7 @@ using System;
 
 namespace AWSIM.AWAnalysis.TraceExporter.Objects
 {
+    [Serializable]
     public class QuaternionObject
     {
         public double x;

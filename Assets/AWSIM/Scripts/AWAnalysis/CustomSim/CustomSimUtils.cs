@@ -26,7 +26,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             return MagnitudeIgnoreYAxis(point1 - point2);
         }
-        
+
         public static float MagnitudeIgnoreYAxis(Vector3 point1)
         {
             point1.y = 0f;
@@ -49,7 +49,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new LaneNotFoundException("[NPCSim] Cannot find traffic lane with name: " + laneName);
             return obj.GetComponent<TrafficLane>();
         }
-        
+
         public static List<TrafficLane> ParseLanes(List<string> laneNames)
         {
             var lanes = new List<TrafficLane>();
@@ -114,18 +114,18 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             }
             Debug.LogWarning("The given distance " + distance + " is larger than the total lane length." +
-                " The end point of the lane is used.");
+                             " The end point of the lane is used.");
             waypointIndex = lane.Waypoints.Length - 1;
             return lane.Waypoints[waypointIndex];
         }
-        
+
         /// <summary>
         /// </summary>
         /// <param name="lane"></param>
         /// <param name="distance"></param>
         /// <param name="waypointIndex"></param>
         /// <returns>vector3 representing the point on lane $lane, far $distance m from the starting point of $lane</returns>
-        public static Vector3 CalculatePosition(List<TrafficLane> lanes, float distance, 
+        public static Vector3 CalculatePosition(List<TrafficLane> lanes, float distance,
             out int trafficLaneIndex, out int waypointIndex)
         {
             float remainDistance = distance;
@@ -201,7 +201,6 @@ namespace AWSIM.AWAnalysis.CustomSim
                 Vector3 endPoint = lane.Waypoints[id];
                 result += DistanceIgnoreYAxis(startP, endPoint);
             }
-            
             return result;
         }
 
@@ -214,22 +213,28 @@ namespace AWSIM.AWAnalysis.CustomSim
         /// <param name="result"></param>
         /// <param name="offset"></param>
         /// <returns></returns>
-        public static bool LeftLaneOffset(TrafficLane rootLane, float rootOffset, TrafficLane[] allLanes, out TrafficLane result, out float offset)
+        public static bool LeftLaneOffset(TrafficLane rootLane, float rootOffset, TrafficLane[] allLanes,
+            out TrafficLane result, out float offset)
         {
             return SideLaneOffset(rootLane, rootOffset, allLanes,
                 true, out result, out offset);
         }
-        public static bool RightLaneOffset(TrafficLane rootLane, float rootOffset, TrafficLane[] allLanes, out TrafficLane result, out float offset)
+
+        public static bool RightLaneOffset(TrafficLane rootLane, float rootOffset, TrafficLane[] allLanes,
+            out TrafficLane result, out float offset)
         {
             return SideLaneOffset(rootLane, rootOffset, allLanes,
                 false, out result, out offset);
         }
 
-        public static bool LeftLaneOffset(string rootLane, float rootOffset, TrafficLane[] allLanes, out TrafficLane result, out float offset)
+        public static bool LeftLaneOffset(string rootLane, float rootOffset, TrafficLane[] allLanes,
+            out TrafficLane result, out float offset)
         {
             return LeftLaneOffset(ParseLane(rootLane), rootOffset, allLanes, out result, out offset);
         }
-        public static bool RightLaneOffset(string rootLane, float rootOffset, TrafficLane[] allLanes, out TrafficLane result, out float offset)
+
+        public static bool RightLaneOffset(string rootLane, float rootOffset, TrafficLane[] allLanes,
+            out TrafficLane result, out float offset)
         {
             return RightLaneOffset(ParseLane(rootLane), rootOffset, allLanes, out result, out offset);
         }
@@ -245,8 +250,9 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (rootLane.TurnDirection != TrafficLane.TurnDirectionType.STRAIGHT)
             {
                 throw new InvalidScriptException("[NPCSim] Side lane API only supports for straight lane. " +
-                    "The input lane is a " + rootLane.TurnDirection + " turn lane.");
+                                                 "The input lane is a " + rootLane.TurnDirection + " turn lane.");
             }
+
             Vector3 rootPosition = CalculatePosition(rootLane, rootOffset, out int rootWaypointIndex);
             Vector2 rootDirection = DirectionIgnoreYAxis(rootLane.Waypoints[0], rootLane.Waypoints[1]);
 
@@ -266,9 +272,9 @@ namespace AWSIM.AWAnalysis.CustomSim
                     if (lateralDistance < minLateralDistance)
                     {
                         if ((leftSide && OnRightSide(rootPosition,
-                            lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1])) ||
+                                lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1])) ||
                             (!leftSide && OnLeftSide(rootPosition,
-                            lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1])))
+                                lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1])))
                         {
                             laneIndex = i;
                             minLateralDistance = lateralDistance;
@@ -276,16 +282,17 @@ namespace AWSIM.AWAnalysis.CustomSim
                     }
                 }
             }
+
             if (!(minLateralDistance >= MIN_LATERAL_EPSILON &&
                   minLateralDistance <= MAX_LATERAL_EPSILON))
             {
-                string logStr = leftSide ?
-                    "left lane" : "right lane";
+                string logStr = leftSide ? "left lane" : "right lane";
                 Debug.LogError("Cannot find " + logStr + " of lane " + rootLane.name);
                 result = null;
                 offset = 0;
                 return false;
             }
+
             result = allLanes[laneIndex];
 
             // compute the offset
@@ -433,7 +440,8 @@ namespace AWSIM.AWAnalysis.CustomSim
                     }
                 }
             }
-            return LateralDistance(position, lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1], ignoreYAxis);
+            return LateralDistance(position, lane.Waypoints[waypointIndex], lane.Waypoints[waypointIndex + 1],
+                ignoreYAxis);
         }
 
         public static float LargestAngle(Vector3 position, Vector3 startPoint, Vector3 endPoint,
@@ -481,11 +489,13 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             return -A.x * B.y + A.y * B.x > 0;
         }
-        
+
         // calculate longitude distance from root to position according to forwardDirection vector
         public static float LongitudeDistance(Vector3 root, Vector3 forwardDirection, Vector3 position)
         {
-            root.y = 0; position.y = 0; forwardDirection.y = 0;
+            root.y = 0;
+            position.y = 0;
+            forwardDirection.y = 0;
             var angle = Vector3.Angle(forwardDirection, position - root);
             return Mathf.Cos(angle / 180 * Mathf.PI) * ((position - root).magnitude);
         }
@@ -520,14 +530,14 @@ namespace AWSIM.AWAnalysis.CustomSim
             waypointIndex = i + 1;
             return true;
         }
-        
+
         public static bool ForwardLaneOffset(TrafficLane rootLane, Vector3 rootPosition, float distance,
             out IPosition result, out float offset, out int waypointIndex)
         {
             CalculateOffset(rootLane, rootPosition, out float offset2, out waypointIndex);
             offset = offset2 + distance;
             result = new RelativePosition(
-                new LaneOffsetPosition(rootLane.name, offset2), 
+                new LaneOffsetPosition(rootLane.name, offset2),
                 RelativePositionSide.FORWARD,
                 distance);
             return true;
@@ -542,15 +552,191 @@ namespace AWSIM.AWAnalysis.CustomSim
         // project point $point on line made by two points $start and $end
         public static Vector3 ProjectPointOnLine(Vector3 point, Vector3 start, Vector3 end)
         {
-            return Vector3.Project((point - start),(end - start)) + start;
+            return Vector3.Project((point - start), (end - start)) + start;
         }
-        
+
         // rotate point $point around pivot $pivot an angle around Y-axis (clockwise direction)
         public static Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, float angle)
         {
             var v = point - pivot;
-            v = Quaternion.Euler(0,angle,0) * v;
+            v = Quaternion.Euler(0, angle, 0) * v;
             return pivot + v;
+        }
+
+        public static TrafficLane LaneAtPosition(Vector3 position, out int waypointId, 
+            out float laneOffset, float tolerance = 0.1f)
+        {
+            return LaneAtPosition(position, CustomSimManager.GetAllTrafficLanes(), 
+                                    out waypointId, out laneOffset, tolerance);
+        }
+
+        public static TrafficLane LaneAtPosition(Vector3 position, TrafficLane[] allTrafficLanes,
+            out int waypointId, out float laneOffset, float tolerance = 0.1f)
+        {
+            bool checkElevation = true;
+            if (Mathf.Approximately(position.z,0))
+            {
+                Debug.LogWarning($"[AWAnalysis] The elevation is likely not provided for point {position}." +
+                                 $"The interpreted point in map might not be the expected one.");
+                checkElevation = false;
+            }
+            List<TrafficLane> candidates = new();
+            List<int> candidateWpIDs = new();
+            List<float> candidateLaneOffsets = new();
+            foreach (var lane in allTrafficLanes)
+            {
+                if (IsPointOnCenterLane(position, lane, out int wpID, out float offset, tolerance, checkElevation))
+                {
+                    candidates.Add(lane);
+                    candidateWpIDs.Add(wpID);
+                    candidateLaneOffsets.Add(offset);
+                }
+            }
+            if (candidates.Count == 0)
+            {
+                waypointId = -1;
+                laneOffset = -1;
+                return null;
+            }
+
+            if (candidates.Count > 1)
+            {
+                int resultId = 0;
+                float maxZ = candidates[0].Waypoints[0].z;
+                string laneName = candidates[0].name;
+                for (int i = 1; i < candidates.Count; i++)
+                {
+                    laneName += ", " + candidates[i].name;
+                    if (candidates[i].Waypoints[0].z > maxZ)
+                    {
+                        maxZ = candidates[i].Waypoints[0].z;
+                        resultId = i;
+                    }
+                }
+                Debug.LogWarning($"[AWAnalysis] Found {candidates.Count} ({laneName}) " +
+                                 $"possible traffic lanes for position {position}." +
+                                 $"By default, the highest-elevation lane was selected.");
+                waypointId = candidateWpIDs[resultId];
+                laneOffset = candidateLaneOffsets[resultId];
+                return candidates[resultId];
+            }
+
+            waypointId = candidateWpIDs[0];
+            laneOffset = candidateLaneOffsets[0];
+            return candidates[0];
+        }
+
+        /// <summary>
+        /// check if a given point is on the lane
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="lane"></param>
+        /// <param name="waypointId">the waypoint index of the starting point of the segment on which the point is located.</param>
+        /// <param name="laneOffset">the lane offset of the point from the lane starting point</param>
+        /// <param name="tolerance"></param>
+        /// <returns> True if the point is on the lane center line, False otherwise.</returns>
+        public static bool IsPointOnCenterLane(Vector3 position, TrafficLane lane, 
+            out int waypointId, out float laneOffset, float tolerance = 0.1f, bool checkElevation = true)
+        {
+            Vector2 pos2D = new Vector2(position.x, position.z);
+            for(int i = 0; i < lane.Waypoints.Length - 1; i++)
+            {
+                if (checkElevation)
+                {
+                    if (DistancePointToLineSegment(position, lane.Waypoints[i], lane.Waypoints[i + 1]) <= tolerance)
+                    {
+                        waypointId = i;
+                        laneOffset = lane.DistanceUpToWaypoint(i) + Vector3.Distance(lane.Waypoints[i], position);
+                        return true;
+                    }
+                }
+                else
+                {
+                    Vector2 start = new Vector2(lane.Waypoints[i].x, lane.Waypoints[i].z);
+                    Vector2 end = new Vector2(lane.Waypoints[i + 1].x, lane.Waypoints[i + 1].z);
+                    if (DistancePointToLineSegment(pos2D, start, end) <= tolerance)
+                    {
+                        waypointId = i;
+                        laneOffset = lane.DistanceUpToWaypoint(i) + Vector2.Distance(start, pos2D);
+                        return true;
+                    }
+                }
+            }
+            waypointId = -1;
+            laneOffset = -1;
+            return false;
+        }
+
+        /// <summary>
+        /// Calculates the shortest distance from a point to a line segment in 2D.
+        /// If the projection falls outside the segment, return infinity
+        /// </summary>
+        /// <param name="point">The point to measure the distance from (Vector2).</param>
+        /// <param name="segmentStart">The starting point of the line segment (Vector2).</param>
+        /// <param name="segmentEnd">The ending point of the line segment (Vector2).</param>
+        /// <returns>The shortest distance from the point to the line segment.</returns>
+        public static float DistancePointToLineSegment(Vector2 point, Vector2 segmentStart, Vector2 segmentEnd)
+        {
+            // Vector from segmentStart to point
+            Vector2 AP = point - segmentStart;
+
+            // Vector representing the line segment
+            Vector2 AB = segmentEnd - segmentStart;
+
+            // Calculate the squared length of the segment (for normalization and avoiding sqrt early)
+            float lengthSq = AB.sqrMagnitude;
+
+            // If the segment has zero length, it's a point. Return distance to that point.
+            if (lengthSq == 0.0f)
+            {
+                return Vector2.Distance(point, segmentStart);
+            }
+
+            // Calculate the projection parameter (t)
+            // t = (AP dot AB) / |AB|^2
+            float t = Vector2.Dot(AP, AB) / lengthSq;
+
+            if (t < 0.0f || t > 1.0f)
+                return float.MaxValue;
+
+            // Calculate the closest point on the segment
+            Vector2 closestPoint = segmentStart + t * AB;
+
+            // Return the distance from the original point to the closest point on the segment
+            return Vector2.Distance(point, closestPoint);
+        }
+        
+        public static float DistancePointToLineSegment(Vector3 point, Vector3 segmentStart, Vector3 segmentEnd)
+        {
+            // Vector from segmentStart to point
+            Vector3 AP = point - segmentStart;
+
+            // Vector representing the line segment
+            Vector3 AB = segmentEnd - segmentStart;
+
+            // Calculate the squared length of the segment
+            float lengthSq = AB.sqrMagnitude;
+
+            // If the segment has zero length, return distance to that point
+            if (lengthSq == 0.0f)
+            {
+                return Vector3.Distance(point, segmentStart);
+            }
+
+            // Calculate the projection parameter (t)
+            float t = Vector3.Dot(AP, AB) / lengthSq;
+
+            // If the projection falls outside the segment, return infinity
+            if (t < 0.0f || t > 1.0f)
+            {
+                return float.MaxValue;
+            }
+
+            // Calculate the closest point on the segment
+            Vector3 closestPoint = segmentStart + t * AB;
+
+            // Return the distance from the original point to the closest point on the segment
+            return Vector3.Distance(point, closestPoint);
         }
     }
 }

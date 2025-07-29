@@ -93,6 +93,13 @@ namespace AWSIM.TrafficSimulation
         {
             vehicleStates.Add(NPCVehicleInternalState.Create(vehicle, lane, waypointIndex));
         }
+        
+        public void Register(NPCVehicle vehicle, TrafficLane lane, int waypointIndex, NPCConfig customConfig)
+        {
+            var internalState = NPCVehicleInternalState.Create(vehicle, lane, waypointIndex);
+            internalState.CustomConfig = customConfig;
+            vehicleStates.Add(internalState);
+        }
 
         /// <summary>
         /// Register <see cref="NPCVehicle"/> to be updated by the simulator.

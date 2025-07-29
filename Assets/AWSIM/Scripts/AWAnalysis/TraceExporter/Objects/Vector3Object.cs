@@ -2,6 +2,7 @@ using System;
 
 namespace AWSIM.AWAnalysis.TraceExporter.Objects
 {
+    [System.Serializable]
     public class Vector3Object
     {
         public double x;
@@ -25,6 +26,16 @@ namespace AWSIM.AWAnalysis.TraceExporter.Objects
         public bool Equals(Vector3Object other)
         {
             return x.Equals(other.x) && y.Equals(other.y) && z.Equals(other.z);
+        }
+
+        public UnityEngine.Vector3 ToUnityVector3()
+        {
+            return new UnityEngine.Vector3((float)x, (float)y, (float)z);
+        }
+
+        public override string ToString()
+        {
+            return $"({x}, {y}, {z})";
         }
 
         public string DumpMaudeStr()

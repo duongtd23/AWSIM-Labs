@@ -266,6 +266,8 @@ namespace AWSIM.TrafficSimulation
             }
             if (CustomConfig.HasDesiredSpeed(lane.name))
                 return CustomConfig.GetDesiredSpeed(lane.name);
+            if (CustomConfig.IsOverallTargetSpeedDefined())
+                return Mathf.Min(CustomConfig.TargetSpeed, lane.SpeedLimit);
             return lane.SpeedLimit;
         }
 

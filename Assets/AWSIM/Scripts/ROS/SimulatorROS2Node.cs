@@ -145,5 +145,12 @@ namespace AWSIM
         {
             return ros2UnityCore.Ok();
         }
+        
+        static public Service<I, O> CreateService<I, O>(string topic, Func<I, O> callback, QualityOfServiceProfile qos = null)
+            where I : Message, new()
+            where O : Message, new()
+        {
+            return node.CreateService(topic, callback, qos);
+        }
     }
 }

@@ -8,7 +8,7 @@ namespace AWSIM_Script.Object
 {
 	public class NPCConfig
 	{
-        // this value will be replaced by the speed limit of the coressponding lane
+        // this value will be replaced by the speed limit of the corresponding lane
         public const float DUMMY_SPEED = -1;
         public const string CLONE_PATTERN = @"(.*)(\(Clone\))(_\d+)?$";
 
@@ -18,7 +18,6 @@ namespace AWSIM_Script.Object
 
         // routes and (optional) desired speed limit
         // a map from lane name to the desired speed limit
-        // if the speed limit is not set by the user, it is 0
         public List<Tuple<string, float>> RouteAndSpeeds { get; set; }
 
         public void UpdateRouteAndSpeeds(List<string> route)
@@ -33,8 +32,16 @@ namespace AWSIM_Script.Object
         public const float DUMMY_DECELERATION = 0;
         public float Acceleration { get; set; } = DUMMY_ACCELERATION;
         public float Deceleration { get; set; } = DUMMY_DECELERATION;
-        public bool AggresiveDrive { get; set; }
-
+        
+        // this is overall target speed. Speeds defined in RouteAndSpeeds have higher priority
+        public float TargetSpeed { get; set; } = DUMMY_SPEED;
+        public bool AggressiveDrive { get; set; }
+    
+        /// <summary>
+        /// whether RouteAndSpeeds define a target speed for $trafficLane
+        /// </summary>
+        /// <param name="trafficLane"></param>
+        /// <returns></returns>
         public bool HasDesiredSpeed(string trafficLane)
         {
             if (RouteAndSpeeds != null &&
@@ -85,6 +92,11 @@ namespace AWSIM_Script.Object
         public static NPCConfig DummyConfigWithoutRoute()
         {
             return new NPCConfig();
+        }
+
+        public bool IsOverallTargetSpeedDefined()
+        {
+            return !Mathf.Approximately(TargetSpeed, DUMMY_SPEED);
         }
     }
 

@@ -391,7 +391,7 @@ namespace AWSIM_Script.Parser
             throw new InvalidScriptException("Cannot parse vehicle type from: " + node.GetText());
         }
 
-        private static VehicleType ParseVehicleType(string vehicleType)
+        public static VehicleType ParseVehicleType(string vehicleType)
         {
             switch (vehicleType.ToLower())
             {
@@ -956,7 +956,7 @@ namespace AWSIM_Script.Parser
                 switch (configExp.children[0].GetText())
                 {
                     case AGGRESSIVE_DRIVING:
-                        npcConfig.AggresiveDrive = true;
+                        npcConfig.AggressiveDrive = true;
                         return 1;
                     case ACCELERATION:
                         bool ok = ParseNumber(configExp.children[2], out float accel);

@@ -437,6 +437,7 @@ namespace AWSIM
         public Vector3 Position => rigidbody.position;
         public Vector3 Velocity => lastVelocity;
         public Vector3 Rotation => rigidbody.rotation.eulerAngles;
+        public Quaternion RotationQ => rigidbody.rotation;
         public float EulerAnguleY => rigidbody.rotation.eulerAngles.y;
         public float YawAngularSpeed => yawAngularSpeed;
         public float Acceleration => acceleration;

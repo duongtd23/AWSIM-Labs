@@ -133,5 +133,15 @@ namespace AWSIM.TrafficSimulation
                 return name;
             return matches.Groups[1].ToString();
         }
+
+        public void ResetNextLanes(List<TrafficLane> _nextLanes)
+        {
+            this.nextLanes = _nextLanes;
+        }
+        
+        public void ResetPrevLanes(List<TrafficLane> _prevLanes)
+        {
+            this.prevLanes = _prevLanes;
+        }
     }
 }

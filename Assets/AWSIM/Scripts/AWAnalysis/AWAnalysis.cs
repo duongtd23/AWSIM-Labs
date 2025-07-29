@@ -11,6 +11,7 @@ using AWSIM.Loader;
 using AWSIM.TrafficSimulation;
 using autoware_vehicle_msgs.msg;
 using autoware_adapi_v1_msgs.msg;
+using AWSIM.AWAnalysis.Monitor;
 using RGLUnityPlugin;
 
 namespace AWSIM.AWAnalysis
@@ -35,7 +36,7 @@ namespace AWSIM.AWAnalysis
         LIDAR, // default
         CAMERA_LIDAR_FUSION
     }
-    
+
     public class AWAnalysis : MonoBehaviour
     {
         // taxi, hatchback, small car, truck, van prefabs, respectively
@@ -44,23 +45,28 @@ namespace AWSIM.AWAnalysis
 
         [SerializeField, Tooltip("Vehicle layer for raytracing the collision distances.")]
         private LayerMask vehicleLayerMask;
+
         [SerializeField, Tooltip("Ground layer for raytracing the collision distances.")]
         private LayerMask groundLayerMask;
-        
+
         private Camera _sensorCamera;
         private TraceWriter _traceWriter;
         private bool _activated;
         private Simulation _simulation;
         private CustomEgoSetting _customEgoSetting;
 
+        private GroundTruthInfoPublisher _groundTruthInfoPublisher;
+        private bool _engageCmdSent;
+        private static float _timeNow;
+
         public void Awake()
         {
             CustomSimManager.Initialize(this.gameObject,
                 npcTaxi, npcHatchback,
                 npcSmallCar, npcTruck, npcVan,
-                casualPedestrian,elegantPedestrian,
+                casualPedestrian, elegantPedestrian,
                 vehicleLayerMask, groundLayerMask);
-            
+
             _simulation = ParseSimulationScenario();
             if (_simulation != null)
             {
@@ -75,24 +81,30 @@ namespace AWSIM.AWAnalysis
 
         public void FixedUpdate()
         {
-            if (_simulation == null)
-                return;
+            _timeNow = Time.fixedTime;
+            // if (_simulation == null)
+            //     return;
             if (_activated)
             {
                 CustomSimManager.Manager()?.UpdateNPCs();
                 EgoSingletonInstance.CustomEgoSetting?.UpdateEgo();
-                if (_traceWriter != null)
-                    _traceWriter?.Update();
+                _traceWriter?.Update();
+                _groundTruthInfoPublisher?.Publish();
+                // if (!_engageCmdSent)
+                //     SendEngageCmd();
             }
-            else if(Ready())
+            else if (Ready())
             {
                 _activated = true;
                 Activate();
                 InitializeEgo();
                 ConfigLidarNoise();
             }
+
+            if (_groundTruthInfoPublisher == null && SimulatorROS2Node.Ok())
+                InitializeSimulationPublisher();
         }
-        
+
         private bool Ready()
         {
             return EgoSingletonInstance.AutowareEgoCarGameObject != null;
@@ -108,12 +120,16 @@ namespace AWSIM.AWAnalysis
                 PreProcessingSimulation(ref _simulation);
                 ExecuteSimulation(_simulation);
                 PostProcessingSimulation(ref _simulation);
-                InitializeTrace(_simulation.SavingTimeout);
+                // InitializeTrace(_simulation.SavingTimeout);
             }
+
+            ExecutionStateTracker.Start();
         }
 
         private void InitializeEgo()
         {
+            if (_customEgoSetting == null)
+                return;
             if (FindObjectOfType<Loader.Loader>() == null)
             {
                 _customEgoSetting.SetInitPose();
@@ -130,7 +146,7 @@ namespace AWSIM.AWAnalysis
             // if not defined, noise is enabled by default
             if (!argDefined)
                 isNoiseEnable = true;
-            Debug.Log($"[AWAnalysis] Enabling lidar noise: {isNoiseEnable}.");            
+            Debug.Log($"[AWAnalysis] Enabling lidar noise: {isNoiseEnable}.");
 
             if (isNoiseEnable)
                 return;
@@ -142,7 +158,7 @@ namespace AWSIM.AWAnalysis
                 lidarSensor.applyAngularGaussianNoise = false;
             }
         }
-        
+
         public static Simulation ParseSimulationScenario()
         {
             bool argDefined = CommandLineArgsManager.GetScriptArg(out string scriptFilePath);
@@ -152,6 +168,7 @@ namespace AWSIM.AWAnalysis
                                  "Specify it by passing argument `-script <path-to-script-file>`.");
                 return null;
             }
+
             Debug.Log("Loading input script " + scriptFilePath);
             Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFilePath);
 
@@ -202,22 +219,6 @@ namespace AWSIM.AWAnalysis
             {
                 Debug.LogWarning("[AWAnalysis] Trace will not recorded since path to save trace output is not given. " +
                                  "Specify it by passing argument `-output <path-to-save-trace-file>`.");
-                
-                // subscribe to operation mode ready event
-                // once the state becomes ready, send the engage command
-                SimulatorROS2Node.CreateSubscription<OperationModeState>(
-                    TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
-                    {
-                        if (msg.Is_autonomous_mode_available)
-                        {
-                            // sending engage command
-                            Debug.LogWarning("Sending engage command");
-                            var engageMsg = new Engage();
-                            engageMsg.Engage_ = true;
-                            SimulatorROS2Node.CreatePublisher<Engage>(
-                                TopicName.TOPIC_AUTOWARE_ENGAGE).Publish(engageMsg);
-                        }
-                    });
             }
             else
             {
@@ -237,11 +238,32 @@ namespace AWSIM.AWAnalysis
                         _sensorCamera,
                         perceptionMode,
                         new TraceCaptureConfig(CaptureStartingTime.AW_AUTO_MODE_READY, savingTimeout));
-                
+
                 _traceWriter.Start();
             }
         }
-        
+
+        private void InitializeSimulationPublisher()
+        {
+            _groundTruthInfoPublisher = new GroundTruthInfoPublisher(_sensorCamera);
+            Debug.Log("[AWAnalysis] Initialized ground truth kinematic publisher.");
+        }
+
+        private void SendEngageCmd()
+        {
+            if (ExecutionStateTracker.State == ExecutionState.AUTO_MODE_READY &&
+                Time.fixedTime >= ExecutionStateTracker.AutoOpModeReadyTime + ConfigLoader.Config().DelaySendingEngageCmd)
+            {
+                // sending engage command, let Ego vehicle start moving
+                var engageMsg = new Engage();
+                engageMsg.Engage_ = true;
+                SimulatorROS2Node.CreatePublisher<Engage>(
+                    TopicName.TOPIC_AUTOWARE_ENGAGE).Publish(engageMsg);
+                Debug.Log("[AWAnalysis] Sending engage message.");
+                _engageCmdSent  = true;
+            }
+        }
+
         private void ExecuteSimulation(Simulation simulation)
         {
             foreach (NPCCar npcCar in simulation.NPCs)
@@ -253,6 +275,11 @@ namespace AWSIM.AWAnalysis
             {
                 CustomSimManager.SpawnPedestrian(npcPedes);
             }
+        }
+
+        public static float GetFixedTime()
+        {
+            return _timeNow;
         }
 
         private void PreProcessingSimulation(ref Simulation simulation)

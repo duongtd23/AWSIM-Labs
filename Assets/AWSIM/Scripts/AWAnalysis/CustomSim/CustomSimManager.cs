@@ -192,10 +192,20 @@ namespace AWSIM.AWAnalysis.CustomSim
                         (delayTime.DelayType == DelayKind.UNTIL_EGO_ENGAGE && egoEngaged &&
                          Time.fixedTime - egoEngagedTime >= delayTime.DelayAmount))
                     {
-                        npcVehicleSimulator.Register(npcVehicle, waypointIndex,
-                            npcCar.Goal,
-                            npcCar.Config,
-                            npcCar.VehicleType);
+                        if (npcCar.Goal == null)
+                        {
+                            npcVehicleSimulator.Register(npcVehicle, 
+                                CustomSimUtils.ParseLane(npcCar.InitialPosition.GetLane()), 
+                                waypointIndex, 
+                                npcCar.Config);
+                        }
+                        else
+                        {
+                            npcVehicleSimulator.Register(npcVehicle, waypointIndex,
+                                npcCar.Goal,
+                                npcCar.Config,
+                                npcCar.VehicleType);
+                        }
                         removeAfter.Add(npcVehicle);
                     }
                 }
@@ -388,7 +398,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             
             var internalState = npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
                 state.CustomConfig != null &&
-                state.CustomConfig.AggresiveDrive &&
+                state.CustomConfig.AggressiveDrive &&
                 state.CustomConfig.Deceleration >= 9.8f);
             if (internalState?.SpeedMode == NPCVehicleSpeedMode.STOP)
             {
@@ -458,7 +468,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         {
             var results = GetNPCs().FindAll(npc0 =>
                 npc0.CustomConfig != null &&
-                npc0.CustomConfig.AggresiveDrive &&
+                npc0.CustomConfig.AggressiveDrive &&
                 npc0.CustomConfig.Deceleration >= 9.8f);
             if (results.Count >= 2)
             {
@@ -582,7 +592,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static NPCVehicle SpawnNPCAndDelayMovement(NPCCar npcCar)
         {
             if (npcCar.SpawnDelayOption == null || npcCar.SpawnDelayOption.ActionDelayed != DelayedAction.MOVING)
-                throw new CustomSimException("[AWAnalysis]: Invalid NPCSpawnDelay paramater.");
+                throw new CustomSimException("[AWAnalysis]: Invalid NPCSpawnDelay parameter.");
 
             // spawn NPC
             NPCVehicle npc = SpawnNPC(npcCar.VehicleType, npcCar.InitialPosition, out int waypointIndex, npcCar.Name);
@@ -687,7 +697,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         public static NPCVehicleInternalState DecelerationNPCInternalState() => 
             Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
                 state.CustomConfig != null &&
-                state.CustomConfig.AggresiveDrive &&
+                state.CustomConfig.AggressiveDrive &&
                 state.CustomConfig.Deceleration >= 9.8f);
         public static NPCVehicleInternalState SwerveNPCInternalState() => 
             Manager().npcVehicleSimulator?.VehicleStates?.FirstOrDefault(state =>
@@ -862,6 +872,81 @@ namespace AWSIM.AWAnalysis.CustomSim
                 throw new NullReferenceException("[NPCSim] Could not find an instance of `CustomNPCSpawningManager`. " +
                     "Initialize it with `CustomNPCSpawningManager.Initialize()`");
             }
+        }
+
+        /// <summary>
+        /// reset delay to 0 for the $vehicle, i.e., making it move immediately
+        /// </summary>
+        /// <param name="vehicle"></param>
+        public static void RemoveDelayFromNPC(NPCVehicle vehicle, float delay=0f)
+        {
+            var waypointId= _manager.delayingMoveNPCs[vehicle].Item1;
+            var npcCar = _manager.delayingMoveNPCs[vehicle].Item2;
+            // npcCar.SpawnDelayOption = NPCDelayTime.DelayMoveUntilEgoEngaged(delay);
+            npcCar.SpawnDelayOption = NPCDelayTime.DelayMove(delay);
+            _manager.delayingMoveNPCs[vehicle] = new Tuple<int, NPCCar>(waypointId, npcCar);
+        }
+
+        /// <summary>
+        /// reset the lane of the $vehicle.
+        /// Example use case: to reset the vehicle with a new virtual lane (e.g., constructed from a sequence of desired waypoints) 
+        /// </summary>
+        /// <param name="vehicle">must currently on $newLane</param>
+        /// <param name="newLane"></param>
+        public static void ResetLanePositionForNPC(NPCVehicle vehicle, TrafficLane newLane)
+        {
+            var npcCar = _manager.delayingMoveNPCs[vehicle].Item2;
+            npcCar.InitialPosition = new LaneOffsetPosition(newLane.name, 0);
+            _manager.delayingMoveNPCs[vehicle] = new Tuple<int, NPCCar>(1, npcCar);
+        }
+
+        public static void ResetMotionProfileForNPC(ref NPCVehicle vehicle,
+            float targetSpeed, float acceleration, float deceleration,
+            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined)
+        {
+            vehicle.CustomConfig = ResetMotionProfileForNPCConfig(vehicle.CustomConfig,
+                targetSpeed, acceleration, deceleration,
+                isSpeedDefined, isAccelerationDefined, isDecelerationDefined);
+            
+            if (_manager.delayingMoveNPCs[vehicle] != null)
+            {
+                var waypointId = _manager.delayingMoveNPCs[vehicle].Item1;
+                var npcCar = _manager.delayingMoveNPCs[vehicle].Item2;
+                npcCar.Config = ResetMotionProfileForNPCConfig(npcCar.Config,
+                    targetSpeed, acceleration, deceleration,
+                    isSpeedDefined, isAccelerationDefined, isDecelerationDefined);
+                _manager.delayingMoveNPCs[vehicle] = new Tuple<int, NPCCar>(waypointId, npcCar);
+            }        
+        }
+        
+        public static NPCConfig ResetMotionProfileForNPCConfig(NPCConfig config,
+            float targetSpeed, float acceleration, float deceleration,
+            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined)
+        {
+            config ??= new NPCConfig();
+            if (isSpeedDefined)
+                config.TargetSpeed = targetSpeed;
+            if (isAccelerationDefined)
+                config.Acceleration = acceleration;
+            if (isDecelerationDefined)
+                config.Deceleration = deceleration;
+            return config;
+        }
+
+        // despawn NPC immediately
+        public static bool DespawnNPC(NPCVehicle vehicle)
+        {
+            var internalState = Manager().npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
+                state.Vehicle == vehicle);
+            if (internalState != null)
+            {
+                internalState.ShouldDespawn = true;
+                UnityEngine.Object.DestroyImmediate(vehicle.gameObject);
+                Manager().npcs.Remove(vehicle);
+                return true;
+            }
+            Debug.LogError($"[AWAnalysis] Could not find internal state of {vehicle}.");
+            return false;
         }
     }
 }

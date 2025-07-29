@@ -7,6 +7,7 @@ using autoware_adapi_v1_msgs.msg;
 using autoware_perception_msgs.msg;
 using autoware_vehicle_msgs.msg;
 using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.Monitor;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
 using AWSIM.TrafficSimulation;
 using tier4_perception_msgs.msg;
@@ -37,8 +38,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
         
         // ROS time at start up
         // protected double _rosTimeAtStart;
-        // time when autonomous operation mode becomes ready
-        protected float _autoOpModeReadyTime = -1f;
         
         protected Queue<Tuple<double, PredictedObject[]>> _objectDetectedMsgs;
         protected Queue<Tuple<double, DetectedObjectWithFeature[]>> _cameraObjectDetectedMsgs;
@@ -88,48 +87,25 @@ namespace AWSIM.AWAnalysis.TraceExporter
         
         public void Start()
         {
-            _state = TraceCaptureState.INITIALIZED;
-            // difference between ROS time and Unity time
-            // updated: since we use Unity time source, this is no longer needed
-            // var rosTime = SimulatorROS2Node.GetCurrentRosTime();
-            // _rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9);
+            _state = TraceCaptureState.NOT_YET_CAPTURE;
+            // // difference between ROS time and Unity time
+            // // updated: since we use Unity time source, this is no longer needed
+            // // var rosTime = SimulatorROS2Node.GetCurrentRosTime();
+            // // _rosTimeAtStart = rosTime.Sec + rosTime.Nanosec / Math.Pow(10, 9);
+        }
+        
+        private bool IsReadyToCapture()
+        {
             switch (_config.TraceCaptureFrom)
             {
                 case CaptureStartingTime.AW_AUTO_MODE_READY:
-                    opModeSubscriber = SimulatorROS2Node.CreateSubscription<OperationModeState>(
-                        TopicName.TOPIC_API_OPERATION_MODE_STATE, msg =>
-                        {
-                            if (msg.Is_autonomous_mode_available && _autoOpModeReadyTime < 0)
-                            {
-                                _autoOpModeReadyTime = _timeNow;
-                                _state = TraceCaptureState.AUTO_MODE_READY;
-                                SubscribeRosEvents();
-                            }
-                        });
-                    break;
+                    return ExecutionStateTracker.State >= ExecutionState.AUTO_MODE_READY &&
+                           _timeNow >= ExecutionStateTracker.AutoOpModeReadyTime +
+                                        ConfigLoader.Config().DelaySendingEngageCmd;
                 case CaptureStartingTime.AW_LOCALIZATION_INITIALIZED:
-                    try
-                    {
-                        localizationInitStateSubscriber = SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-                        TopicName.TOPIC_LOCALIZATION_INITIALIZATION_STATE, msg =>
-                        {
-                            if (msg.State == LocalizationInitializationState.INITIALIZED)
-                            {
-                                _state = TraceCaptureState.READY_TO_CAPTURE;
-                                SubscribeRosEvents();
-                            }
-                        });
-                    }
-                    catch (NullReferenceException e)
-                    {
-                        Debug.LogError("[AWAnalysis] Cannot create ROS subscriber. " +
-                            "Make sure Autoware has been started. Exception detail: " + e);
-                    }
-                    break;
-                case CaptureStartingTime.AWSIM_STARTED:
-                    _state = TraceCaptureState.READY_TO_CAPTURE;
-                    SubscribeRosEvents();
-                    break;
+                    return ExecutionStateTracker.State >= ExecutionState.LOCALIZATION_SUCCEEDED;
+                default:
+                    return true;
             }
         }
 
@@ -138,47 +114,27 @@ namespace AWSIM.AWAnalysis.TraceExporter
             _timeNow = Time.fixedTime;
             switch (_state)
             {
-                case TraceCaptureState.INITIALIZED: 
-                case TraceCaptureState.TRACE_WRITTEN:
-                    break;
-                case TraceCaptureState.AUTO_MODE_READY:
-                    if (_timeNow >= _autoOpModeReadyTime + ConfigLoader.Config().DelaySendingEngageCmd)
+                case TraceCaptureState.NOT_YET_CAPTURE:
+                    if (IsReadyToCapture())
                     {
-                        _state = TraceCaptureState.READY_TO_CAPTURE;
-                        // sending engage command
-                        var engageMsg = new Engage();
-                        engageMsg.Engage_ = true;
-                        SimulatorROS2Node.CreatePublisher<Engage>(
-                            TopicName.TOPIC_AUTOWARE_ENGAGE).Publish(engageMsg);
+                        SubscribeRosEvents();
+                        _state = TraceCaptureState.CAPTURING;
                     }
                     break;
-                case TraceCaptureState.READY_TO_CAPTURE:
-                    _startTime = _timeNow;
-                    _state = TraceCaptureState.TRACE_CAPTURING;
-                    Debug.Log("[AWAnalysis] Start capturing trace");
-                    break;
-                
-                case TraceCaptureState.TRACE_CAPTURING:
+                case TraceCaptureState.CAPTURING:
                     // if saving-timeout is reached
-                    if (_config.SavingTimeout != Simulation.DUMMY_SAVING_TIMEOUT &&
+                    if (!Mathf.Approximately(_config.SavingTimeout, Simulation.DUMMY_SAVING_TIMEOUT) &&
                         _timeNow > _config.SavingTimeout + _startTime)
                     {
                         _traceObject.comment = "Timeout reached before Ego arrives goal.";
-                        _state = TraceCaptureState.EGO_GOAL_ARRIVED;
+                        FlushMessages();
+                        WriteFile();
+                        Debug.Log($"[AWAnalysis] Trace was written to {_filePath}");
+
+                        _state = TraceCaptureState.DONE;
                         break;
                     }
                     UpdateTraceObject(_timeNow);
-                    break;
-                
-                case TraceCaptureState.EGO_GOAL_ARRIVED:
-                    FlushMessages();
-                    WriteFile();
-                    // if (_traceFormat == TraceFormat.MAUDE)
-                        // WriteMaudeFile();
-                    // else if (_traceFormat == TraceFormat.YAML)
-                        // WriteYamlFile();
-                    Debug.Log($"[AWAnalysis] Trace was written to {_filePath}");
-                    _state = TraceCaptureState.TRACE_WRITTEN;
                     break;
             }
         }
@@ -189,69 +145,33 @@ namespace AWSIM.AWAnalysis.TraceExporter
             newState.timeStamp = timeStamp;
             
             // ego ground truth
-            newState.groundtruth_ego = new EgoGroundTruthObject();
-            newState.groundtruth_ego.pose = new Pose2Object();
-            newState.groundtruth_ego.pose.position = new Vector3Object(_egoVehicle.Position.x, _egoVehicle.Position.y, _egoVehicle.Position.z);
-            var egoRotation = _egoVehicle.Rotation.eulerAngles;
-            newState.groundtruth_ego.pose.rotation = new Vector3Object(egoRotation.x, egoRotation.y, egoRotation.z);
-            
-            newState.groundtruth_ego.twist = new TwistObject();
-            newState.groundtruth_ego.twist.linear = new Vector3Object(_egoVehicle.Velocity.x, _egoVehicle.Velocity.y, _egoVehicle.Velocity.z);
-            newState.groundtruth_ego.twist.angular = new Vector3Object(_egoVehicle.AngularVelocity.x, _egoVehicle.AngularVelocity.y, _egoVehicle.AngularVelocity.z);
-            
-            newState.groundtruth_ego.acceleration = new AccelerationObject();
-            newState.groundtruth_ego.acceleration.linear = new Vector3Object(_egoVehicle.Acceleration.x, _egoVehicle.Acceleration.y, _egoVehicle.Acceleration.z);
-            newState.groundtruth_ego.acceleration.angular = new Vector3Object(_egoVehicle.AngularAcceleration.x, _egoVehicle.AngularAcceleration.y, _egoVehicle.AngularAcceleration.z);
+            newState.groundtruth_ego = StatusExtraction.ExtractEgoKinematic(_egoVehicle);
             
             // NPC vehicles ground truth
-            int npcCount = CustomSimManager.GetNPCs().Count;
-            newState.groundtruth_NPCs = new NPCGroundTruthObject[npcCount];
-            for (int i = 0; i < npcCount; i++)
+            var npcVehicles = CustomSimManager.GetNPCs();
+            newState.groundtruth_NPCs = StatusExtraction.ExtractNPCKinematics(npcVehicles);
+            if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
             {
-                var npc = CustomSimManager.GetNPCs()[i];
-                newState.groundtruth_NPCs[i] = new NPCGroundTruthObject();
-                newState.groundtruth_NPCs[i].name = npc.ScriptName;
-                
-                newState.groundtruth_NPCs[i].pose = new Pose2Object();
-                newState.groundtruth_NPCs[i].pose.position = new Vector3Object(npc.Position.x, npc.Position.y, npc.Position.z);
-                newState.groundtruth_NPCs[i].pose.rotation = new Vector3Object(npc.Rotation.x, npc.Rotation.y, npc.Rotation.z);
-                
-                newState.groundtruth_NPCs[i].twist = new TwistObject();
-                newState.groundtruth_NPCs[i].twist.linear = new Vector3Object(npc.Velocity.x, npc.Velocity.y, npc.Velocity.z);
-                newState.groundtruth_NPCs[i].twist.angular = new Vector3Object(0, npc.YawAngularSpeed, 0);
-
-                newState.groundtruth_NPCs[i].acceleration = npc.Acceleration;
-                
-                if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
+                var bboxes = StatusExtraction.Extract2DVehicleBoundingBoxes(
+                    npcVehicles, _sensorCamera, _egoVehicle, _maxDistanceVisibleOnCamera);
+                for (int i = 0; i < newState.groundtruth_NPCs.Length; i++)
                 {
-                    var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(npc.Position, _egoVehicle.Position);
-                    if (distanceToEgo < _maxDistanceVisibleOnCamera &&
-                        CameraUtils.NPCVisibleByCamera(_sensorCamera, npc))
-                        newState.groundtruth_NPCs[i].bounding_box = DumpNPCGtBoundingBox(npc);
+                    if (bboxes[i] != null)
+                        newState.groundtruth_NPCs[i].bounding_box = bboxes[i];
                 }
             }
-            
+
             // pedestrians
-            int pedesCount = CustomSimManager.GetPedestrians().Count;
-            newState.groundtruth_pedestrians = new PedestrianGtObject[pedesCount];
-            for (int i = 0; i < pedesCount; i++)
+            var npcPedestrians = CustomSimManager.GetPedestrians();
+            newState.groundtruth_pedestrians = StatusExtraction.ExtractPedestrians(npcPedestrians);
+            if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
             {
-                var entry = CustomSimManager.GetPedestrians()[i];
-                newState.groundtruth_pedestrians[i] = new PedestrianGtObject();
-                newState.groundtruth_pedestrians[i].name = entry.Item1.Name;
-                
-                newState.groundtruth_pedestrians[i].pose = new Pose2Object();
-                newState.groundtruth_pedestrians[i].pose.position = new Vector3Object(entry.Item1.LastPosition.x, entry.Item1.LastPosition.y, entry.Item1.LastPosition.z);
-                newState.groundtruth_pedestrians[i].pose.rotation = new Vector3Object(entry.Item1.LastRotation.x, entry.Item1.LastRotation.y, entry.Item1.LastRotation.z);
-                
-                newState.groundtruth_pedestrians[i].speed = entry.Item1.Config.Speed;
-                
-                if (_perceptionMode == PerceptionMode.CAMERA_LIDAR_FUSION)
+                var bboxes = StatusExtraction.Extract2DPedestrianBoundingBoxes(
+                    npcPedestrians, _sensorCamera, _egoVehicle, _maxDistanceVisibleOnCamera);
+                for (int i = 0; i < newState.groundtruth_pedestrians.Length; i++)
                 {
-                    var distanceToEgo = CustomSimUtils.DistanceIgnoreYAxis(entry.Item1.LastPosition, _egoVehicle.Position);
-                    if (distanceToEgo < _maxDistanceVisibleOnCamera &&
-                        CameraUtils.PedestrianVisibleByCamera(_sensorCamera, entry.Item2))
-                        newState.groundtruth_pedestrians[i].bounding_box = DumpPedestrianGtBoundingBox(entry.Item2);
+                    if (bboxes[i] != null)
+                        newState.groundtruth_pedestrians[i].bounding_box = bboxes[i];
                 }
             }
             
@@ -558,14 +478,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
                     });
             }
 
-            // log when the Ego vehicle arrives its goal
-            routeStateSubscriber = SimulatorROS2Node.CreateSubscription<RouteState>(
-                TopicName.TOPIC_API_ROUTING_STATE, msg =>
-                {
-                    if (msg.State == RouteState.ARRIVED && _state != TraceCaptureState.TRACE_WRITTEN)
-                        _state = TraceCaptureState.EGO_GOAL_ARRIVED;
-                });
-            
             // capture planning trajectory
             if (ConfigLoader.CapturePlanTrajectory())
             {
@@ -577,154 +489,6 @@ namespace AWSIM.AWAnalysis.TraceExporter
                             msg.Points));
                     });
             }
-        }
-
-        /// <summary>
-        /// return the bounding box of `npc`.
-        /// </summary>
-        /// <param name="npc"></param>
-        /// <returns></returns>
-        protected BoundingBoxObject DumpNPCGtBoundingBox(NPCVehicle npc)
-        {
-            MeshCollider bodyCollider = npc.GetComponentInChildren<MeshCollider>();
-            Vector3 localPosition = bodyCollider.transform.parent.localPosition;
-
-            Mesh mesh = bodyCollider.sharedMesh;
-            Vector3[] localVertices = mesh.vertices;
-
-            var worldVertices = new List<Vector3>();
-            for (int i = 0; i < localVertices.Length; i++)
-                worldVertices.Add(npc.transform.TransformPoint(
-                    localVertices[i] + localPosition));
-
-            var screenVertices = new List<Vector3>();
-            for (int i = 0; i < worldVertices.Count; i++)
-            {
-                var screenPoint = _sensorCamera.WorldToScreenPoint(worldVertices[i]);
-                if (screenPoint.z > 0)
-                {
-                    screenPoint = CameraUtils.FixScreenPoint(screenPoint, _sensorCamera);
-                    screenVertices.Add(screenPoint);
-                }
-            }
-            float min_x = screenVertices[0].x;
-            float min_y = screenVertices[0].y;
-            float max_x = screenVertices[0].x;
-            float max_y = screenVertices[0].y;
-
-            for (int i = 1; i < screenVertices.Count; i++)
-            {
-                if (screenVertices[i].x < min_x &&
-                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
-                    min_x = screenVertices[i].x;
-                if (screenVertices[i].y < min_y &&
-                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
-                    min_y = screenVertices[i].y;
-                if (screenVertices[i].x > max_x &&
-                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
-                    max_x = screenVertices[i].x;
-                if (screenVertices[i].y > max_y &&
-                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
-                    max_y = screenVertices[i].y;
-            }
-            // if min_x is -0.1
-            min_x = Mathf.Max(0, min_x);
-            min_y = Mathf.Max(0, min_y);
-            max_x = Mathf.Min(_sensorCamera.pixelWidth, max_x);
-            max_y = Mathf.Min(_sensorCamera.pixelHeight, max_y);
-            return new BoundingBoxObject()
-            {
-                x = min_x,
-                y = min_y,
-                width = max_x - min_x,
-                height = max_y - min_y
-            };
-        }
-        
-        /// <summary>
-        /// return the bounding box of `npc`.
-        /// </summary>
-        /// <param name="pedestrian"></param>
-        /// <returns></returns>
-        protected BoundingBoxObject DumpPedestrianGtBoundingBox(NPCPedestrian pedestrian)
-        {
-            var worldVertices = new List<Vector3>();
-
-            // var suitMeshRenderer = pedestrian.GetSuitMeshRenderer();
-            // Vector3 suitLocalPosition = suitMeshRenderer.transform.localPosition;
-            //
-            // Mesh suitMesh = suitMeshRenderer.sharedMesh;
-            // Vector3[] suitLocalVertices = suitMesh.vertices;
-            //
-            // for (int i = 0; i < suitLocalVertices.Length; i+=3)
-            //     worldVertices.Add(pedestrian.transform.TransformPoint(
-            //         suitLocalVertices[i] + suitLocalPosition));
-            
-            var shoesMeshRenderer = pedestrian.GetShoesMeshRenderer();
-            Vector3 shoesLocalPosition = shoesMeshRenderer.transform.localPosition;
-            
-            Mesh shoesMesh = shoesMeshRenderer.sharedMesh;
-            Vector3[] shoesLocalVertices = shoesMesh.vertices;
-            
-            for (int i = 0; i < shoesLocalVertices.Length; i+=10)
-                worldVertices.Add(pedestrian.transform.TransformPoint(
-                    shoesLocalVertices[i] + shoesLocalPosition));
-            
-            var headMeshRenderer = pedestrian.GetHeadMeshRenderer();
-            Vector3 headLocalPosition = headMeshRenderer.transform.localPosition;
-            
-            Mesh headMesh = headMeshRenderer.sharedMesh;
-            Vector3[] headLocalVertices = headMesh.vertices;
-            
-            for (int i = 0; i < headLocalVertices.Length; i+=10)
-                worldVertices.Add(pedestrian.transform.TransformPoint(
-                    headLocalVertices[i] + headLocalPosition));
-
-            var screenVertices = new List<Vector3>();
-            for (int i = 0; i < worldVertices.Count; i++)
-            {
-                var screenPoint = _sensorCamera.WorldToScreenPoint(worldVertices[i]);
-                if (screenPoint.z > 0)
-                {
-                    screenPoint = CameraUtils.FixScreenPoint(screenPoint, _sensorCamera);
-                    screenVertices.Add(screenPoint);
-                }
-            }
-
-            if (screenVertices.Count == 0)
-                return new BoundingBoxObject();
-            float min_x = screenVertices[0].x;
-            float min_y = screenVertices[0].y;
-            float max_x = screenVertices[0].x;
-            float max_y = screenVertices[0].y;
-
-            for (int i = 1; i < screenVertices.Count; i++)
-            {
-                if (screenVertices[i].x < min_x &&
-                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
-                    min_x = screenVertices[i].x;
-                if (screenVertices[i].y < min_y &&
-                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
-                    min_y = screenVertices[i].y;
-                if (screenVertices[i].x > max_x &&
-                    CameraUtils.InRange(screenVertices[i].y, 0, _sensorCamera.pixelHeight))
-                    max_x = screenVertices[i].x;
-                if (screenVertices[i].y > max_y &&
-                    CameraUtils.InRange(screenVertices[i].x, 0, _sensorCamera.pixelWidth))
-                    max_y = screenVertices[i].y;
-            }
-            // if min_x is -0.1
-            min_x = Mathf.Max(0, min_x);
-            min_y = Mathf.Max(0, min_y);
-            max_x = Mathf.Min(_sensorCamera.pixelWidth, max_x);
-            max_y = Mathf.Min(_sensorCamera.pixelHeight, max_y);
-            return new BoundingBoxObject()
-            {
-                x = min_x,
-                y = min_y,
-                width = max_x - min_x,
-                height = max_y - min_y
-            };
         }
 
         protected void WritePlanTrajectoryObj(double timeStamp, int numberOfState)
@@ -887,12 +651,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
     public enum TraceCaptureState
     {
-        INITIALIZED,
-        // LOCALIZATION_INITIALIZED,
-        AUTO_MODE_READY,
-        READY_TO_CAPTURE,
-        TRACE_CAPTURING,
-        EGO_GOAL_ARRIVED,
-        TRACE_WRITTEN
+        NOT_YET_CAPTURE = 0,
+        CAPTURING,
+        DONE
     }
 }

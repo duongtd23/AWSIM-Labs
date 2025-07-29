@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using AWSIM.AWAnalysis.TraceExporter.Objects;
 using UnityEngine;
 using ROS2;
 
@@ -77,6 +78,13 @@ namespace AWSIM
             return new Vector3(-(float)(rosPosition.Y - offset.y),
                                (float)(rosPosition.Z - offset.z),
                                (float)(rosPosition.X - offset.x));
+        }
+        public static Vector3 RosMGRSToUnityPosition(Vector3Object rosPosition)
+        {
+            var offset = Environment.Instance.MgrsOffsetPosition;
+            return new Vector3(-(float)(rosPosition.y - offset.y),
+                (float)(rosPosition.z - offset.z),
+                (float)(rosPosition.x - offset.x));
         }
         
         public static Vector3 UnityToRosMGRS(Vector3 position)

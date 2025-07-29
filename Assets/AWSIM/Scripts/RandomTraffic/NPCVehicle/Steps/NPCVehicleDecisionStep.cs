@@ -81,7 +81,7 @@ namespace AWSIM.TrafficSimulation
                 state.IsStoppedByFrontVehicle = true;
             }
 
-            if (state.CustomConfig.AggresiveDrive)
+            if (state.CustomConfig.AggressiveDrive)
             {
                 stopDistance = CalculateStoppableDistance(state.Speed, normalDeceleration);
                 if (distanceToStopPoint <= stopDistance + MinStopDistance || distanceToGoal <= stopDistance + 0.5f)
