@@ -12,10 +12,10 @@ using AWSIM.AWAnalysis.CustomSim.DynamicCommand;
 using AWSIM.TrafficSimulation;
 using aw_monitor.srv;
 using AWSIM_Script.Error;
+using AWSIM.AWAnalysis.CustomSim.Objects;
 using AWSIM.AWAnalysis.Monitor;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
 using geometry_msgs.msg;
-using rcl_interfaces.msg;
 using ROS2;
 using ResponseStatus = aw_monitor.msg.ResponseStatus;
 using Vector3 = UnityEngine.Vector3;
@@ -31,7 +31,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             "/dynamic_control/vehicle/follow_waypoints";
 
         public const string TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING = "/dynamic_control/vehicle/removing";
-        public const string TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT = "/dynamic_control/awsim_script";
+        public const string TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT = "/dynamic_control/script/awsim_script";
         public const string TOPIC_EGO_ESTIMATED_KINEMATICS = "/api/vehicle/kinematics";
 
         // service to check whether the spawning, follow lane, etc. actions sent before 
@@ -74,12 +74,6 @@ namespace AWSIM.AWAnalysis.CustomSim
         Dictionary<string, DynamicControl_Response> _removeReqResDict = new();
         Dictionary<string, DynamicControl_Response> _awsimScriptReqResDict = new();
 
-        private IClient<InitializeLocalization_Request, InitializeLocalization_Response> _localizationInitClient;
-        private IPublisher<Engage> _engageCmdPublisher;
-        
-        // tasks to be done in the future
-        private List<TodoTask> _todoTasks = new ();
-        
         public void Start()
         {
             var qos = new QoSSettings
@@ -135,13 +129,6 @@ namespace AWSIM.AWAnalysis.CustomSim
                 SRV_DYNAMIC_CONTROL_AWSIM_SCRIPT,
                 msg =>
                     _awsimScriptReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
-
-            _localizationInitClient = SimulatorROS2Node
-                .CreateClient<InitializeLocalization_Request, InitializeLocalization_Response>(
-                    LOCALIZATION_INITIALIZATION_SRV);
-
-            _engageCmdPublisher = SimulatorROS2Node.CreatePublisher<Engage>(
-                TopicName.TOPIC_AUTOWARE_ENGAGE);
         }
 
         private DynamicControl_Response UNPROCESSED_REQ()
@@ -172,10 +159,6 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         public void Update()
         {
-            if (_todoTasks != null)
-            {
-                ProcessTodoTasks();
-            }
             while (_spawnReqQueue.Count > 0)
             {
                 var req = _spawnReqQueue.Dequeue();
@@ -420,40 +403,63 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         private DynamicControl_Response HandleRemoveAction(DynamicRemoveCommand command)
         {
-            var targetNPC = CustomSimManager.GetNPCs().Find(npc => npc.ScriptName == command.target);
-            if (targetNPC == null)
+            List<String> unsuccessfulTargets = new List<String>();
+            
+            if (string.IsNullOrEmpty(command.target))
             {
-                Debug.LogError($"[AWAnalysis] Target NPC {command.target} not found.");
+                // remove all NPCs
+                int noNPCs = CustomSimManager.GetNPCs().Count;
+                for (int i = noNPCs - 1; i >= 0; i--)
+                {
+                    var npc = CustomSimManager.GetNPCs()[i];
+                    if (!RemoveSingleNPC(npc))
+                        unsuccessfulTargets.Add(npc.ScriptName);
+                }
+            }
+            else
+            {
+                var targetNPC = CustomSimManager.GetNPCs().Find(npc => npc.ScriptName == command.target);
+                if (targetNPC == null)
+                {
+                    Debug.LogError($"[AWAnalysis] Target NPC {command.target} not found.");
+                    return new DynamicControl_Response
+                    {
+                        Status = new ResponseStatus
+                        {
+                            Code = 1,
+                            Message = $"NPC {command.target} not found.",
+                            Success = false
+                        }
+                    };
+                }
+                if (!RemoveSingleNPC(targetNPC))
+                    unsuccessfulTargets.Add(command.target);
+            }
+            
+            if (unsuccessfulTargets.Count > 0)
                 return new DynamicControl_Response
                 {
                     Status = new ResponseStatus
                     {
                         Code = 1,
-                        Message = $"NPC {command.target} not found.",
+                        Message = $"Could not despawn NPC(s) {string.Join(", ", unsuccessfulTargets)}.",
                         Success = false
-                    }
-                };
-            }
-
-            if (CustomSimManager.DespawnNPC(targetNPC))
-                return new DynamicControl_Response
-                {
-                    Status = new ResponseStatus
-                    {
-                        Code = 0,
-                        Message = "",
-                        Success = true
                     }
                 };
             return new DynamicControl_Response
             {
                 Status = new ResponseStatus
                 {
-                    Code = 1,
-                    Message = $"Could not despawn NPC {command.target}.",
-                    Success = false
+                    Code = 0,
+                    Message = "",
+                    Success = true
                 }
             };
+        }
+
+        private bool RemoveSingleNPC(NPCVehicle target)
+        {
+            return CustomSimManager.DespawnNPC(target);
         }
 
         private DynamicControl_Response HandleAWSIMScriptScenario(DynamicAWSIMScriptCommand command)
@@ -463,17 +469,27 @@ namespace AWSIM.AWAnalysis.CustomSim
             try
             {
                 Simulation simulation = new ScriptParser().ParseScriptFromFile(scriptFile);
-                ResetEgoSetting(simulation);
-
+                var ok = ResetEgoSetting(simulation, 
+                    out PoseWithCovarianceStamped poseMsg, 
+                    out PoseStamped goalMsg);
+                
+                string message = "No Ego specification in the input script";
+                if (ok)
+                {
+                    var poseAndGoal = InitPoseAndGoalObject.FromRosPoseAndGoal(poseMsg.Pose, goalMsg.Pose);
+                    message = JsonUtility.ToJson(poseAndGoal);
+                }
+                
                 PreProcessingSimulation(ref simulation);
                 ExecuteSimulation(simulation);
                 PostProcessingSimulation(ref simulation);
+                
                 return new DynamicControl_Response
                 {
                     Status = new ResponseStatus
                     {
                         Code = 0,
-                        Message = "Success. However, localization, etc. succeed or not are unknown.",
+                        Message = message,
                         Success = true
                     }
                 };
@@ -492,106 +508,26 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
-        private void ResetEgoSetting(Simulation simulation)
+        private bool ResetEgoSetting(Simulation simulation,
+                out geometry_msgs.msg.PoseWithCovarianceStamped poseMsg,
+                out geometry_msgs.msg.PoseStamped goalMsg)
         {
             if (simulation.Ego != null)
             {
                 var customEgoSetting = new CustomEgoSetting(simulation.Ego);
                 EgoSingletonInstance.SetCustomEgoSetting(customEgoSetting);
-                EgoSingletonInstance.CustomEgoSetting.SetInitPose();
+                EgoSingletonInstance.CustomEgoSetting.SetInitPose(EgoSingletonInstance.CustomEgoSetting.LastInitialPose);
                 
                 // reset our tracked state
                 ExecutionStateTracker.ResetState();
-                _todoTasks.Add(new ResetLocalizationTask(200));
-                _todoTasks.Add(new GoalPoseTask(40));
-                _todoTasks.Add(new AutoModeActivateTask(2));
+
+                poseMsg = EgoSingletonInstance.CustomEgoSetting.LastInitialPose;
+                goalMsg = EgoSingletonInstance.CustomEgoSetting.LastGoal;
+                return true;
             }
-        }
-        
-        private void ProcessTodoTasks()
-        {
-            List<int> removeTaskIds = new List<int>();
-            for (int i = 0; i < _todoTasks.Count; i++)
-            {
-                var task = _todoTasks[i];
-                switch (task)
-                {
-                    case ResetLocalizationTask resetlocalizationTask:
-                        resetlocalizationTask.WaitingCycle -= 1;
-                        if (resetlocalizationTask.WaitingCycle == 0)
-                        {
-                            ReLocalization();
-                            removeTaskIds.Add(i);
-                        }
-                        break;
-                    case GoalPoseTask goalPoseTask:
-                        if (!goalPoseTask.LocalizationSucceeded &&
-                            ExecutionStateTracker.State == ExecutionState.LOCALIZATION_SUCCEEDED)
-                        {
-                            goalPoseTask.LocalizationSucceeded = true;
-                        }
-                        if (goalPoseTask.LocalizationSucceeded)
-                        {
-                            goalPoseTask.WaitingCycle -= 1;
-                            if (goalPoseTask.WaitingCycle == 0)
-                            {
-                                SetEgoGoal();
-                                removeTaskIds.Add(i);
-                            }
-                        }
-                        break;
-                    case AutoModeActivateTask automodeActivateTask:
-                        if (!automodeActivateTask.AutoModeReady &&
-                            ExecutionStateTracker.State == ExecutionState.AUTO_MODE_READY)
-                        {
-                            automodeActivateTask.AutoModeReady = true;
-                        }
-                        if (automodeActivateTask.AutoModeReady)
-                        {
-                            automodeActivateTask.WaitingCycle -= 1;
-                            if (automodeActivateTask.WaitingCycle == 0)
-                            {
-                                SendEngageCommand();
-                                removeTaskIds.Add(i);
-                            }
-                        }
-                        break;
-                }
-            }
-            for (int j = removeTaskIds.Count - 1; j >= 0; j--)
-                _todoTasks.RemoveAt(j);
-        }
-        
-        private void ReLocalization()
-        {
-            ReLocalization(EgoSingletonInstance.CustomEgoSetting.LastInitialPose);
-        }
-
-        private void ReLocalization(PoseWithCovarianceStamped poseMsg)
-        {
-            // yield return new WaitForSeconds(3);
-            var request = new InitializeLocalization_Request();
-            request.Pose = new PoseWithCovarianceStamped[1];
-            request.Pose[0] = poseMsg;
-            var poseMsgHeader = request.Pose[0] as MessageWithHeader;
-            SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
-            request.Pose[0].Header.Frame_id = "map";
-            var response = _localizationInitClient.Call(request);
-            Debug.Log($"[AWAnalysis] Localization's response: {response.Status.Success}, {response.Status.Code}, {response.Status.Message}.");
-        }
-
-        private void SetEgoGoal()
-        {
-            EgoSingletonInstance.CustomEgoSetting.SetGoal();
-            Debug.Log("[AWAnalysis] Goal set");
-        }
-
-        private void SendEngageCommand()
-        {
-            var engageMsg = new Engage();
-            engageMsg.Engage_ = true;
-            _engageCmdPublisher.Publish(engageMsg);
-            Debug.Log("[AWAnalysis] Engage command sent.");
+            poseMsg = null;
+            goalMsg = null;
+            return false;
         }
 
         private void ExecuteSimulation(Simulation simulation)
@@ -618,8 +554,22 @@ namespace AWSIM.AWAnalysis.CustomSim
                     if (npc.Config.LaneChange is CutInLaneChange)
                     {
                         PreProcessingCutIn(ref npc, ref simulation);
+                        TrafficLane cutinLane = CustomSimUtils.ParseLane(npc.Config.LaneChange.SourceLane);
+                        var cutinPoint = CustomSimUtils.CalculatePosition(
+                            cutinLane, npc.Config.LaneChange.ChangeOffset, out int _);
+                        PublishMetadata("cutin_point", cutinPoint);
                     }
                 }
+            }
+        }
+
+        private void PublishMetadata(string key, Vector3 unityPoint)
+        {
+            var rosPoint = new Vector3Object(ROS2Utility.UnityToRosMGRS(unityPoint));
+            GroundTruthInfoPublisher gtInfoPublisher = FindObjectOfType<AWAnalysis>().GtInfoPublisher;
+            if (gtInfoPublisher != null)
+            {
+                gtInfoPublisher.SetMetadataAndPublish("{\"" + key + "\": " + JsonUtility.ToJson(rosPoint) + "}");
             }
         }
 
@@ -695,6 +645,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                     Mathf.Approximately(delayTime.DelayAmount, NPCDelayTime.DUMMY_DELAY_AMOUNT))
                 {
                     PostProcessingSwerve(ref npc);
+                    TrafficLane swerveLane = CustomSimUtils.ParseLane(npc.Config.LateralWandering.SourceLane);
+                    var swervePoint = CustomSimUtils.CalculatePosition(
+                        swerveLane, npc.Config.LateralWandering.WanderOffset, out int _);
+                    PublishMetadata("swerve_point", swervePoint);
                 }
 
                 else if (npc.HasConfig() &&
@@ -705,6 +659,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                          Mathf.Approximately(delayTime2.DelayAmount, NPCDelayTime.DUMMY_DELAY_AMOUNT))
                 {
                     PostProcessingUTurn(ref npc);
+                    TrafficLane uturnLane = CustomSimUtils.ParseLane(npc.Config.UTurn.SourceLane);
+                    var uturnPoint = CustomSimUtils.CalculatePosition(
+                        uturnLane, npc.Config.UTurn.UTurnOffset, out int _);
+                    PublishMetadata("uturn_point", uturnPoint);
                 }
             }
         }
@@ -826,36 +784,6 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
 
             return distance2Wp;
-        }
-    }
-
-    class TodoTask
-    {
-        public int WaitingCycle { get; set; }
-        
-        public TodoTask(int waitingCycle)
-        { 
-            WaitingCycle = waitingCycle;
-        }
-    }
-    class ResetLocalizationTask: TodoTask
-    {
-        public ResetLocalizationTask(int waitingCycle) : base(waitingCycle)
-        {
-        }
-    }
-    class GoalPoseTask : TodoTask
-    {
-        public bool LocalizationSucceeded { get; set; } = false;
-        public GoalPoseTask(int waitingCycle) : base(waitingCycle)
-        {
-        }
-    }
-    class AutoModeActivateTask : TodoTask
-    {
-        public bool AutoModeReady { get; set; } = false;
-        public AutoModeActivateTask(int waitingCycle) : base(waitingCycle)
-        {
         }
     }
 }

@@ -53,6 +53,7 @@ namespace AWSIM.AWAnalysis
         private bool _activated;
 
         private GroundTruthInfoPublisher _groundTruthInfoPublisher;
+        public GroundTruthInfoPublisher GtInfoPublisher => _groundTruthInfoPublisher;
         private static float _timeNow;
 
         public void Awake()

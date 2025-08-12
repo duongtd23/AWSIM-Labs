@@ -12,6 +12,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         private Vehicle _egoVehicle;
         public EgoSettings EgoSettings { get; }
         public geometry_msgs.msg.PoseWithCovarianceStamped LastInitialPose { get; private set; }
+        public geometry_msgs.msg.PoseStamped LastGoal { get; private set; }
 
         // for ego settings
         private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
@@ -29,7 +30,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                 SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>(TopicName
                     .TOPIC_INITIAL_POSE);
             _goalPublisher = SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL);
-
+            
+            LastInitialPose = ConstructPoseMsg();
+            LastGoal = ConstructGoalMsg();
+            
             // setting max velocity
             if (EgoSettings.MaxVelocity > 0.0)                                                                                                                                              
             {
@@ -91,41 +95,20 @@ namespace AWSIM.AWAnalysis.CustomSim
             poseMsg.Pose.Covariance[0] = 0.01;
             poseMsg.Pose.Covariance[7] = 0.01;
             poseMsg.Pose.Covariance[35] = 0.01;
-            
             return poseMsg;
         }
-
-        public void SetInitPose()
-        {
-            LastInitialPose = ConstructPoseMsg();
-            SetInitPose(LastInitialPose);
-        }
-        public void SetInitPose(geometry_msgs.msg.PoseWithCovarianceStamped poseMsg)
-        {
-            // _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
-            // _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
-
-            // set initial pose
-            // var poseMsgHeader = poseMsg as MessageWithHeader;
-            // SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
-            _initialPosePublisher.Publish(poseMsg);
-            
-            // _egoVehicle.SetPosition(ROS2Utility.RosMGRSToUnityPosition(poseMsg.Pose.Pose.Position));
-            // _egoVehicle.SetRotation(ROS2Utility.RosToUnityRotation(poseMsg.Pose.Pose.Orientation));
-        }
         
-        public void SetGoal()
+        public geometry_msgs.msg.PoseStamped ConstructGoalMsg()
         {
             _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
-            var mgrsOffset = Environment.Instance.MgrsOffsetPosition;
             TrafficLane goalLane = CustomSimUtils.ParseLane(EgoSettings.Goal.GetLane());
             Vector3 goalPosition = CustomSimUtils.CalculatePosition(
                 goalLane, EgoSettings.Goal.GetOffset(), out int waypointIndex2);
-            Vector3 goalFwd = waypointIndex2 == 0 ?
-                goalLane.Waypoints[1] - goalLane.Waypoints[0] :
-                goalLane.Waypoints[waypointIndex2] - goalLane.Waypoints[waypointIndex2 - 1];
+            Vector3 goalFwd = waypointIndex2 == 0
+                ? goalLane.Waypoints[1] - goalLane.Waypoints[0]
+                : goalLane.Waypoints[waypointIndex2] - goalLane.Waypoints[waypointIndex2 - 1];
             Quaternion goalRotation = Quaternion.LookRotation(goalFwd);
-            
+
             var rosGoalPos = ROS2Utility.UnityToRosMGRS(goalPosition);
             var rosOrientation = ROS2Utility.UnityToRosRotation(goalRotation);
 
@@ -144,11 +127,27 @@ namespace AWSIM.AWAnalysis.CustomSim
             goalMsg.Pose.Orientation.Y = rosOrientation.y;
             goalMsg.Pose.Orientation.Z = rosOrientation.z;
             goalMsg.Pose.Orientation.W = rosOrientation.w;
-            
-            var goalMsgHeader = goalMsg as MessageWithHeader;
-            SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
-            _goalPublisher.Publish(goalMsg);
+            return goalMsg;
         }
+
+        public void SetInitPose(geometry_msgs.msg.PoseWithCovarianceStamped poseMsg)
+        {
+            // _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
+            // _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
+
+            // set initial pose
+            // var poseMsgHeader = poseMsg as MessageWithHeader;
+            // SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
+            _initialPosePublisher.Publish(poseMsg);
+            
+            // _egoVehicle.SetPosition(ROS2Utility.RosMGRSToUnityPosition(poseMsg.Pose.Pose.Position));
+            // _egoVehicle.SetRotation(ROS2Utility.RosToUnityRotation(poseMsg.Pose.Pose.Orientation));
+        }
+        
+        // public void SetGoal(geometry_msgs.msg.PoseStamped goalMsg)
+        // {
+        //     _goalPublisher.Publish(goalMsg);
+        // }
 
         public void UpdateEgo()
         {

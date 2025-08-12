@@ -13,6 +13,7 @@ namespace AWSIM.AWAnalysis.Monitor
         protected readonly Camera _sensorCamera;
         protected readonly float _maxDistanceVisibleOnCamera;
         
+        
         // inner use
         QoSSettings qosSettings = new()
         {
@@ -29,6 +30,10 @@ namespace AWSIM.AWAnalysis.Monitor
         IPublisher<GroundtruthSize> gtSizePublisher;
         // cached
         private aw_monitor.msg.VehicleSize _egoSize;
+
+        string metadataTopic = "/awsim/sim_metadata";
+        IPublisher<std_msgs.msg.String> _metadataPublisher;
+        private std_msgs.msg.String _metadata = new ();
         
         public GroundTruthInfoPublisher(Camera sensorCamera)
         {
@@ -38,6 +43,7 @@ namespace AWSIM.AWAnalysis.Monitor
             
             gtKinematicPublisher = SimulatorROS2Node.CreatePublisher<GroundtruthKinematic>(gtKinematicTopic, qosSettings.GetQoSProfile());
             gtSizePublisher = SimulatorROS2Node.CreatePublisher<GroundtruthSize>(gtSizeTopic, qosSettings.GetQoSProfile());
+            _metadataPublisher = SimulatorROS2Node.CreatePublisher<std_msgs.msg.String>(metadataTopic, qosSettings.GetQoSProfile());
 
             _egoSize = StatusExtraction.GetEgoSize(EgoSingletonInstance.AutowareEgoCarGameObject, true);
 
@@ -86,6 +92,12 @@ namespace AWSIM.AWAnalysis.Monitor
         {
             gtKinematicMsg = ExtractKinematics();
             gtKinematicPublisher.Publish(gtKinematicMsg);
+            _metadataPublisher.Publish(_metadata);
+        }
+
+        public void SetMetadataAndPublish(string data)
+        {
+            _metadata = new std_msgs.msg.String() { Data = data };
         }
 
         private GroundtruthKinematic ExtractKinematics()
