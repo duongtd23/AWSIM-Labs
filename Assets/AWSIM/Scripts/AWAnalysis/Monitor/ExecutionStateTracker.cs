@@ -7,7 +7,7 @@ namespace AWSIM.AWAnalysis.Monitor
     public class ExecutionStateTracker
     {
         private static ExecutionStateTracker _instance;
-        private ExecutionState _state = ExecutionState.SIM_STARTED;
+        private ExecutionState _state = ExecutionState.LOCALIZATION_UNINITIALIZED;
         
         // time when autonomous operation mode becomes ready
         private float _autoOpModeReadyTime = Mathf.Infinity;
@@ -69,7 +69,7 @@ namespace AWSIM.AWAnalysis.Monitor
             _instance?._autoOpModeReadyTime ?? Mathf.Infinity;
 
         public static ExecutionState State => 
-            _instance?._state ?? ExecutionState.SIM_STARTED;
+            _instance?._state ?? ExecutionState.LOCALIZATION_UNINITIALIZED;
 
         // must be invoked somewhere
         public static void Start()
@@ -114,11 +114,16 @@ namespace AWSIM.AWAnalysis.Monitor
                     _instance._motionState = msg.State;
                 });
         }
+
+        public static void ResetState()
+        {
+            _instance._state = ExecutionState.LOCALIZATION_UNINITIALIZED;
+        }
     }
     
     public enum ExecutionState
     {
-        SIM_STARTED = 0,
+        LOCALIZATION_UNINITIALIZED = 0,
         LOCALIZATION_SUCCEEDED = 1,
         AUTO_MODE_READY = 2,
         // APPROACHING_GOAL,

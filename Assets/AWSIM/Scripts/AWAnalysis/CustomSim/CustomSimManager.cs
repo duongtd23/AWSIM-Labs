@@ -939,14 +939,11 @@ namespace AWSIM.AWAnalysis.CustomSim
             var internalState = Manager().npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
                 state.Vehicle == vehicle);
             if (internalState != null)
-            {
                 internalState.ShouldDespawn = true;
-                UnityEngine.Object.DestroyImmediate(vehicle.gameObject);
-                Manager().npcs.Remove(vehicle);
-                return true;
-            }
-            Debug.LogError($"[AWAnalysis] Could not find internal state of {vehicle}.");
-            return false;
+            UnityEngine.Object.DestroyImmediate(vehicle.gameObject);
+            Manager().npcs.Remove(vehicle);
+            return true;
+            // Debug.LogError($"[AWAnalysis] Could not find internal state of {vehicle}.");
         }
     }
 }

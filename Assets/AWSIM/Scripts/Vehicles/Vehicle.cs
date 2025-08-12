@@ -520,7 +520,8 @@ namespace AWSIM
         private void UpdateEgoPosition()
         {
             // Method to update the position based on PositionInput
-            Vector3 rayOrigin = new Vector3(PositionInput.x, 1000.0f, PositionInput.z);
+            var y = PositionInput.y;
+            Vector3 rayOrigin = new Vector3(PositionInput.x, y + 5, PositionInput.z);
             Vector3 rayDirection = Vector3.down;
 
             if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, Mathf.Infinity))

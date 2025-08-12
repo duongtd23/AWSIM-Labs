@@ -152,5 +152,12 @@ namespace AWSIM
         {
             return node.CreateService(topic, callback, qos);
         }
+        
+        static public Client<I, O> CreateClient<I, O>(string topic, QualityOfServiceProfile qos = null)
+            where I : Message, new()
+            where O : Message, new()
+        {
+            return node.CreateClient<I,O>(topic, qos);
+        }
     }
 }

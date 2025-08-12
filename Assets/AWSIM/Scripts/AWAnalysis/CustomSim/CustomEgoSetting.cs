@@ -10,17 +10,26 @@ namespace AWSIM.AWAnalysis.CustomSim
     {
         // private GameObject _autowareEgoCar;
         private Vehicle _egoVehicle;
-        public EgoSettings EgoSettings { get; private set; }
+        public EgoSettings EgoSettings { get; }
+        public geometry_msgs.msg.PoseWithCovarianceStamped LastInitialPose { get; private set; }
 
         // for ego settings
         private Publisher<tier4_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
         // private Publisher<autoware_internal_planning_msgs.msg.VelocityLimit> _maxVelPublisher;
         private tier4_planning_msgs.msg.VelocityLimit _maxVelMsg;
         // private autoware_internal_planning_msgs.msg.VelocityLimit _maxVelMsg;
-
+        
+        IPublisher<geometry_msgs.msg.PoseWithCovarianceStamped> _initialPosePublisher;
+        IPublisher<geometry_msgs.msg.PoseStamped> _goalPublisher;
+        
         public CustomEgoSetting(EgoSettings ego)
         {
             EgoSettings = ego;
+            _initialPosePublisher =
+                SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>(TopicName
+                    .TOPIC_INITIAL_POSE);
+            _goalPublisher = SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL);
+
             // setting max velocity
             if (EgoSettings.MaxVelocity > 0.0)                                                                                                                                              
             {
@@ -48,12 +57,8 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
         }
 
-        public void SetInitPose()
+        public geometry_msgs.msg.PoseWithCovarianceStamped ConstructPoseMsg()
         {
-            // _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
-            _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
-
-            // set initial pose
             TrafficLane spawnLane = CustomSimUtils.ParseLane(EgoSettings.InitialPosition.GetLane());
             Vector3 initPosition = CustomSimUtils.CalculatePosition(
                 spawnLane, EgoSettings.InitialPosition.GetOffset(), out int waypointIndex);
@@ -61,11 +66,12 @@ namespace AWSIM.AWAnalysis.CustomSim
                 ? spawnLane.Waypoints[1] - spawnLane.Waypoints[0]
                 : spawnLane.Waypoints[waypointIndex] - spawnLane.Waypoints[waypointIndex - 1];
             Quaternion poseRotation = Quaternion.LookRotation(initFwd);
+            // Debug.Log($"Unity Position: {initPosition}, Euler angles: {poseRotation.eulerAngles}");
+            
+            var rosPosition = ROS2Utility.UnityToRosMGRS(initPosition);
+            var rosOrientation = ROS2Utility.UnityToRosRotation(poseRotation);
+            // Debug.Log($"Ros Position: {rosPosition}, Euler angles: {rosOrientation.eulerAngles}");
 
-            _egoVehicle.SetPosition(initPosition);
-            _egoVehicle.SetRotation(poseRotation);
-
-            var mgrsOffset = Environment.Instance.MgrsOffsetPosition;
             var poseMsg = new geometry_msgs.msg.PoseWithCovarianceStamped()
             {
                 Header = new std_msgs.msg.Header()
@@ -74,19 +80,38 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             };
             poseMsg.Pose = new geometry_msgs.msg.PoseWithCovariance();
-            poseMsg.Pose.Pose.Position.X = initPosition.z + mgrsOffset.x;
-            poseMsg.Pose.Pose.Position.Y = -initPosition.x + mgrsOffset.y;
-            poseMsg.Pose.Pose.Position.Z = 0;
-            poseMsg.Pose.Pose.Orientation.X = -poseRotation.z;
-            poseMsg.Pose.Pose.Orientation.Y = poseRotation.x;
-            poseMsg.Pose.Pose.Orientation.Z = -poseRotation.y;
-            poseMsg.Pose.Pose.Orientation.W = poseRotation.w;
+            poseMsg.Pose.Pose.Position.X = rosPosition.x;
+            poseMsg.Pose.Pose.Position.Y = rosPosition.y;
+            poseMsg.Pose.Pose.Position.Z = rosPosition.z;
+            poseMsg.Pose.Pose.Orientation.X = rosOrientation.x;
+            poseMsg.Pose.Pose.Orientation.Y = rosOrientation.y;
+            poseMsg.Pose.Pose.Orientation.Z = rosOrientation.z;
+            poseMsg.Pose.Pose.Orientation.W = rosOrientation.w;
 
-            var poseMsgHeader = poseMsg as MessageWithHeader;
-            SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
+            poseMsg.Pose.Covariance[0] = 0.01;
+            poseMsg.Pose.Covariance[7] = 0.01;
+            poseMsg.Pose.Covariance[35] = 0.01;
+            
+            return poseMsg;
+        }
 
-            SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseWithCovarianceStamped>(TopicName.TOPIC_INITIAL_POSE)
-                .Publish(poseMsg);
+        public void SetInitPose()
+        {
+            LastInitialPose = ConstructPoseMsg();
+            SetInitPose(LastInitialPose);
+        }
+        public void SetInitPose(geometry_msgs.msg.PoseWithCovarianceStamped poseMsg)
+        {
+            // _autowareEgoCar = EgoSingletonInstance.AutowareEgoCarGameObject;
+            // _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
+
+            // set initial pose
+            // var poseMsgHeader = poseMsg as MessageWithHeader;
+            // SimulatorROS2Node.UpdateROSTimestamp(ref poseMsgHeader);
+            _initialPosePublisher.Publish(poseMsg);
+            
+            // _egoVehicle.SetPosition(ROS2Utility.RosMGRSToUnityPosition(poseMsg.Pose.Pose.Position));
+            // _egoVehicle.SetRotation(ROS2Utility.RosToUnityRotation(poseMsg.Pose.Pose.Orientation));
         }
         
         public void SetGoal()
@@ -100,6 +125,9 @@ namespace AWSIM.AWAnalysis.CustomSim
                 goalLane.Waypoints[1] - goalLane.Waypoints[0] :
                 goalLane.Waypoints[waypointIndex2] - goalLane.Waypoints[waypointIndex2 - 1];
             Quaternion goalRotation = Quaternion.LookRotation(goalFwd);
+            
+            var rosGoalPos = ROS2Utility.UnityToRosMGRS(goalPosition);
+            var rosOrientation = ROS2Utility.UnityToRosRotation(goalRotation);
 
             var goalMsg = new geometry_msgs.msg.PoseStamped()
             {
@@ -109,25 +137,17 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             };
             goalMsg.Pose = new geometry_msgs.msg.Pose();
-            goalMsg.Pose.Position.X = goalPosition.z + mgrsOffset.x;
-            goalMsg.Pose.Position.Y = -goalPosition.x + mgrsOffset.y;
-            goalMsg.Pose.Position.Z = 0;
-            goalMsg.Pose.Orientation.X = -goalRotation.z;
-            goalMsg.Pose.Orientation.Y = goalRotation.x;
-            goalMsg.Pose.Orientation.Z = -goalRotation.y;
-            goalMsg.Pose.Orientation.W = goalRotation.w;
-
-            SimulatorROS2Node.CreateSubscription<LocalizationInitializationState>(
-            TopicName.TOPIC_LOCALIZATION_INITIALIZATION_STATE, msg =>
-            {
-                if (msg.State == LocalizationInitializationState.INITIALIZED)
-                {
-                    // Debug.Log("[AWAnalysis] Setting goal for Ego...");
-                    var goalMsgHeader = goalMsg as MessageWithHeader;
-                    SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
-                    SimulatorROS2Node.CreatePublisher<geometry_msgs.msg.PoseStamped>(TopicName.TOPIC_MISSON_PLANNING_GOAL).Publish(goalMsg);
-                }
-            });
+            goalMsg.Pose.Position.X = rosGoalPos.x;
+            goalMsg.Pose.Position.Y = rosGoalPos.y;
+            goalMsg.Pose.Position.Z = rosGoalPos.z;
+            goalMsg.Pose.Orientation.X = rosOrientation.x;
+            goalMsg.Pose.Orientation.Y = rosOrientation.y;
+            goalMsg.Pose.Orientation.Z = rosOrientation.z;
+            goalMsg.Pose.Orientation.W = rosOrientation.w;
+            
+            var goalMsgHeader = goalMsg as MessageWithHeader;
+            SimulatorROS2Node.UpdateROSTimestamp(ref goalMsgHeader);
+            _goalPublisher.Publish(goalMsg);
         }
 
         public void UpdateEgo()
