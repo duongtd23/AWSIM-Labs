@@ -6,37 +6,53 @@ This is a fork and extended version of [Autoware Foundation's AWSIM-Labs](https:
 
 - Various options to control NPC behaviors, such as, lane change, different acceleration and deceleration profiles for different NPCs, and motion delays.
 - A scenario specification language called AWSIM-Script to ease the simulation description.
-- A runtime monitor to record data during simulation. This recorded data can be used to analyze Autoware performance in handling the traffic scenario.
 
 ## Installation
 
 The environment requirements are listed here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/#environment-preparation.
+The setup guide provided by Autoware Foundation is available here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/.
+Note that this branch (`dev`) may be unstable.
 
-### Steps
+## Using AWSIM-Script and AW-RuntimeMonitor
+- AWSIM-Script (https://github.com/duongtd23/AWSIMScript-Client) is a scenario specification language (an example shown below). 
+- AW-RuntimeMonitor (https://github.com/duongtd23/AW-RuntimeMonitor) is a runtime monitor that:
+  - Records traffic participants' dynamics and ADS (Autoware) internal state (e.g., planning trajectories, control commands, perceived objects, etc.) during simulation and dumps the information to a trace file once the simulation finishes.
+  - Can monitor the safety of a control command produced by ADS and if it is unsafe, activate AEB. Check branch [`dev`](https://github.com/duongtd23/AW-RuntimeMonitor/tree/dev) for this feature.
 
-1. Clone the repo and checkout branch `v1.3` (this is the stable branch):
+The idea of using AWSIM-Script and AW-RuntimeMonitor together with AWSIM-Labs and Autoware is shown in the figure below. 
+We can replace  AWSIM-Script with other scenario description language, e.g., Scenic (interested user can check the [extended Scenic](https://github.com/fomaad/Scenic) to be work with AWSIM-Labs and the corresponding [AW-RuntimeMonitor](https://github.com/duongtd23/AW-RuntimeMonitor/tree/scenic)).
+
+<img src="tool-chain.png" alt="Tool architecture" width="400"/>
+
+
+### Usage
+In addition to AWSIM-Labs (this repo), clone AWSIMScript-Client and AW-RuntimeMonitor (branch `awsimclient`) repos.
+1. Launch Autoware and AWSIM-Labs following AWSIM-Labs's documentation.
+2. Launch AW-RuntimeMonitor
+```bash
+cd path-to-autoware
+source install/setup.bash
+cd AW-RuntimeMonitor
+python main.py -o <output-trace-file>
 ```
-git clone -b v1.3 https://github.com/duongtd23/AW-Runtime-Verification.git
+Option `-h` might be helpful before running `python main.py`.
+Checkout the guide in [AW-RuntimeMonitor](https://github.com/duongtd23/AW-RuntimeMonitor/tree/awsimclient) repo as well.
+
+3. Send the AWSIM-Script input file to be executed.
+
+```bash
+cd path-to-autoware
+source install/setup.bash
+cd AWSIMScript-Client
+python client.py <path-to-input-script>
 ```
 
-2. Follow the setup guide provided by Autoware Foundation here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/.
+Option `-h` might be helpful before running `python client.py`.
+An example of the input script is shown below.
 
-3. Build the project to export an executable file, assume that its name is `awsimlabs.x86_64`
+4. Once the ego reaches its destination, recorded trace will be saved to `<output-trace-file>`.
 
-4. Prepare an input script and Use the following command to run the simulation:
-```
-./awsimlabs.x86_64 -script <path-to-script-file> -output <path-to-save-traces>
-```
-where `<path-to-script-file>` and `<path-to-save-traces>` are path to the input script file (a content example is available below) and path to save the trace files, respectively.
-Some other available command line arguments are:
-
-- `-noise false`, which will disable noise in lidar data (check details [here](https://github.com/RobotecAI/RobotecGPULidar/blob/develop/docs/GaussianNoise.md)). By default, noise is enabled.
-
-- `-perception_mode camera_lidar_fusion`, which launches the camera-lidar fusion mode. Note that the setup requirement for Autoware (to enable processing camera sensor data) must be done separately. The lidar-only perception mode is launched by default or by replacing `camera_lidar_fusion` by `lidar`.
-
-
-## AWSIM-Script
-### An example
+### An example of AWSIM-Script
 An example of the input accepted by AWSIM-Script is as follows:
 
 ```
