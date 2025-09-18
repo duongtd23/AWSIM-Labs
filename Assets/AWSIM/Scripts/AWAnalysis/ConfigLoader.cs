@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -31,15 +32,19 @@ namespace AWSIM.AWAnalysis
             Debug.LogError($"No config file found at {YAML_CONFIG_FILE}. Use default config.");
             return new AWAnalysisConfig();
         }
-
+        
+        [Obsolete("Deprecated")]
         public static bool CapturePlanTrajectory()
         {
-            return Config().ComponentsRecording.Contains(TraceComponent.PLANNING_TRAJECTORY);
+            return true;
+            // return Config().ComponentsRecording.Contains(TraceComponent.PLANNING_TRAJECTORY);
         }
         
+        [Obsolete("Deprecated")]
         public static bool CapturePredictionPaths()
         {
-            return Config().ComponentsRecording.Contains(TraceComponent.PREDICTION_PATHS);
+            return true;
+            // return Config().ComponentsRecording.Contains(TraceComponent.PREDICTION_PATHS);
         }
     }
 }

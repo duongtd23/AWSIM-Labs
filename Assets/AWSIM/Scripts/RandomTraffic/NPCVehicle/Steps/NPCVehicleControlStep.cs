@@ -86,8 +86,8 @@ namespace AWSIM.TrafficSimulation
             var yawSpeedLerpFactor = NPCVehicleConfig.YawSpeedLerpFactor;
             if (NeedAggressiveTurn(state))
             {
-                yawSpeedMultiplier = 0.35f;
-                yawSpeedLerpFactor = 8f;
+                yawSpeedMultiplier = 0.45f;
+                yawSpeedLerpFactor = 15f;
             }
             var targetYawSpeed = steeringAngle * state.Speed * yawSpeedMultiplier;
             // Change YawSpeed gradually to eliminate steering shake.

@@ -222,6 +222,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                             npcCar.Goal,
                             npcCar.Config,
                             npcCar.VehicleType);
+                        Debug.Log($"[AWAnalysis] {npcCar.Name} started move.");
                         removeAfter.Add(npcVehicle);
                     }
                 }

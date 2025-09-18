@@ -341,8 +341,7 @@ namespace AWSIM.TrafficSimulation
 
             var vehicleHalfWidth = vehicle.GetCarInfo().extents.x;
             var rotateRadian = (float)Math.Asin(lateralWandering.LateralVelocity / lateralWandering.Velocity);
-            // adding 0.2m as the lane line's width
-            var diagonalDistance = (lateralWandering.LatitudeExceeded + 0.2f
+            var diagonalDistance = (lateralWandering.LatitudeExceeded
                 - vehicleHalfWidth + sourceLane.Width / 2) / Math.Sin(rotateRadian); 
             
             if (lateralWandering.WanderDirection == Side.LEFT)

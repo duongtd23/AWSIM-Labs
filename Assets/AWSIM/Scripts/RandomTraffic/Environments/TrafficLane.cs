@@ -38,8 +38,8 @@ namespace AWSIM.TrafficSimulation
         private float speedLimit;
         [SerializeField, Tooltip("Is intersection lane")]
         public bool intersectionLane;
-        [SerializeField, Tooltip("Lane's width. Use 3.0 as default if unset.")]
-        private float width = 3.0f;
+        [SerializeField, Tooltip("Lane's width. Use 3.5 as default if unset.")]
+        private float width = 3.5f;
         
         public void UpdateWaypoints(Vector3[] upWaypoints)
         {
@@ -122,7 +122,7 @@ namespace AWSIM.TrafficSimulation
             return totalLen;
         }
 
-        public const float DEFAULT_WIDTH = 3.0f;
+        public const float DEFAULT_WIDTH = 3.5f;
         public float Width => width == 0.0f ? DEFAULT_WIDTH : width;
 
         public string OriginName()

@@ -587,9 +587,8 @@ namespace AWSIM.AWAnalysis.TraceExporter
 
         protected TrajectoryPoint[] DumpTrajectoryPoints(awTrajectoryPoint[] points)
         {
-            int no = Math.Min(points.Length, ConfigLoader.Config().PlanTrajectoryMaxStepsRecording);
-            var result = new TrajectoryPoint[no];
-            for (int i = 0; i < no; i++)
+            var result = new TrajectoryPoint[points.Length];
+            for (int i = 0; i < points.Length; i++)
             {
                 result[i] = new TrajectoryPoint()
                 {
