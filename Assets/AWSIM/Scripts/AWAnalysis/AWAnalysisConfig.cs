@@ -5,7 +5,7 @@ namespace AWSIM.AWAnalysis
     [Serializable]
     public class AWAnalysisConfig
     {
-        public AWSIMConfig AWSIMConfig { get; set; }
+        public AWSIMConfig AWSIMConfig { get; set; } = new ();
         public float NpcAcceleration { get; set; } = 1.5f;
         public float NpcDeceleration { get; set; } = 1.5f;
         // only write ground truth bounding box of NPC if its distance to Ego less than this config value

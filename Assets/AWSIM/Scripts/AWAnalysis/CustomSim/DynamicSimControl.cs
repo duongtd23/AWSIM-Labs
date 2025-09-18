@@ -496,6 +496,7 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             catch (Exception e)
             {
+                Debug.LogException(e);
                 return new DynamicControl_Response
                 {
                     Status = new ResponseStatus
