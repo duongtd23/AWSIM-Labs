@@ -89,6 +89,8 @@ namespace AWSIM_Script.Object
         
         public UTurn UTurn { get; set; }
         
+        public bool FollowCustomWaypoints { get; set; }
+        
         public static NPCConfig DummyConfigWithoutRoute()
         {
             return new NPCConfig();

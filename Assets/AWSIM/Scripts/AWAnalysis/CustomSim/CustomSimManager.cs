@@ -900,37 +900,67 @@ namespace AWSIM.AWAnalysis.CustomSim
             npcCar.InitialPosition = new LaneOffsetPosition(newLane.name, 0);
             _manager.delayingMoveNPCs[vehicle] = new Tuple<int, NPCCar>(1, npcCar);
         }
-
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="targetSpeed"></param>
+        /// <param name="acceleration"></param>
+        /// <param name="deceleration"></param>
+        /// <param name="isSpeedDefined"></param>
+        /// <param name="isAccelerationDefined"></param>
+        /// <param name="isDecelerationDefined"></param>
+        /// <param name="followCustomWaypoints"> flag, 1 -> true, 0 -> false, -1 > skip </param>
         public static void ResetMotionProfileForNPC(ref NPCVehicle vehicle,
             float targetSpeed, float acceleration, float deceleration,
-            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined)
+            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined,
+            int followCustomWaypoints=-1)
         {
+            foreach (var internalState in Manager().npcVehicleSimulator.VehicleStates)
+            {
+                if (internalState.Vehicle == vehicle)
+                {
+                    internalState.CustomConfig = ResetMotionProfileForNPCConfig(vehicle.CustomConfig,
+                        targetSpeed, acceleration, deceleration,
+                        isSpeedDefined, isAccelerationDefined, isDecelerationDefined, followCustomWaypoints);
+                    break;
+                }
+            }
+
             vehicle.CustomConfig = ResetMotionProfileForNPCConfig(vehicle.CustomConfig,
                 targetSpeed, acceleration, deceleration,
-                isSpeedDefined, isAccelerationDefined, isDecelerationDefined);
+                isSpeedDefined, isAccelerationDefined, isDecelerationDefined, followCustomWaypoints);
             
-            if (_manager.delayingMoveNPCs[vehicle] != null)
+            if (_manager.delayingMoveNPCs.ContainsKey(vehicle))
             {
                 var waypointId = _manager.delayingMoveNPCs[vehicle].Item1;
                 var npcCar = _manager.delayingMoveNPCs[vehicle].Item2;
                 npcCar.Config = ResetMotionProfileForNPCConfig(npcCar.Config,
                     targetSpeed, acceleration, deceleration,
-                    isSpeedDefined, isAccelerationDefined, isDecelerationDefined);
+                    isSpeedDefined, isAccelerationDefined, isDecelerationDefined, followCustomWaypoints);
                 _manager.delayingMoveNPCs[vehicle] = new Tuple<int, NPCCar>(waypointId, npcCar);
-            }        
+            }
+
         }
         
         public static NPCConfig ResetMotionProfileForNPCConfig(NPCConfig config,
             float targetSpeed, float acceleration, float deceleration,
-            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined)
+            bool isSpeedDefined, bool isAccelerationDefined, bool isDecelerationDefined,
+            int followCustomWaypoints=-1)
         {
             config ??= new NPCConfig();
             if (isSpeedDefined)
                 config.TargetSpeed = targetSpeed;
             if (isAccelerationDefined)
+            {
                 config.Acceleration = acceleration;
+                config.AggressiveDrive = true;
+            }
             if (isDecelerationDefined)
                 config.Deceleration = deceleration;
+            if (followCustomWaypoints != -1)
+                config.FollowCustomWaypoints = followCustomWaypoints == 1;
             return config;
         }
 
@@ -945,6 +975,29 @@ namespace AWSIM.AWAnalysis.CustomSim
             Manager().npcs.Remove(vehicle);
             return true;
             // Debug.LogError($"[AWAnalysis] Could not find internal state of {vehicle}.");
+        }
+
+        public static bool DoesExistInDelayMoveNPCs(NPCVehicle vehicle)
+        {
+            return _manager.delayingMoveNPCs.ContainsKey(vehicle);
+        }
+        
+        /// <summary>
+        /// reset the current following lane for the given NPC
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="route"></param>
+        public static void ResetNPCRoute(NPCVehicle vehicle, TrafficLane route)
+        {
+            var internalState = Manager().npcVehicleSimulator.VehicleStates.FirstOrDefault(state =>
+                state.Vehicle == vehicle);
+            if (internalState == null)
+            {
+                Debug.LogError($"Cannot find the NPC {vehicle.name}");
+                return;
+            }
+            internalState.FollowingLanes = new List<TrafficLane>{route};
+            internalState.WaypointIndex = 0;
         }
     }
 }

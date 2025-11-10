@@ -79,22 +79,10 @@ namespace AWSIM.TrafficSimulation
         private static void UpdateYawSpeed(NPCVehicleInternalState state, float deltaTime)
         {
             // Steering the vehicle so that it heads toward the target point.
-            var steeringDirection = state.TargetPoint - state.FrontCenterPosition;
+            var steeringDirection = state.TargetPoint - state.Position;
             steeringDirection.y = 0f;
             var steeringAngle = Vector3.SignedAngle(state.Forward, steeringDirection, Vector3.up);
-            var yawSpeedMultiplier = NPCVehicleConfig.YawSpeedMultiplier;
-            var yawSpeedLerpFactor = NPCVehicleConfig.YawSpeedLerpFactor;
-            if (NeedAggressiveTurn(state))
-            {
-                yawSpeedMultiplier = 0.45f;
-                yawSpeedLerpFactor = 15f;
-            }
-            var targetYawSpeed = steeringAngle * state.Speed * yawSpeedMultiplier;
-            // Change YawSpeed gradually to eliminate steering shake.
-            state.YawSpeed = Mathf.Lerp(
-                state.YawSpeed,
-                targetYawSpeed,
-                yawSpeedLerpFactor * deltaTime);
+            state.YawSpeed = 2 * state.Speed * Mathf.Sin(steeringAngle/180*Mathf.PI)/(state.TargetPoint - state.FrontCenterPosition).magnitude * 180/Mathf.PI;
         }
 
         private static bool NeedAggressiveTurn(NPCVehicleInternalState state)
@@ -110,6 +98,9 @@ namespace AWSIM.TrafficSimulation
             
             // needed for U-Turn behavior
             if (state.CustomConfig.UTurn != null)
+                return true;
+
+            if (state.CustomConfig.FollowCustomWaypoints)
                 return true;
 
             return false;

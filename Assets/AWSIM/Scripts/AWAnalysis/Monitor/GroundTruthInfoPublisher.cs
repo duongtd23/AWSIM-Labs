@@ -27,13 +27,14 @@ namespace AWSIM.AWAnalysis.Monitor
         IPublisher<GroundtruthKinematic> gtKinematicPublisher;
         
         string gtSizeTopic = "/simulation/gt/size";
+        private GroundtruthSize _gtSizeMsg;
         IPublisher<GroundtruthSize> gtSizePublisher;
         // cached
         private aw_monitor.msg.VehicleSize _egoSize;
 
         string metadataTopic = "/awsim/sim_metadata";
         IPublisher<std_msgs.msg.String> _metadataPublisher;
-        private std_msgs.msg.String _metadata = new ();
+        private std_msgs.msg.String _metadata = new (){Data = "{}"};
         
         public GroundTruthInfoPublisher(Camera sensorCamera)
         {
@@ -50,6 +51,9 @@ namespace AWSIM.AWAnalysis.Monitor
             SimulatorROS2Node.CreateService<aw_monitor.srv.GroundtruthKinematic_Request, aw_monitor.srv.GroundtruthKinematic_Response>(
                 "/simulation/gt_srv/kinematic",
                 HandleGtKinematicRequest);
+            SimulatorROS2Node.CreateService<aw_monitor.srv.GroundtruthSize_Request, aw_monitor.srv.GroundtruthSize_Response>(
+                "/simulation/gt_srv/size",
+                HandleGtSizeRequest);
             
             SimulatorROS2Node.CreateService<aw_monitor.srv.ExecutionState_Request, aw_monitor.srv.ExecutionState_Response>(
                 "/simulation/gt_srv/execution_state",
@@ -68,6 +72,18 @@ namespace AWSIM.AWAnalysis.Monitor
                 Groundtruth_pedestrians = gtKinematicMsg.Groundtruth_pedestrians,
             };
         }
+        private aw_monitor.srv.GroundtruthSize_Response HandleGtSizeRequest(aw_monitor.srv.GroundtruthSize_Request msg)
+        {
+            if (_gtSizeMsg == null)
+                _gtSizeMsg = new GroundtruthSize();
+            return new aw_monitor.srv.GroundtruthSize_Response()
+            {
+                Vehicle_sizes = _gtSizeMsg.Vehicle_sizes,
+                Camera_screen_height = _gtSizeMsg.Camera_screen_height,
+                Camera_screen_width = _gtSizeMsg.Camera_screen_width,
+            };
+        }
+        
 
         private aw_monitor.srv.ExecutionState_Response HandleExecutionStateRequest(
             aw_monitor.srv.ExecutionState_Request msg)
@@ -155,14 +171,14 @@ namespace AWSIM.AWAnalysis.Monitor
             for (int i = 0; i < npcs.Count; i++)
                 vehicleSizes[i + 1] = StatusExtraction.GetNPCVehicleSize(npcs[i], true);
 
-            GroundtruthSize gtSizeMsg = new GroundtruthSize()
+            _gtSizeMsg = new GroundtruthSize()
             {
                 Vehicle_sizes = vehicleSizes,
                 Camera_screen_height = _sensorCamera.pixelHeight,
                 Camera_screen_width = _sensorCamera.pixelWidth,
                 Other_note = "",
             };
-            gtSizePublisher.Publish(gtSizeMsg);
+            gtSizePublisher.Publish(_gtSizeMsg);
         }
         
         // public functions

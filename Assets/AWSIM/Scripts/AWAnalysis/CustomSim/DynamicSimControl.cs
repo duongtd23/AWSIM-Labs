@@ -13,6 +13,7 @@ using AWSIM.TrafficSimulation;
 using aw_monitor.srv;
 using AWSIM_Script.Error;
 using AWSIM.AWAnalysis.CustomSim.Objects;
+using AWSIM.AWAnalysis.Error;
 using AWSIM.AWAnalysis.Monitor;
 using AWSIM.AWAnalysis.TraceExporter.Objects;
 using geometry_msgs.msg;
@@ -29,6 +30,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         public const string TOPIC_DYNAMIC_CONTROL_VEHICLE_FOLLOW_WAYPOINTS =
             "/dynamic_control/vehicle/follow_waypoints";
+        public const string TOPIC_DYNAMIC_CONTROL_SET_TARGET_SPEED = "/dynamic_control/vehicle/target_speed";
 
         public const string TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING = "/dynamic_control/vehicle/removing";
         public const string TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT = "/dynamic_control/script/awsim_script";
@@ -43,12 +45,18 @@ namespace AWSIM.AWAnalysis.CustomSim
 
         public const string SRV_DYNAMIC_CONTROL_VEHICLE_FOLLOW_WAYPOINTS =
             TOPIC_DYNAMIC_CONTROL_VEHICLE_FOLLOW_WAYPOINTS + "_srv";
-
+        
+        public const string SRV_DYNAMIC_CONTROL_SET_TARGET_SPEED =
+            TOPIC_DYNAMIC_CONTROL_SET_TARGET_SPEED + "_srv";
+        
         public const string SRV_DYNAMIC_CONTROL_VEHICLE_REMOVING =
             TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING + "_srv";
 
         public const string SRV_DYNAMIC_CONTROL_AWSIM_SCRIPT =
             TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT + "_srv";
+        
+        public const string SRV_DYNAMIC_CONTROL_MAP_NETWORK =
+            "/dynamic_control/map/network";
 
         public const string LOCALIZATION_INITIALIZATION_SRV = "/api/localization/initialize";
 
@@ -59,6 +67,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         private Queue<std_msgs.msg.String> _spawnReqQueue = new();
         private Queue<std_msgs.msg.String> _followLaneReqQueue = new();
         private Queue<std_msgs.msg.String> _followWaypointsReqQueue = new();
+        private Queue<std_msgs.msg.String> _setTargetSpeedReqQueue = new();
         private Queue<std_msgs.msg.String> _removeReqQueue = new();
         private Queue<std_msgs.msg.String> _awsimScriptReqQueue = new();
 
@@ -71,8 +80,12 @@ namespace AWSIM.AWAnalysis.CustomSim
         Dictionary<string, DynamicControl_Response> _spawnReqResDict = new();
         Dictionary<string, DynamicControl_Response> _followLaneReqResDict = new();
         Dictionary<string, DynamicControl_Response> _followWaypointsReqResDict = new();
+        Dictionary<string, DynamicControl_Response> _setTargetSpeedReqResDict = new();
         Dictionary<string, DynamicControl_Response> _removeReqResDict = new();
         Dictionary<string, DynamicControl_Response> _awsimScriptReqResDict = new();
+        
+        // map information
+        private MapNetworkWrapper _mapNetworkWrapper;
 
         public void Start()
         {
@@ -97,6 +110,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                 msg => { _followWaypointsReqQueue.Enqueue(msg); },
                 qos);
             SimulatorROS2Node.CreateSubscription<std_msgs.msg.String>(
+                TOPIC_DYNAMIC_CONTROL_SET_TARGET_SPEED,
+                msg => { _setTargetSpeedReqQueue.Enqueue(msg); },
+                qos);
+            SimulatorROS2Node.CreateSubscription<std_msgs.msg.String>(
                 TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING,
                 msg => { _removeReqQueue.Enqueue(msg); },
                 qos);
@@ -119,7 +136,12 @@ namespace AWSIM.AWAnalysis.CustomSim
                 SRV_DYNAMIC_CONTROL_VEHICLE_FOLLOW_WAYPOINTS,
                 msg =>
                     _followWaypointsReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
-
+            
+            SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
+                SRV_DYNAMIC_CONTROL_SET_TARGET_SPEED,
+                msg =>
+                    _setTargetSpeedReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
+            
             SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
                 SRV_DYNAMIC_CONTROL_VEHICLE_REMOVING,
                 msg =>
@@ -129,6 +151,10 @@ namespace AWSIM.AWAnalysis.CustomSim
                 SRV_DYNAMIC_CONTROL_AWSIM_SCRIPT,
                 msg =>
                     _awsimScriptReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
+            
+            SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
+                SRV_DYNAMIC_CONTROL_MAP_NETWORK,
+                HandleMapNetworkReq);
         }
 
         private DynamicControl_Response UNPROCESSED_REQ()
@@ -219,6 +245,25 @@ namespace AWSIM.AWAnalysis.CustomSim
                     _followWaypointsReqResDict[req.Data] = response;
                 }
             }
+            while (_setTargetSpeedReqQueue.Count > 0)
+            {
+                var req = _setTargetSpeedReqQueue.Dequeue();
+                DynamicControl_Response response = null;
+                try
+                {
+                    var command = JsonUtility.FromJson<SetTargetSpeedCommand>(req.Data);
+                    Debug.Log($"Parsed command: {command}");
+                    response = HandleSetTargetSpeedAction(command);
+                }
+                catch (ArgumentException e)
+                {
+                    response = INVALID_REQ(e);
+                }
+                finally
+                {
+                    _setTargetSpeedReqResDict[req.Data] = response;
+                }
+            }
 
             while (_removeReqQueue.Count > 0)
             {
@@ -259,6 +304,11 @@ namespace AWSIM.AWAnalysis.CustomSim
                     _awsimScriptReqResDict[req.Data] = response;
                 }
             }
+
+            if (_mapNetworkWrapper == null)
+            {
+                _mapNetworkWrapper = ExtractMapNetwork();
+            }
         }
 
         private DynamicControl_Response HandleSpawnAction(DynamicSpawnCommand command)
@@ -292,12 +342,7 @@ namespace AWSIM.AWAnalysis.CustomSim
 
             return new DynamicControl_Response
             {
-                Status = new ResponseStatus
-                {
-                    Code = 0,
-                    Message = "Success",
-                    Success = true
-                }
+                Status = SuccessResponseStatus()
             };
         }
 
@@ -317,21 +362,43 @@ namespace AWSIM.AWAnalysis.CustomSim
                     }
                 };
             }
-
+            
             CustomSimManager.ResetMotionProfileForNPC(ref targetNPC,
                 command.speed, command.acceleration, command.deceleration,
                 command.is_speed_defined, command.is_acceleration_defined, command.is_deceleration_defined);
+            
+            if (CustomSimManager.DoesExistInDelayMoveNPCs(targetNPC))
+            {
+                // if the NPC was spawned but its movement is delayed.
+                // Let it move
+                CustomSimManager.RemoveDelayFromNPC(targetNPC);
+            }
+            else
+            {
+                // if the NPC is already moving
+                try
+                {
+                    var trafficLane = CustomSimUtils.ParseLane(command.lane);
+                    CustomSimManager.ResetNPCRoute(targetNPC, trafficLane);
+                }
+                catch (LaneNotFoundException exception)
+                {
+                    return new DynamicControl_Response
+                    {
+                        Status = new ResponseStatus
+                        {
+                            Code = 1,
+                            Message = exception.Message,
+                            Success = false
+                        }
+                    };
+                }
+            }
 
-            CustomSimManager.RemoveDelayFromNPC(targetNPC);
             Debug.Log($"[AWAnalysis] Sent follow lane command to NPC {command.target}");
             return new DynamicControl_Response
             {
-                Status = new ResponseStatus
-                {
-                    Code = 0,
-                    Message = "Success",
-                    Success = true
-                }
+                Status = SuccessResponseStatus()
             };
         }
 
@@ -357,47 +424,101 @@ namespace AWSIM.AWAnalysis.CustomSim
             {
                 waypoints.Add(ROS2Utility.RosMGRSToUnityPosition(point));
                 Debug.Log($"[AWAnalysis] Waypoint: {waypoints.Last()}");
-            }
+            } 
+            PublishMetadata("waypoints", waypoints);
+            
             // TODO: handle case waypoint.z = 0
 
             // construct a virtual traffic lane
+            TrafficLane virtualLane;
             // find the lane on which the last waypoint located
             var lane = CustomSimUtils.LaneAtPosition(waypoints.Last(), out int waypointId, out float laneOffset,
                 tolerance: 0.5f);
-            TrafficLane virtualLane = Instantiate(lane);
 
-            // construct the waypoints for the virtual lane.
-            List<Vector3> virtualLaneWaypoints = new List<Vector3>();
-            // The current position of NPC should be inserted as the first waypoint
-            // if (CustomSimUtils.DistanceIgnoreYAxis(targetNPC.Position, waypoints[0]) > 1)
-            //     virtualLaneWaypoints.Add(targetNPC.Position);
+            if (lane == null)
+            {
+                Debug.LogWarning("Cannot find next lane for the given waypoints");
+                virtualLane = this.gameObject.AddComponent<TrafficLane>();
+                virtualLane.name = "VirtualLane";
+                virtualLane.UpdateWaypoints(waypoints.ToArray());
+                virtualLane.SetSpeedLimit(60);
+            }
+            else
+            {
+                Debug.Log($"Found lane {lane.name} as the next lane of the given waypoints");
+                var allExistingNames = GetAllChildNames();
 
-            // add specified waypoints
-            virtualLaneWaypoints.AddRange(waypoints);
-            // add $lane's waypoints after the last specified waypoint (in order to connect the next lane(s) of $lane) 
-            for (int i = waypointId + 1; i < lane.Waypoints.Length; i++)
-                virtualLaneWaypoints.Add(lane.Waypoints[i]);
-            virtualLane.UpdateWaypoints(virtualLaneWaypoints.ToArray());
+                virtualLane = Instantiate(lane, this.transform);
+                if (allExistingNames.Contains(virtualLane.name))
+                {
+                    virtualLane.name += Guid.NewGuid();
+                }
+                
+                // configure waypoints for the virtual lane.
+                List<Vector3> virtualLaneWaypoints = new List<Vector3>();
+                // The current position of NPC should be inserted as the first waypoint
+                // if (CustomSimUtils.DistanceIgnoreYAxis(targetNPC.Position, waypoints[0]) > 1)
+                //     virtualLaneWaypoints.Add(targetNPC.Position);
 
-            // reset virtual lane's previous 
-            virtualLane.ResetPrevLanes(new List<TrafficLane>());
-            virtualLane.ResetNextLanes(lane.NextLanes);
+                // add specified waypoints
+                virtualLaneWaypoints.AddRange(waypoints);
+                // add $lane's waypoints after the last specified waypoint (in order to connect the next lane(s) of $lane) 
+                for (int i = waypointId + 1; i < lane.Waypoints.Length; i++)
+                    virtualLaneWaypoints.Add(lane.Waypoints[i]);
+                virtualLane.UpdateWaypoints(virtualLaneWaypoints.ToArray());
 
-            // config the virtual lane as the NPC route (without goal), and let it move
-            CustomSimManager.ResetLanePositionForNPC(targetNPC, virtualLane);
+                // reset virtual lane's previous 
+                virtualLane.ResetPrevLanes(new List<TrafficLane>());
+                virtualLane.ResetNextLanes(lane.NextLanes);
+            }
+            
             CustomSimManager.ResetMotionProfileForNPC(ref targetNPC,
                 command.speed, command.acceleration, command.deceleration,
-                command.is_speed_defined, command.is_acceleration_defined, command.is_deceleration_defined);
-            CustomSimManager.RemoveDelayFromNPC(targetNPC);
+                command.is_speed_defined, command.is_acceleration_defined, command.is_deceleration_defined,
+                followCustomWaypoints: 1);
+            if (CustomSimManager.DoesExistInDelayMoveNPCs(targetNPC))
+            {
+                // if the NPC was spawned but its movement is delayed.
+                // Config the virtual lane as the NPC route (without goal), and let it move
+                CustomSimManager.ResetLanePositionForNPC(targetNPC, virtualLane);
+                CustomSimManager.RemoveDelayFromNPC(targetNPC);
+            }
+            else
+            {
+                // if the NPC is already moving
+                CustomSimManager.ResetNPCRoute(targetNPC, virtualLane);
+            }
 
             return new DynamicControl_Response
             {
-                Status = new ResponseStatus
+                Status = SuccessResponseStatus()
+            };
+        }
+
+        private DynamicControl_Response HandleSetTargetSpeedAction(SetTargetSpeedCommand command)
+        {
+            var targetNPC = CustomSimManager.GetNPCs().Find(npc => npc.ScriptName == command.target);
+            if (targetNPC == null)
+            {
+                Debug.LogError($"[AWAnalysis] Target NPC {command.target} not found.");
+                return new DynamicControl_Response
                 {
-                    Code = 0,
-                    Message = "Success",
-                    Success = true
-                }
+                    Status = new ResponseStatus
+                    {
+                        Code = 1,
+                        Message = $"NPC {command.target} not found.",
+                        Success = false
+                    }
+                };
+            }
+            
+            CustomSimManager.ResetMotionProfileForNPC(ref targetNPC,
+                command.speed, command.acceleration, command.deceleration,
+                true, command.is_acceleration_defined, command.is_deceleration_defined);
+            
+            return new DynamicControl_Response
+            {
+                Status = SuccessResponseStatus()
             };
         }
 
@@ -446,20 +567,46 @@ namespace AWSIM.AWAnalysis.CustomSim
                         Success = false
                     }
                 };
+
+            var ok = RemoveVirtualLanes();
+            if (!ok)
+                return new DynamicControl_Response()
+                {
+                    Status = new ResponseStatus
+                    {
+                        Code = 1,
+                        Message = $"Could remove spawned virtual traffic lanes",
+                        Success = false
+                    }
+                };
             return new DynamicControl_Response
             {
-                Status = new ResponseStatus
-                {
-                    Code = 0,
-                    Message = "",
-                    Success = true
-                }
+                Status = SuccessResponseStatus()
             };
         }
 
         private bool RemoveSingleNPC(NPCVehicle target)
         {
             return CustomSimManager.DespawnNPC(target);
+        }
+
+        private bool RemoveVirtualLanes()
+        {
+            var lanes = GetComponentsInChildren<TrafficLane>();
+            try
+            {
+                foreach (var l in lanes)
+                {
+                    Destroy(l.gameObject);
+                    Debug.Log($"Removed lane {l.name}");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                return false;
+            }
+            return true;
         }
 
         private DynamicControl_Response HandleAWSIMScriptScenario(DynamicAWSIMScriptCommand command)
@@ -486,12 +633,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 
                 return new DynamicControl_Response
                 {
-                    Status = new ResponseStatus
-                    {
-                        Code = 0,
-                        Message = message,
-                        Success = true
-                    }
+                    Status = SuccessResponseStatus(message)
                 };
             }
             catch (Exception e)
@@ -507,6 +649,32 @@ namespace AWSIM.AWAnalysis.CustomSim
                     }
                 };
             }
+        }
+
+        private DynamicControl_Response HandleMapNetworkReq(DynamicControl_Request command)
+        {
+            if (_mapNetworkWrapper == null)
+                return UNPROCESSED_REQ();
+            string jsonStr = JsonUtility.ToJson(_mapNetworkWrapper);
+            return new DynamicControl_Response
+            {
+                Status = SuccessResponseStatus(jsonStr)
+            };
+        }
+        
+        private MapNetworkWrapper ExtractMapNetwork()
+        {
+            return new MapNetworkWrapper(CustomSimManager.GetAllTrafficLanes());
+        }
+
+        private static ResponseStatus SuccessResponseStatus(string message="Success")
+        {
+            return new ResponseStatus
+            {
+                Code = 0,
+                Message = message,
+                Success = true
+            };
         }
 
         private bool ResetEgoSetting(Simulation simulation,
@@ -571,6 +739,17 @@ namespace AWSIM.AWAnalysis.CustomSim
             if (gtInfoPublisher != null)
             {
                 gtInfoPublisher.SetMetadataAndPublish("{\"" + key + "\": " + JsonUtility.ToJson(rosPoint) + "}");
+            }
+        }
+        private void PublishMetadata(string key, List<Vector3> unityPoints)
+        {
+            var jsonStrArray = unityPoints.Select(p => JsonUtility.ToJson(ROS2Utility.UnityToRosMGRS(p)));
+            string jsonStr = string.Join(", ", jsonStrArray);
+            jsonStr = "[" + jsonStr + "]";
+            GroundTruthInfoPublisher gtInfoPublisher = FindObjectOfType<AWAnalysis>().GtInfoPublisher;
+            if (gtInfoPublisher != null)
+            {
+                gtInfoPublisher.SetMetadataAndPublish("{\"" + key + "\": " + jsonStr + "}");
             }
         }
 
@@ -782,6 +961,16 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
 
             return distance2Wp;
+        }
+
+        private List<String> GetAllChildNames()
+        {
+            var childNames = new List<String>();
+            for (int i = 0; i < this.transform.childCount; i++)
+            {
+                childNames.Add(this.transform.GetChild(i).name);
+            }
+            return childNames;
         }
     }
 }

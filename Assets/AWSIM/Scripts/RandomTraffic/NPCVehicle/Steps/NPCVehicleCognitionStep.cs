@@ -103,7 +103,11 @@ namespace AWSIM.TrafficSimulation
             private bool IsCloseToTarget(NPCVehicleInternalState state)
             {
                 var tightDis = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
-                    
+                
+                // if following custom defined waypoints
+                if (state.CustomConfig.FollowCustomWaypoints)
+                    return state.DistanceToCurrentWaypoint <= tightDis;
+                
                 // during a lane change
                 if (state.CustomConfig.HasALaneChange() && 
                     ((state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&

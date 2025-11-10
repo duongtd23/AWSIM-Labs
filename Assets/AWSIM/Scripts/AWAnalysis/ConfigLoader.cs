@@ -29,7 +29,7 @@ namespace AWSIM.AWAnalysis
                 var config = deserializer.Deserialize<AWAnalysisConfig>(File.OpenText(filePath));
                 return config;
             }
-            Debug.LogError($"No config file found at {YAML_CONFIG_FILE}. Use default config.");
+            Debug.LogWarning($"No config file found at {YAML_CONFIG_FILE}. Use default config.");
             return new AWAnalysisConfig();
         }
         

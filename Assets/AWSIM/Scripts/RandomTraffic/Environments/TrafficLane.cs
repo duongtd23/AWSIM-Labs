@@ -143,5 +143,9 @@ namespace AWSIM.TrafficSimulation
         {
             this.prevLanes = _prevLanes;
         }
+        public void SetSpeedLimit(float speedLimit)
+        {
+            this.speedLimit = speedLimit;
+        }
     }
 }
