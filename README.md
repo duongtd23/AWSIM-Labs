@@ -5,52 +5,83 @@ This is a fork and extended version of [Autoware Foundation's AWSIM-Labs](https:
 ## Additional Features
 
 - Various options to control NPC behaviors, such as, lane change, different acceleration and deceleration profiles for different NPCs, and motion delays.
-- A scenario specification language called AWSIM-Script to ease the simulation description.
+- Two scenario description languages to specify desired scenarios: [AWSIM-Script](#an-example-of-awsim-script) and [AWSIM-ScriptPy](https://github.com/duongtd23/AWSIMScriptPy-Client).
+The usage of both languages is explained in the [AWSIM-ScriptPy repo](https://github.com/duongtd23/AWSIMScriptPy-Client), so please check it out for more details.
 
 ## Installation
 
 The environment requirements are listed here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/#environment-preparation.
-The setup guide provided by Autoware Foundation is available here: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/SetupUnityProject/.
-Note that this branch (`dev`) may be unstable.
+
+Please follow the installation instructions in the original AWSIM-Labs repo: https://autowarefoundation.github.io/AWSIM-Labs/main/GettingStarted/QuickStartDemo/ to make:
+- DDS configuration
+- CycloneDDS configuration
+- Nvidia GPU driver installation (Skip if already installed).
+
+## Launching Binary Release
+
+You can download a binary release from here, unzip it, and launch the simulator using:
+
+```bash
+./awsim_labs.x86_64
+```
+
+It may take some time for the application to start the so please wait until image similar to the one presented below is visible in your application window. The screen looks like this:
+![AWSIM-Labs Screenshot](docs/assets/images/awsim-labs-screen.png)
+
+By default, Gaussian noise is added to the simulated data of LiDAR sensors. Use option -noise false to disable this noise.
+
+```bash
+./awsim_labs.x86_64 -noise false
+```
 
 ## Using AWSIM-Script and AW-RuntimeMonitor
-- AWSIM-Script (https://github.com/duongtd23/AWSIMScript-Client) is a scenario specification language (an example shown below). 
-- AW-RuntimeMonitor (https://github.com/duongtd23/AW-RuntimeMonitor) is a runtime monitor that:
-  - Records traffic participants' dynamics and ADS (Autoware) internal state (e.g., planning trajectories, control commands, perceived objects, etc.) during simulation and dumps the information to a trace file once the simulation finishes.
-  - Can monitor the safety of a control command produced by ADS and if it is unsafe, activate AEB. Check branch [`dev`](https://github.com/duongtd23/AW-RuntimeMonitor/tree/dev) for this feature.
+AW-RuntimeMonitor (https://github.com/dtanony/AW-Runtime-Monitor) is a runtime monitor that:
+- Records traffic participants' dynamics and ADS (Autoware) internal state (e.g., planning trajectories, control commands, perceived objects, etc.) during simulation and dumps the information to a trace file once the simulation finishes.
+- Can monitor the safety of a control command produced by ADS and if it is unsafe, activate AEB.
 
 The idea of using AWSIM-Script and AW-RuntimeMonitor together with AWSIM-Labs and Autoware is shown in the figure below. 
-We can replace  AWSIM-Script with other scenario description language, e.g., Scenic (interested user can check the [extended Scenic](https://github.com/fomaad/Scenic) to be work with AWSIM-Labs and the corresponding [AW-RuntimeMonitor](https://github.com/duongtd23/AW-RuntimeMonitor/tree/scenic)).
+We can replace  AWSIM-Script with other scenario description language, e.g., Scenic (interested user can check the [extended Scenic](https://github.com/fomaad/Scenic) to be work with AWSIM-Labs).
 
 <img src="tool-chain.png" alt="Tool architecture" width="400"/>
 
+To launch these tools together,
+in addition to AWSIM-Labs (this repo), clone AWSIMScriptPy-Client and AW-RuntimeMonitor repos.
+#### 1. Launch AWSIM-Labs and Autoware.
 
-### Usage
-In addition to AWSIM-Labs (this repo), clone AWSIMScript-Client and AW-RuntimeMonitor (branch `awsimclient`) repos.
-1. Launch Autoware and AWSIM-Labs following AWSIM-Labs's documentation.
-2. Launch AW-RuntimeMonitor
+#### 2. Launch AW-Runtime-Monitor
+Instructions to install and launch AW-Runtime-Monitor are available in its [repository](https://github.com/dtanony/AW-Runtime-Monitor).
+
+After launching Autoware and AWSIM-Labs and they are connected, run the following command in another terminal:
 ```bash
-cd path-to-autoware
-source install/setup.bash
-cd AW-RuntimeMonitor
-python main.py -o <output-trace-file>
-```
-Option `-h` might be helpful before running `python main.py`.
-Checkout the guide in [AW-RuntimeMonitor](https://github.com/duongtd23/AW-RuntimeMonitor/tree/awsimclient) repo as well.
-
-3. Send the AWSIM-Script input file to be executed.
-
-```bash
-cd path-to-autoware
-source install/setup.bash
-cd AWSIMScript-Client
-python client.py <path-to-input-script>
+python main.py -o <path-to-folder-to-save-traces> -v false
 ```
 
-Option `-h` might be helpful before running `python client.py`.
-An example of the input script is shown below.
+where the options `-v false` disable shielding. By default, it is enabled.
+Note that you need to source Autoware's setup file before launching the monitor.
+For more details about the tool usage, use `python main.py -h`.
 
-4. Once the ego reaches its destination, recorded trace will be saved to `<output-trace-file>`.
+```bash
+$ python main.py -h
+usage: main.py [-h] [-o OUTPUT] [-f {json,yaml}] [-n NO_SIM] [-v {true,false}]
+
+Runtime Monitor for Autoware and AWSIM simulator. Adjust the component to record data by modifying
+file config.yaml
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output trace file name (default: auto-generated with timestamp)
+  -f {json,yaml}, --format {json,yaml}
+                        either json or yaml (default: json)
+  -n NO_SIM, --no_sim NO_SIM
+                        Simulation number, use as suffix to the file name (default: 1)
+  -v {true,false}, --verify_control_cmd {true,false}
+                        To verify the safety of control commands, i.e., enable shielding (true or
+                        false, default: true)
+```
+
+#### 4. Run scenario with AWSIM-Script client library:
+Instructions to specify and run a scenario with the original AWSIM-Script and AWSIM-ScriptPy (Python interface) are available at: https://github.com/duongtd23/AWSIMScriptPy-Client.
 
 ### An example of AWSIM-Script
 An example of the input accepted by AWSIM-Script is as follows:
