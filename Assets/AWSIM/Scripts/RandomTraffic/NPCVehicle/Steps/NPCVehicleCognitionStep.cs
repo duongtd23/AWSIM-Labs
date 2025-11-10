@@ -53,26 +53,87 @@ namespace AWSIM.TrafficSimulation
             {
                 foreach (var state in States)
                 {
-                    var isCloseToTarget = state.DistanceToCurrentWaypoint <= 1f;
-
+                    if (state.CurrentFollowingLane == null)
+                    {
+                        state.SpeedMode = NPCVehicleSpeedMode.STOP;
+                        continue;
+                    }
+                    bool isCloseToTarget = IsCloseToTarget(state);
                     if (!isCloseToTarget)
                         continue;
-
-                    if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                                        
+                    // if change lane soon
+                    if (state.CustomConfig.HasALaneChange() &&
+                        state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                        state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)
                     {
                         state.ExtendFollowingLane();
                         state.RemoveCurrentFollowingLane();
-                        state.WaypointIndex = 1;
+                        state.WaypointIndex = state.CustomConfig.LaneChange.TargetLaneWaypointIndex;
+                    }
+                    // for U-Turn
+                    else if (state.CustomConfig.UTurn != null &&
+                             state.CurrentFollowingLane.OriginName() == state.CustomConfig.UTurn.SourceLane &&
+                             state.WaypointIndex == state.CurrentFollowingLane.Waypoints.Length - 1)
+                    {
+                        state.ExtendFollowingLane();
+                        state.RemoveCurrentFollowingLane();
+                        state.WaypointIndex = state.CustomConfig.UTurn.NextLaneWaypointIndex;
                     }
                     else
                     {
-                        state.WaypointIndex++;
+                        if (state.WaypointIndex >= state.CurrentFollowingLane.Waypoints.Length - 1)
+                        {
+                            state.ExtendFollowingLane();
+                            state.RemoveCurrentFollowingLane();
+                            state.WaypointIndex = 1;
+                        }
+                        else
+                        {
+                            state.WaypointIndex++;
+                        }
                     }
 
                     // Despawn if there are no lanes to follow.
                     if (state.FollowingLanes.Count == 0)
                         state.ShouldDespawn = true;
                 }
+            }
+
+            private bool IsCloseToTarget(NPCVehicleInternalState state)
+            {
+                var tightDis = Mathf.Max(Time.fixedDeltaTime * state.Speed, 0.1f);
+                
+                // if following custom defined waypoints
+                if (state.CustomConfig.FollowCustomWaypoints)
+                    return state.DistanceToCurrentWaypoint <= tightDis;
+                
+                // during a lane change
+                if (state.CustomConfig.HasALaneChange() && 
+                    ((state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.TargetLane &&
+                      state.WaypointIndex == state.CustomConfig.LaneChange.TargetLaneWaypointIndex) ||
+                     (state.CurrentFollowingLane.name == state.CustomConfig.LaneChange.SourceLane &&
+                      state.WaypointIndex == state.CustomConfig.LaneChange.SourceLaneWaypointIndex)))
+                    return state.DistanceToCurrentWaypoint <= tightDis;
+                    
+                // during a wandering
+                if (state.CustomConfig.LateralWandering != null && 
+                    ((state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.SourceLane &&
+                      state.WaypointIndex >= state.CustomConfig.LateralWandering.SourceLaneWaypointIndex &&
+                      state.WaypointIndex <= state.CustomConfig.LateralWandering.SourceLaneWaypointIndex + 2) ||
+                     (state.CurrentFollowingLane.OriginName() == state.CustomConfig.LateralWandering.ReturningLane &&
+                      state.WaypointIndex == state.CustomConfig.LateralWandering.ReturningLaneWaypointIndex)))
+                    return state.DistanceToCurrentWaypoint <= tightDis;
+                
+                // during a U-Turn
+                if (state.CustomConfig.UTurn != null && 
+                    ((state.CurrentFollowingLane.OriginName() == state.CustomConfig.UTurn.SourceLane &&
+                      state.WaypointIndex >= state.CustomConfig.UTurn.SourceLaneWaypointIndex) ||
+                     (state.CurrentFollowingLane.name == state.CustomConfig.UTurn.NextLane &&
+                      state.WaypointIndex == state.CustomConfig.UTurn.NextLaneWaypointIndex)))
+                    return state.DistanceToCurrentWaypoint <= tightDis;
+
+                return state.DistanceToCurrentWaypoint <= 1f;
             }
         }
 
@@ -905,8 +966,9 @@ namespace AWSIM.TrafficSimulation
                 {
                     if (GroundHitInfoArray[i].collider == null)
                         States[i].ShouldDespawn = true;
-
-                    States[i].DistanceToFrontVehicle = ObstacleDistances[i];
+                    
+                    if (ObstacleDistances[i] > 100 || !States[i].IsInUTurn())
+                        States[i].DistanceToFrontVehicle = ObstacleDistances[i];
                     States[i].IsTurning = IsTurnings[i];
                 }
             }

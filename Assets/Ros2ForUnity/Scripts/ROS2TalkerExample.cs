@@ -17,38 +17,38 @@ using UnityEngine;
 namespace ROS2
 {
 
-    /// <summary>
-    /// An example class provided for testing of basic ROS2 communication
-    /// </summary>
-    public class ROS2TalkerExample : MonoBehaviour
+/// <summary>
+/// An example class provided for testing of basic ROS2 communication
+/// </summary>
+public class ROS2TalkerExample : MonoBehaviour
+{
+    // Start is called before the first frame update
+    private ROS2UnityComponent ros2Unity;
+    private ROS2Node ros2Node;
+    private IPublisher<std_msgs.msg.String> chatter_pub;
+    private int i;
+
+    void Start()
     {
-        // Start is called before the first frame update
-        private ROS2UnityComponent ros2Unity;
-        private ROS2Node ros2Node;
-        private IPublisher<std_msgs.msg.String> chatter_pub;
-        private int i;
+        ros2Unity = GetComponent<ROS2UnityComponent>();
+    }
 
-        void Start()
+    void Update()
+    {
+        if (ros2Unity.Ok())
         {
-            ros2Unity = GetComponent<ROS2UnityComponent>();
-        }
-
-        void Update()
-        {
-            if (ros2Unity.Ok())
+            if (ros2Node == null)
             {
-                if (ros2Node == null)
-                {
-                    ros2Node = ros2Unity.CreateNode("ROS2UnityTalkerNode");
-                    chatter_pub = ros2Node.CreatePublisher<std_msgs.msg.String>("chatter");
-                }
-
-                i++;
-                std_msgs.msg.String msg = new std_msgs.msg.String();
-                msg.Data = "Unity ROS2 sending: hello " + i;
-                chatter_pub.Publish(msg);
+                ros2Node = ros2Unity.CreateNode("ROS2UnityTalkerNode");
+                chatter_pub = ros2Node.CreatePublisher<std_msgs.msg.String>("chatter");
             }
+
+            i++;
+            std_msgs.msg.String msg = new std_msgs.msg.String();
+            msg.Data = "Unity ROS2 sending: hello " + i;
+            chatter_pub.Publish(msg);
         }
     }
+}
 
 }  // namespace ROS2

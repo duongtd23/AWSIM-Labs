@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using AWSIM_Script.Object;
+using AWSIM.AWAnalysis.CustomSim;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -35,7 +38,13 @@ namespace AWSIM.TrafficSimulation
         private float speedLimit;
         [SerializeField, Tooltip("Is intersection lane")]
         public bool intersectionLane;
-
+        [SerializeField, Tooltip("Lane's width. Use 3.5 as default if unset.")]
+        private float width = 3.5f;
+        
+        public void UpdateWaypoints(Vector3[] upWaypoints)
+        {
+            this.waypoints = upWaypoints;
+        }
         /// <summary>
         /// Get waypoints in this lane.
         /// </summary>
@@ -95,6 +104,48 @@ namespace AWSIM.TrafficSimulation
             trafficLane.turnDirection = turnDirection;
             trafficLane.speedLimit = speedLimit;
             return trafficLane;
+        }
+        
+        public float DistanceUpToWaypoint(int waypointIndex)
+        {
+            float distance = 0;
+            for (int i = 0; i < waypointIndex; i++)
+                distance += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return distance;
+        }
+
+        public float TotalLength()
+        {
+            float totalLen = 0;
+            for (int i = 0; i < waypoints.Length - 1; i++)
+                totalLen += CustomSimUtils.DistanceIgnoreYAxis(waypoints[i + 1], waypoints[i]);
+            return totalLen;
+        }
+
+        public const float DEFAULT_WIDTH = 3.5f;
+        public float Width => width == 0.0f ? DEFAULT_WIDTH : width;
+
+        public string OriginName()
+        {
+            Regex r = new Regex(NPCConfig.CLONE_PATTERN);
+            var matches = r.Match(name);
+            if (!matches.Success || matches.Groups.Count < 2)
+                return name;
+            return matches.Groups[1].ToString();
+        }
+
+        public void ResetNextLanes(List<TrafficLane> _nextLanes)
+        {
+            this.nextLanes = _nextLanes;
+        }
+        
+        public void ResetPrevLanes(List<TrafficLane> _prevLanes)
+        {
+            this.prevLanes = _prevLanes;
+        }
+        public void SetSpeedLimit(float speedLimit)
+        {
+            this.speedLimit = speedLimit;
         }
     }
 }

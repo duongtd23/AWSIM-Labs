@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AWSIM_Script.Object;
 using UnityEngine;
 
 namespace AWSIM.TrafficSimulation
@@ -32,7 +33,7 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private void UpdateSpeed(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             float targetSpeed;
@@ -40,12 +41,16 @@ namespace AWSIM.TrafficSimulation
             switch (state.SpeedMode)
             {
                 case NPCVehicleSpeedMode.NORMAL:
-                    targetSpeed = state.CurrentFollowingLane.SpeedLimit;
+                    targetSpeed = state.TargetSpeed(state.CurrentFollowingLane);
                     acceleration = config.Acceleration;
+                    if (!state.CustomConfig.Acceleration.Equals(NPCConfig.DUMMY_ACCELERATION))
+                        acceleration = state.CustomConfig.Acceleration;
                     break;
                 case NPCVehicleSpeedMode.SLOW:
-                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.CurrentFollowingLane.SpeedLimit);
+                    targetSpeed = Mathf.Min(NPCVehicleConfig.SlowSpeed, state.TargetSpeed(state.CurrentFollowingLane));
                     acceleration = config.Deceleration;
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
+                        acceleration = state.CustomConfig.Deceleration;
                     break;
                 case NPCVehicleSpeedMode.SUDDEN_STOP:
                     targetSpeed = 0f;
@@ -58,6 +63,8 @@ namespace AWSIM.TrafficSimulation
                 case NPCVehicleSpeedMode.STOP:
                     targetSpeed = 0f;
                     acceleration = config.Deceleration;
+                    if (!state.CustomConfig.Deceleration.Equals(NPCConfig.DUMMY_DECELERATION))
+                        acceleration = state.CustomConfig.Deceleration;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -72,15 +79,31 @@ namespace AWSIM.TrafficSimulation
         private static void UpdateYawSpeed(NPCVehicleInternalState state, float deltaTime)
         {
             // Steering the vehicle so that it heads toward the target point.
-            var steeringDirection = state.TargetPoint - state.FrontCenterPosition;
+            var steeringDirection = state.TargetPoint - state.Position;
             steeringDirection.y = 0f;
             var steeringAngle = Vector3.SignedAngle(state.Forward, steeringDirection, Vector3.up);
-            var targetYawSpeed = steeringAngle * state.Speed * NPCVehicleConfig.YawSpeedMultiplier;
-            // Change YawSpeed gradually to eliminate steering shake.
-            state.YawSpeed = Mathf.Lerp(
-                state.YawSpeed,
-                targetYawSpeed,
-                NPCVehicleConfig.YawSpeedLerpFactor * deltaTime);
+            state.YawSpeed = 2 * state.Speed * Mathf.Sin(steeringAngle/180*Mathf.PI)/(state.TargetPoint - state.FrontCenterPosition).magnitude * 180/Mathf.PI;
+        }
+
+        private static bool NeedAggressiveTurn(NPCVehicleInternalState state)
+        {
+            // needed when has a lane change
+            if (state.CustomConfig.HasALaneChange() &&
+                state.CustomConfig.LaneChange is CutInLaneChange or CutOutLaneChange)
+                return true;
+            
+            // needed when has a swerve behavior
+            if (state.CustomConfig.LateralWandering != null)
+                return true;
+            
+            // needed for U-Turn behavior
+            if (state.CustomConfig.UTurn != null)
+                return true;
+
+            if (state.CustomConfig.FollowCustomWaypoints)
+                return true;
+
+            return false;
         }
 
         /// <summary>
@@ -88,12 +111,12 @@ namespace AWSIM.TrafficSimulation
         /// </summary>
         private static void UpdatePose(NPCVehicleInternalState state, float deltaTime)
         {
-            if (state.ShouldDespawn)
+            if (state.ShouldDespawn || state.GoalArrived)
                 return;
 
             state.Yaw += state.YawSpeed * deltaTime;
             var position = state.Position;
-            position += state.Forward * state.Speed * deltaTime;
+            position += state.Forward * (state.Speed * deltaTime);
             position.y = state.TargetPoint.y;
             state.Position = position;
         }

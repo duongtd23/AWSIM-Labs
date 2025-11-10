@@ -130,6 +130,7 @@ namespace AWSIM
                 = SimulatorROS2Node.CreateSubscription<geometry_msgs.msg.PoseWithCovarianceStamped>(
                     positionTopic, msg =>
                     {
+                        Debug.Log($"Got initialpose msg in VehicleRosInput: {msg}");
                         var positionVector = new Vector3((float)msg.Pose.Pose.Position.X,
                                                          (float)msg.Pose.Pose.Position.Y,
                                                          (float)msg.Pose.Pose.Position.Z);
