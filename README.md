@@ -47,6 +47,11 @@ We can replace  AWSIM-Script with other scenario description language, e.g., Sce
 To launch these tools together,
 in addition to AWSIM-Labs (this repo), clone AWSIMScriptPy-Client and AW-RuntimeMonitor repos.
 #### 1. Launch AWSIM-Labs and Autoware.
+For AWSIM-Labs, download and run the binary version as explained above.
+
+For Autoware, a detailed installation and launch instruction is available in this repo: https://github.com/dtanony/Autoware0412.
+Please follow the instruction until you can launch Autoware and connect it to AWSIM-Labs.
+
 
 #### 2. Launch AW-Runtime-Monitor
 Instructions to install and launch AW-Runtime-Monitor are available in its [repository](https://github.com/dtanony/AW-Runtime-Monitor).
