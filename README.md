@@ -34,18 +34,18 @@ By default, Gaussian noise is added to the simulated data of LiDAR sensors. Use 
 ./awsim_labs.x86_64 -noise false
 ```
 
-## Using AWSIM-Script and AW-RuntimeMonitor
-AW-RuntimeMonitor (https://github.com/duongtd23/AW-Runtime-Monitor) is a runtime monitor that:
+## Using AWSIM-Script and AW-Runtime-Monitor
+AW-Runtime-Monitor (https://github.com/duongtd23/AW-Runtime-Monitor) is a runtime monitor that:
 - Records traffic participants' dynamics and ADS (Autoware) internal state (e.g., planning trajectories, control commands, perceived objects, etc.) during simulation and dumps the information to a trace file once the simulation finishes.
 - Can monitor the safety of a control command produced by ADS, and if it is unsafe, activate AEB.
 
-The idea of using AWSIM-Script and AW-RuntimeMonitor together with AWSIM-Labs and Autoware is shown in the figure below. 
+The idea of using AWSIM-Script and AW-Runtime-Monitor together with AWSIM-Labs and Autoware is shown in the figure below. 
 We can replace  AWSIM-Script with other scenario description language, e.g., Scenic (interested user can check the [extended Scenic](https://github.com/fomaad/Scenic) to be work with AWSIM-Labs).
 
 <img src="tool-chain.png" alt="Tool architecture" width="400"/>
 
 To launch these tools together,
-in addition to AWSIM-Labs (this repo), clone AWSIMScriptPy-Client and AW-RuntimeMonitor repos.
+in addition to AWSIM-Labs (this repo), clone AWSIMScriptPy-Client and AW-Runtime-Monitor repos.
 #### 1. Launch AWSIM-Labs and Autoware.
 For AWSIM-Labs, download and run the binary version as explained above.
 
