@@ -25,7 +25,7 @@ You can download a binary release from [here](https://github.com/duongtd23/AWSIM
 ./awsim_labs.x86_64
 ```
 
-It may take some time for the application to start the so please wait until image similar to the one presented below is visible in your application window. The screen looks like this:
+It may take some time for the application to start, so please wait until a window like the one below appears:
 ![AWSIM-Labs Screenshot](docs/assets/images/awsim-labs-screen.png)
 
 By default, Gaussian noise is added to the simulated data of LiDAR sensors. Use option -noise false to disable this noise.
@@ -35,9 +35,9 @@ By default, Gaussian noise is added to the simulated data of LiDAR sensors. Use 
 ```
 
 ## Using AWSIM-Script and AW-RuntimeMonitor
-AW-RuntimeMonitor (https://github.com/dtanony/AW-Runtime-Monitor) is a runtime monitor that:
+AW-RuntimeMonitor (https://github.com/duongtd23/AW-Runtime-Monitor) is a runtime monitor that:
 - Records traffic participants' dynamics and ADS (Autoware) internal state (e.g., planning trajectories, control commands, perceived objects, etc.) during simulation and dumps the information to a trace file once the simulation finishes.
-- Can monitor the safety of a control command produced by ADS and if it is unsafe, activate AEB.
+- Can monitor the safety of a control command produced by ADS, and if it is unsafe, activate AEB.
 
 The idea of using AWSIM-Script and AW-RuntimeMonitor together with AWSIM-Labs and Autoware is shown in the figure below. 
 We can replace  AWSIM-Script with other scenario description language, e.g., Scenic (interested user can check the [extended Scenic](https://github.com/fomaad/Scenic) to be work with AWSIM-Labs).
@@ -50,11 +50,11 @@ in addition to AWSIM-Labs (this repo), clone AWSIMScriptPy-Client and AW-Runtime
 For AWSIM-Labs, download and run the binary version as explained above.
 
 For Autoware, a detailed installation and launch instruction is available in this repo: https://github.com/dtanony/Autoware0412.
-Please follow the instruction until you can launch Autoware and connect it to AWSIM-Labs.
+Please follow the instructions until you can launch Autoware and connect it to AWSIM-Labs.
 
 
 #### 2. Launch AW-Runtime-Monitor
-Instructions to install and launch AW-Runtime-Monitor are available in its [repository](https://github.com/dtanony/AW-Runtime-Monitor).
+Instructions to install and launch AW-Runtime-Monitor are available in its [repository](https://github.com/duongtd23/AW-Runtime-Monitor).
 
 After launching Autoware and AWSIM-Labs and they are connected, run the following command in another terminal:
 ```bash
@@ -80,9 +80,6 @@ options:
                         either json or yaml (default: json)
   -n NO_SIM, --no_sim NO_SIM
                         Simulation number, use as suffix to the file name (default: 1)
-  -v {true,false}, --verify_control_cmd {true,false}
-                        To verify the safety of control commands, i.e., enable shielding (true or
-                        false, default: true)
 ```
 
 #### 4. Run scenario with AWSIM-Script client library:
