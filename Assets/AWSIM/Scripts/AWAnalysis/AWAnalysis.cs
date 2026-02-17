@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using AWSIM_Script.Error;
 using AWSIM_Script.Object;
@@ -83,6 +85,70 @@ namespace AWSIM.AWAnalysis
 
             if (_groundTruthInfoPublisher == null && SimulatorROS2Node.Ok())
                 InitializeSimulationPublisher();
+        }
+        
+        private float totalSimTime = 0;
+        private float totalRealTime = 0;
+        
+        private float m_deltaTime = 0f;
+        private float m_fps = 0f;
+        private int m_updateRate = 3;
+        private int m_frameCount = 0;
+        private List<float> fpsList = new List<float>();
+        private bool fileWritten;
+        
+        void Update() 
+        {
+            // FPS calculation
+            if (ExecutionStateTracker.State < ExecutionState.AUTO_MODE_READY)
+                return;
+            if (ExecutionStateTracker.State == ExecutionState.GOAL_ARRIVED && !fileWritten)
+            {
+                fileWritten = true;
+                SaveFpsLogToFile();
+            }
+            
+            m_deltaTime += Time.unscaledDeltaTime;
+            m_frameCount++;
+            if (m_deltaTime > 1f / m_updateRate)
+            {
+                m_fps = m_frameCount / m_deltaTime;
+                fpsList.Add(m_fps);
+                
+                // Reset variables
+                m_deltaTime = 0f;
+                m_frameCount = 0;
+            }
+        }
+
+        private void Start()
+        {
+            bool ok = CommandLineArgsManager.GetNoNPCArg(out int maxNoNpc);
+            if (ok && maxNoNpc > 0)
+            {
+                TrafficManager tm = FindObjectOfType<TrafficManager>();
+                tm.AddRandomTrafficInstance(maxNoNpc);
+                Debug.Log($"Enabled random traffic manager, maximum NPC: {maxNoNpc}");
+            }
+        }
+
+        private void SaveFpsLogToFile()
+        {
+            bool ok = CommandLineArgsManager.GetLogFileArg(out string logPath);
+            if (!ok || logPath == "")
+                return;
+            
+            // Convert the list of floats to an array of strings.
+            string[] lines = new string[fpsList.Count];
+            for (int i = 0; i < fpsList.Count; i++)
+            {
+                lines[i] = fpsList[i].ToString();
+            }
+
+            // Write the lines into the file.
+            File.WriteAllLines(logPath, lines);
+            File.WriteAllLines("releases/file3.txt", lines);
+            Debug.Log("FPS log saved to: " + logPath);
         }
 
         private bool Ready()

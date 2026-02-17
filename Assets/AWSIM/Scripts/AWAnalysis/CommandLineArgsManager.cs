@@ -13,6 +13,8 @@ namespace AWSIM.AWAnalysis
         public const string TRACE_SAVING_PATH_ARG = "-output";
         public const string PERCEPTION_MODE_ARG = "-perception_mode";
         public const string NOISE_CONFIG_ARG = "-noise";
+        public const string LOG_ARG = "-log";
+        public const string NO_NPC_VEHICLE_ARG = "-nonpc";
 
         // singleton instance
         private static CommandLineArgsManager instance;
@@ -51,6 +53,16 @@ namespace AWSIM.AWAnalysis
                 {
                     string noiseConfig = ExtractArgValue(arguments, ref i, NOISE_CONFIG_ARG);
                     args.Add(NOISE_CONFIG_ARG, noiseConfig.ToLower());
+                }
+                else if (arguments[i].StartsWith(LOG_ARG))
+                {
+                    string logValue = ExtractArgValue(arguments, ref i, LOG_ARG);
+                    args.Add(LOG_ARG, logValue);
+                }
+                else if (arguments[i].StartsWith(NO_NPC_VEHICLE_ARG))
+                {
+                    string noNPCStr = ExtractArgValue(arguments, ref i, NO_NPC_VEHICLE_ARG);
+                    args.Add(NO_NPC_VEHICLE_ARG, noNPCStr);
                 }
             }
         }
@@ -132,6 +144,30 @@ namespace AWSIM.AWAnalysis
                 return false;
             }
             isNoiseEnable = _args[NOISE_CONFIG_ARG].ToLower() == "true";
+            return true;
+        }
+
+        public static bool GetLogFileArg(out string logFilePath)
+        {
+            Dictionary<string, string> _args = Instance().args;
+            if (!_args.ContainsKey(LOG_ARG))
+            {
+                logFilePath = "";
+                return false;
+            }
+            logFilePath = _args[LOG_ARG];
+            return true;
+        }
+
+        public static bool GetNoNPCArg(out int noNPC)
+        {
+            Dictionary<string, string> _args = Instance().args;
+            if (!_args.ContainsKey(NO_NPC_VEHICLE_ARG))
+            {
+                noNPC = 0;
+                return false;
+            }
+            noNPC = Int16.Parse(_args[NO_NPC_VEHICLE_ARG]);
             return true;
         }
 

@@ -707,7 +707,7 @@ namespace AWSIM_Script.Parser
             throw new InvalidScriptException("Cannot parse pedestrian type from: " + node.GetText());
         }
         
-        private static PedesType ParseHumanType(string humanTypeStr)
+        public static PedesType ParseHumanType(string humanTypeStr)
         {
             switch (humanTypeStr.ToLower())
             {
@@ -881,11 +881,11 @@ namespace AWSIM_Script.Parser
                                                  "but was " + argExpContexts[2].GetText());
             lateralWanderingConfig.LateralVelocity = latVel;
             
-            ok = ParseNumber(argExpContexts[3], out float latitudeExceeded);
+            ok = ParseNumber(argExpContexts[3], out float lateralDistance);
             if (!ok)
                 throw new InvalidScriptException("The fourth argument (latitude exceeded) of swerve function must be a number, " +
                                                  "but was " + argExpContexts[3].GetText());
-            lateralWanderingConfig.LatitudeExceeded = latitudeExceeded;
+            lateralWanderingConfig.LateralDistance = lateralDistance;
             
             ok = ParseNumber(argExpContexts[4], out float longDistance);
             if (!ok)

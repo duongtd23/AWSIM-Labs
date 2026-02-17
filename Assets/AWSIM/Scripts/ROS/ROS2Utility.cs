@@ -104,6 +104,10 @@ namespace AWSIM
         {
             return new Quaternion(rosQuaternion.y, -rosQuaternion.z, -rosQuaternion.x, rosQuaternion.w);
         }
+        public static Quaternion RosToUnityRotation(QuaternionObject rosQuaternion)
+        {
+            return new Quaternion((float)rosQuaternion.y, (float)-rosQuaternion.z, (float)-rosQuaternion.x, (float)rosQuaternion.w);
+        }
 
         /// <summary>
         /// Convert rotation from ROS to Unity.

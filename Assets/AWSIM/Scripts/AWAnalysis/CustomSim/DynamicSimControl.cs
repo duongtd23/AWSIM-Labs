@@ -32,9 +32,13 @@ namespace AWSIM.AWAnalysis.CustomSim
             "/dynamic_control/vehicle/follow_waypoints";
         public const string TOPIC_DYNAMIC_CONTROL_SET_TARGET_SPEED = "/dynamic_control/vehicle/target_speed";
 
-        public const string TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING = "/dynamic_control/vehicle/removing";
+        public const string TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING = "/dynamic_control/npc/remove"; // applied to both vehicles and pedestrians
         public const string TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT = "/dynamic_control/script/awsim_script";
         public const string TOPIC_EGO_ESTIMATED_KINEMATICS = "/api/vehicle/kinematics";
+        
+        public const string TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_SPAWN = "/dynamic_control/pedestrian/spawn";
+        public const string TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_FOLLOW_WAYPOINTS =
+            "/dynamic_control/pedestrian/follow_waypoints";
 
         // service to check whether the spawning, follow lane, etc. actions sent before 
         // were successfully applied without any errors
@@ -51,13 +55,15 @@ namespace AWSIM.AWAnalysis.CustomSim
         
         public const string SRV_DYNAMIC_CONTROL_VEHICLE_REMOVING =
             TOPIC_DYNAMIC_CONTROL_VEHICLE_REMOVING + "_srv";
-
+        
+        public const string SRV_DYNAMIC_CONTROL_PEDESTRIAN_SPAWN = TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_SPAWN + "_srv";
+        public const string SRV_DYNAMIC_CONTROL_PEDESTRIAN_FOLLOW_WAYPOINTS =
+            TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_FOLLOW_WAYPOINTS + "_srv";
+        
         public const string SRV_DYNAMIC_CONTROL_AWSIM_SCRIPT =
             TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT + "_srv";
-        
         public const string SRV_DYNAMIC_CONTROL_MAP_NETWORK =
             "/dynamic_control/map/network";
-
         public const string LOCALIZATION_INITIALIZATION_SRV = "/api/localization/initialize";
 
         // queues of publisher messages sent from client (e.g., AWSIM-Script and Scenic)
@@ -70,6 +76,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         private Queue<std_msgs.msg.String> _setTargetSpeedReqQueue = new();
         private Queue<std_msgs.msg.String> _removeReqQueue = new();
         private Queue<std_msgs.msg.String> _awsimScriptReqQueue = new();
+        private Queue<std_msgs.msg.String> _pedestrianSpawnReqQueue = new();
+        private Queue<std_msgs.msg.String> _pedestrianFollowWaypointReqQueue = new();
 
         // saving the map (requests |-> responses), where
         // requests are (in form of json string) published msg from clients for making actions (e.g., spawning)
@@ -83,6 +91,8 @@ namespace AWSIM.AWAnalysis.CustomSim
         Dictionary<string, DynamicControl_Response> _setTargetSpeedReqResDict = new();
         Dictionary<string, DynamicControl_Response> _removeReqResDict = new();
         Dictionary<string, DynamicControl_Response> _awsimScriptReqResDict = new();
+        Dictionary<string, DynamicControl_Response> _pedestrianSpawnReqResDict = new();
+        Dictionary<string, DynamicControl_Response> _pedestrianFollowWaypointReqResDict = new();
         
         // map information
         private MapNetworkWrapper _mapNetworkWrapper;
@@ -121,11 +131,18 @@ namespace AWSIM.AWAnalysis.CustomSim
                 TOPIC_DYNAMIC_CONTROL_AWSIM_SCRIPT,
                 msg => { _awsimScriptReqQueue.Enqueue(msg); },
                 qos);
+            SimulatorROS2Node.CreateSubscription<std_msgs.msg.String>(
+                TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_SPAWN,
+                msg => { _pedestrianSpawnReqQueue.Enqueue(msg); },
+                qos);
+            SimulatorROS2Node.CreateSubscription<std_msgs.msg.String>(
+                TOPIC_DYNAMIC_CONTROL_PEDESTRIAN_FOLLOW_WAYPOINTS,
+                msg => { _pedestrianFollowWaypointReqQueue.Enqueue(msg); },
+                qos);
 
             SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
                 SRV_DYNAMIC_CONTROL_VEHCILE_SPAWN,
-                msg =>
-                    _spawnReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
+                msg => _spawnReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
 
             SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
                 SRV_DYNAMIC_CONTROL_VEHCILE_FOLLOW_LANE,
@@ -155,6 +172,15 @@ namespace AWSIM.AWAnalysis.CustomSim
             SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
                 SRV_DYNAMIC_CONTROL_MAP_NETWORK,
                 HandleMapNetworkReq);
+            
+            SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
+                SRV_DYNAMIC_CONTROL_PEDESTRIAN_SPAWN,
+                msg =>
+                    _pedestrianSpawnReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
+            SimulatorROS2Node.CreateService<DynamicControl_Request, DynamicControl_Response>(
+                SRV_DYNAMIC_CONTROL_PEDESTRIAN_FOLLOW_WAYPOINTS,
+                msg =>
+                    _pedestrianFollowWaypointReqResDict.GetValueOrDefault(msg.Json_request, UNPROCESSED_REQ()));
         }
 
         private DynamicControl_Response UNPROCESSED_REQ()
@@ -193,7 +219,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 try
                 {
                     var command = JsonUtility.FromJson<DynamicSpawnCommand>(req.Data);
-                    Debug.Log($"Parsed command: {command}");
+                    Debug.Log($"Received SPAWN command: {command}");
                     response = HandleSpawnAction(command);
                 }
                 catch (ArgumentException e)
@@ -213,7 +239,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 try
                 {
                     var command = JsonUtility.FromJson<DynamicFollowLaneCommand>(req.Data);
-                    Debug.Log($"Parsed command: {command}");
+                    Debug.Log($"Received FOLLOW LANE command: {command}");
                     response = HandleFollowLaneAction(command);
                 }
                 catch (ArgumentException e)
@@ -233,7 +259,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 try
                 {
                     var command = JsonUtility.FromJson<DynamicFollowWaypointCommand>(req.Data);
-                    Debug.Log($"Parsed command: {command}");
+                    Debug.Log($"Received FOLLOW WAYPOINTS command: {command}");
                     response = HandleFollowWaypointsAction(command);
                 }
                 catch (ArgumentException e)
@@ -252,7 +278,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 try
                 {
                     var command = JsonUtility.FromJson<SetTargetSpeedCommand>(req.Data);
-                    Debug.Log($"Parsed command: {command}");
+                    Debug.Log($"Received SET SPEED command: {command}");
                     response = HandleSetTargetSpeedAction(command);
                 }
                 catch (ArgumentException e)
@@ -272,7 +298,7 @@ namespace AWSIM.AWAnalysis.CustomSim
                 try
                 {
                     var command = JsonUtility.FromJson<DynamicRemoveCommand>(req.Data);
-                    Debug.Log($"Parsed command: {command}");
+                    Debug.Log($"Recevied REMOVE ACTOR command: {command}");
                     response = HandleRemoveAction(command);
                 }
                 catch (ArgumentException e)
@@ -305,6 +331,46 @@ namespace AWSIM.AWAnalysis.CustomSim
                 }
             }
 
+            while (_pedestrianSpawnReqQueue.Count > 0)
+            {
+                var req = _pedestrianSpawnReqQueue.Dequeue();
+                DynamicControl_Response response = null;
+                try
+                {
+                    var command = JsonUtility.FromJson<DynamicSpawnCommand>(req.Data);
+                    Debug.Log($"Received pedestrian SPAWN command: {command}");
+                    response = HandlePedesSpawn(command);
+                }
+                catch (ArgumentException e)
+                {
+                    response = INVALID_REQ(e);
+                }
+                finally
+                {
+                    _pedestrianSpawnReqResDict[req.Data] = response;
+                }
+            }
+
+            while (_pedestrianFollowWaypointReqQueue.Count > 0)
+            {
+                var req = _pedestrianFollowWaypointReqQueue.Dequeue();
+                DynamicControl_Response response = null;
+                try
+                {
+                    var command = JsonUtility.FromJson<DynamicFollowWaypointCommand>(req.Data);
+                    Debug.Log($"Received pedestrian FOLLOW WAYPOINTS command: {command}");
+                    response = HandlePedesFollowWaypoints(command);
+                }
+                catch (ArgumentException e)
+                {
+                    response = INVALID_REQ(e);
+                }
+                finally
+                {
+                    _pedestrianFollowWaypointReqResDict[req.Data] = response;
+                }
+            }
+
             if (_mapNetworkWrapper == null)
             {
                 _mapNetworkWrapper = ExtractMapNetwork();
@@ -328,6 +394,15 @@ namespace AWSIM.AWAnalysis.CustomSim
                         Success = false
                     }
                 };
+            }
+            
+            // if an actor exists with the same name, remove it first
+            var targetNPC = CustomSimManager.GetNPCs().Find(npc => npc.ScriptName == command.name);
+            if (targetNPC != null)
+            {
+                Debug.LogError($"An NPC with the name {command.name} already exists. Removing it.");
+                if (!RemoveSingleNPC(targetNPC))
+                    Debug.LogError($"Could not remove the NPC {command.name}");
             }
 
             var spawnPosition = new LaneOffsetPosition(lane.name, laneOffset);
@@ -423,7 +498,6 @@ namespace AWSIM.AWAnalysis.CustomSim
             foreach (var point in command.waypoints)
             {
                 waypoints.Add(ROS2Utility.RosMGRSToUnityPosition(point));
-                Debug.Log($"[AWAnalysis] Waypoint: {waypoints.Last()}");
             } 
             PublishMetadata("waypoints", waypoints);
             
@@ -525,6 +599,7 @@ namespace AWSIM.AWAnalysis.CustomSim
         private DynamicControl_Response HandleRemoveAction(DynamicRemoveCommand command)
         {
             List<String> unsuccessfulTargets = new List<String>();
+            List<String> unsuccessfulPedestrians = new List<String>();
             
             if (string.IsNullOrEmpty(command.target))
             {
@@ -536,11 +611,20 @@ namespace AWSIM.AWAnalysis.CustomSim
                     if (!RemoveSingleNPC(npc))
                         unsuccessfulTargets.Add(npc.ScriptName);
                 }
+
+                int noPedes = CustomSimManager.GetPedestrians().Count;
+                for (int i = noPedes - 1; i >= 0; i--)
+                {
+                    var pedes = CustomSimManager.GetPedestrians()[i];
+                    if (!RemoveSinglePedestrian(pedes.Item1))
+                        unsuccessfulPedestrians.Add(pedes.Item1.Name);
+                }
             }
             else
             {
                 var targetNPC = CustomSimManager.GetNPCs().Find(npc => npc.ScriptName == command.target);
-                if (targetNPC == null)
+                var targetPedes = CustomSimManager.GetPedestrians().Find(entry => entry.Item1.Name == command.target);
+                if (targetNPC == null && targetPedes == null)
                 {
                     Debug.LogError($"[AWAnalysis] Target NPC {command.target} not found.");
                     return new DynamicControl_Response
@@ -553,8 +637,12 @@ namespace AWSIM.AWAnalysis.CustomSim
                         }
                     };
                 }
-                if (!RemoveSingleNPC(targetNPC))
-                    unsuccessfulTargets.Add(command.target);
+                if (targetNPC != null)
+                    if (!RemoveSingleNPC(targetNPC))
+                        unsuccessfulTargets.Add(command.target);
+                if (targetPedes != null)
+                    if (!RemoveSinglePedestrian(targetPedes.Item1))
+                        unsuccessfulPedestrians.Add(command.target);
             }
             
             if (unsuccessfulTargets.Count > 0)
@@ -588,6 +676,11 @@ namespace AWSIM.AWAnalysis.CustomSim
         private bool RemoveSingleNPC(NPCVehicle target)
         {
             return CustomSimManager.DespawnNPC(target);
+        }
+
+        private bool RemoveSinglePedestrian(NPCPedes target)
+        {
+            return CustomSimManager.DespawnPedestrian(target);
         }
 
         private bool RemoveVirtualLanes()
@@ -650,6 +743,68 @@ namespace AWSIM.AWAnalysis.CustomSim
                 };
             }
         }
+
+        #region Pedestrian action handling
+
+        private DynamicControl_Response HandlePedesSpawn(DynamicSpawnCommand command)
+        {
+            // if an actor exists with the same name, remove it first
+            var existPedes = CustomSimManager.GetPedestrians().Find(entry => entry.Item1.Name == command.name);
+            if (existPedes != null)
+            {
+                Debug.LogError($"A pedestrian with the name {command.name} already exists. Removing it.");
+                if (!RemoveSinglePedestrian(existPedes.Item1))
+                    Debug.LogError($"Could not remove the pedestrian {command.name}");
+            }
+            
+            NPCPedes npcPedes = new NPCPedes(command.name, ScenarioParser.ParseHumanType(command.body_style), null);
+            npcPedes.Config.Delay = NPCDelayTime.DelayMoveUntilEgoEngaged(float.MaxValue);
+            npcPedes.LastPosition = ROS2Utility.RosMGRSToUnityPosition(command.position);
+            npcPedes.LastRotation = ROS2Utility.RosToUnityRotation(command.orientation);
+            CustomSimManager.SpawnPedestrianAndDelayMovement(npcPedes);
+            Debug.Log($"[AWAnalysis] spawned PEDESTRIAN {command.name}.");
+
+            return new DynamicControl_Response
+            {
+                Status = SuccessResponseStatus()
+            };
+        }
+
+        private DynamicControl_Response HandlePedesFollowWaypoints(DynamicFollowWaypointCommand command)
+        {
+            var targetPedesEntry = CustomSimManager.GetPedestrians().Find(
+                entry => entry.Item1.Name == command.target);
+            if (targetPedesEntry == null)
+            {
+                Debug.LogError($"[AWAnalysis] Target Pedestrian {command.target} not found.");
+                return new DynamicControl_Response
+                {
+                    Status = new ResponseStatus
+                    {
+                        Code = 1,
+                        Message = $"Pedestrian {command.target} not found.",
+                        Success = false
+                    }
+                };
+            }
+            
+            var targetPedes = targetPedesEntry.Item1;
+            List<Vector3> waypoints = new List<Vector3>();
+            foreach (var point in command.waypoints)
+            {
+                waypoints.Add(ROS2Utility.RosMGRSToUnityPosition(point));
+            }
+            
+            CustomSimManager.ResetPedestrianProfile(ref targetPedes, waypoints, command.speed, command.is_speed_defined);
+            CustomSimManager.RemoveDelayFromPedestrian(targetPedes);
+            
+            return new DynamicControl_Response
+            {
+                Status = SuccessResponseStatus()
+            };
+        }
+
+        #endregion
 
         private DynamicControl_Response HandleMapNetworkReq(DynamicControl_Request command)
         {

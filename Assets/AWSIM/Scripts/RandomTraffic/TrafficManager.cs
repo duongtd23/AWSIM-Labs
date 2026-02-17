@@ -302,5 +302,29 @@ namespace AWSIM.TrafficSimulation
 
             Gizmos.color = defaultColor;
         }
+
+        public void AddRandomTrafficInstance(int maxSpawn)
+        {
+            NpcVehicleSimulator.maxVehicleCount = maxSpawn;
+            RandomTrafficSimulator randomTs = new RandomTrafficSimulator(
+                this.gameObject,
+                randomTrafficSims[0].npcPrefabs,
+                randomTrafficSims[0].spawnableLanes,
+                NpcVehicleSimulator,
+                0
+            );
+            targetVehicleCount = maxSpawn;
+            randomTs.enabled = true;
+            _trafficSimulatorNodes.Add(randomTs);
+            
+            System.Array.Resize(ref randomTrafficSims, randomTrafficSims.Length + 1);
+            randomTrafficSims[^1] = new RandomTrafficSimulatorConfiguration()
+            {
+                enabled = true,
+                maximumSpawns = 0,
+                npcPrefabs = randomTrafficSims[0].npcPrefabs,
+                spawnableLanes = randomTrafficSims[0].spawnableLanes
+            };
+        }
     }
 }

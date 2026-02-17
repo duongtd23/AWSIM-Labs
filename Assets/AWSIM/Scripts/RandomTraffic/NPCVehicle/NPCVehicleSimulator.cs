@@ -339,10 +339,8 @@ namespace AWSIM.TrafficSimulation
                 sourceLane.Waypoints[sourceWaypointId + 1] - sourceLane.Waypoints[sourceWaypointId];
             var originRot = Quaternion.LookRotation(vehDirection, Vector3.up).eulerAngles;
 
-            var vehicleHalfWidth = vehicle.GetCarInfo().extents.x;
             var rotateRadian = (float)Math.Asin(lateralWandering.LateralVelocity / lateralWandering.Velocity);
-            var diagonalDistance = (lateralWandering.LatitudeExceeded
-                - vehicleHalfWidth + sourceLane.Width / 2) / Math.Sin(rotateRadian); 
+            var diagonalDistance = lateralWandering.LateralDistance / Math.Sin(rotateRadian); 
             
             if (lateralWandering.WanderDirection == Side.LEFT)
                 originRot -= new Vector3(0, rotateRadian * 180 / (float)Math.PI, 0);

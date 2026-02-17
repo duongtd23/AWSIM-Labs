@@ -7,6 +7,7 @@ namespace AWSIM.AWAnalysis.CustomSim.DynamicCommand
     [System.Serializable]
     public class DynamicFollowWaypointCommand
     {
+        public float timestamp;
         public string target;
         public Vector3Object[] waypoints;
         public float speed = NPCConfig.DUMMY_SPEED;

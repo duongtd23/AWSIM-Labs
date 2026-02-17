@@ -159,6 +159,13 @@ namespace AWSIM.TrafficSimulation
             {
                 for (var i = 0; i < States.Count; i++)
                 {
+                    // Ensure we don't exceed the Results array bounds
+                    if (i >= Results.Length)
+                    {
+                        Debug.LogWarning($"States count ({States.Count}) exceeds allocated capacity ({Results.Length})");
+                        break;
+                    }
+
                     if (States[i].Vehicle == null)
                         return;
 
@@ -169,7 +176,8 @@ namespace AWSIM.TrafficSimulation
                     {
                         var length = Mathf.Min(
                             MaxWaypointCount - dstIndex,
-                            lane.Waypoints.Length - srcIndex);
+                            lane.Waypoints.Length - srcIndex, 
+                            Waypoints.Length - offset - dstIndex);
 
                         NativeArray<Vector3>.Copy(lane.Waypoints, srcIndex, Waypoints, offset + dstIndex, length);
 
@@ -964,6 +972,13 @@ namespace AWSIM.TrafficSimulation
             {
                 for (var i = 0; i < States.Count; i++)
                 {
+                    // Ensure we don't exceed the native array bounds
+                    if (i >= GroundHitInfoArray.Length || i >= ObstacleDistances.Length || i >= IsTurnings.Length)
+                    {
+                        Debug.LogWarning($"State index {i} exceeds native array capacity");
+                        break;
+                    }
+
                     if (GroundHitInfoArray[i].collider == null)
                         States[i].ShouldDespawn = true;
                     
@@ -1055,6 +1070,32 @@ namespace AWSIM.TrafficSimulation
             IReadOnlyList<NPCVehicleInternalState> states,
             Transform egoTransform)
         {
+            // Check if we need to resize native arrays
+            if (states.Count > nativeStates.Length)
+            {
+                Debug.LogWarning($"Reallocating native arrays for {states.Count} vehicles");
+                
+                // Dispose old arrays
+                nativeStates.Dispose();
+                waypoints.Dispose();
+                groundHitInfoArray.Dispose();
+                raycastCommands.Dispose();
+                obstacleHitInfoArray.Dispose();
+                boxcastCommands.Dispose();
+                obstacleDistances.Dispose();
+                isTurnings.Dispose();
+                
+                // Reallocate with new capacity
+                int newCapacity = Mathf.CeilToInt(states.Count * 1.2f);
+                nativeStates = new NativeArray<NativeState>(newCapacity, Allocator.Persistent);
+                waypoints = new NativeArray<Vector3>(newCapacity * MaxWaypointCount, Allocator.Persistent);
+                groundHitInfoArray = new NativeArray<RaycastHit>(newCapacity, Allocator.Persistent);
+                raycastCommands = new NativeArray<RaycastCommand>(newCapacity, Allocator.Persistent);
+                obstacleHitInfoArray = new NativeArray<RaycastHit>(newCapacity * MaxBoxcastCount, Allocator.Persistent);
+                boxcastCommands = new NativeArray<BoxcastCommand>(newCapacity * MaxBoxcastCount, Allocator.Persistent);
+                obstacleDistances = new NativeArray<float>(newCapacity, Allocator.Persistent);
+                isTurnings = new NativeArray<bool>(newCapacity, Allocator.Persistent);
+            }
             Profiler.BeginSample("Cognition.CheckNextWaypoint");
 
             new NextWaypointCheckJob

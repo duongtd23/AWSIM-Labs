@@ -6,6 +6,8 @@ namespace AWSIM.AWAnalysis.CustomSim.DynamicCommand
     [System.Serializable]
     public class SetTargetSpeedCommand
     {
+        public float timestamp;
+        
         public string target;
         public float speed = NPCConfig.DUMMY_SPEED;
         public float acceleration = NPCConfig.DUMMY_ACCELERATION;

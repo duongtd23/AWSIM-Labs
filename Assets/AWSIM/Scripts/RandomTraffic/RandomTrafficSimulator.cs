@@ -105,6 +105,13 @@ namespace AWSIM.TrafficSimulation
                 spawnedVehicle = null;
                 return false;
             }
+            
+            // to disable spawning another NPC after despawning an NPC
+            if (!allowReSpawn && noSpawned > npcVehicleSimulator.maxVehicleCount)
+            {
+                spawnedVehicle = null;
+                return false;
+            }
 
             var vehicle = npcVehicleSpawner.Spawn(prefab, SpawnIdGenerator.Generate(), spawnPoint);
             npcVehicleSimulator.Register(vehicle, spawnPoint.Lane, spawnPoint.WaypointIndex);
@@ -114,6 +121,7 @@ namespace AWSIM.TrafficSimulation
                 currentSpawnNumber++;
 
             spawnedVehicle = vehicle;
+            noSpawned++;
             return true;
         }
 
@@ -121,5 +129,15 @@ namespace AWSIM.TrafficSimulation
         {
             return (currentSpawnNumber == maximumSpawns && maximumSpawns > 0);
         }
+
+        public void ResetMaximumSpawn(int newMaximumSpawn)
+        {
+            maximumSpawns = newMaximumSpawn;
+        }
+        
+        // to prevent spawning another NPC after despawning an NPC
+        bool allowReSpawn = false;
+        protected short noSpawned = 0;
+        
     }
 }

@@ -12,8 +12,8 @@ namespace AWSIM_Script.Object
         public float LateralVelocity { get; set; }
         public float Velocity { get; set; }
         
-        // dy: how far it laterally wanders from the lane boundary 
-        public float LatitudeExceeded { get; set; }
+        // ny: how much it laterally wanders (from center line of the original lane)
+        public float LateralDistance { get; set; }
         
         // the longitudinal distance it travels before going back to the source lane
         public float LongitudeDistance { get; set; }

@@ -18,7 +18,7 @@ namespace AWSIM.Scripts.UI.Toggle
             _controller = _egoVehicle.GetComponent<VPVehicleController>();
 
             // Set the toggle to the current state of the keyboard control mode
-            GetComponent<UnityEngine.UI.Toggle>().isOn = _adapter.ControlModeInput != VPPControlMode.Autonomous;
+            GetComponent<UnityEngine.UI.Toggle>().isOn = _adapter?.ControlModeInput != VPPControlMode.Autonomous;
         }
 
         public void Activate()
@@ -29,7 +29,7 @@ namespace AWSIM.Scripts.UI.Toggle
 
         private void Update()
         {
-            if (_adapter.ControlModeInput == VPPControlMode.Manual)
+            if (_adapter?.ControlModeInput == VPPControlMode.Manual)
             {
                 if (Input.GetKeyDown(KeyCode.P))
                 {

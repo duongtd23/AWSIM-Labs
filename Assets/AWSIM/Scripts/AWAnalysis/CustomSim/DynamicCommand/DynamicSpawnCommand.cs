@@ -6,6 +6,7 @@ namespace AWSIM.AWAnalysis.CustomSim.DynamicCommand
     [System.Serializable]
     public class DynamicSpawnCommand
     {
+        public float timestamp;
         public string name;
         public string body_style;
         public Vector3Object position;

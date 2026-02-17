@@ -6,6 +6,7 @@ namespace AWSIM.AWAnalysis.CustomSim.DynamicCommand
     [System.Serializable]
     public class DynamicFollowLaneCommand
     {
+        public float timestamp;
         public string target;
         public string lane = ""; // if unspecified, will follow the lane currently located on
         public float speed = NPCConfig.DUMMY_SPEED;

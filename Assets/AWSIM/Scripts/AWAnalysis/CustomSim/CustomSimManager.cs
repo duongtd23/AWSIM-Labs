@@ -658,6 +658,15 @@ namespace AWSIM.AWAnalysis.CustomSim
             else DoSpawnPedestrian(ref pedestrian);
         }
 
+        public static void SpawnPedestrianAndDelayMovement(NPCPedes npcPedes)
+        {
+            GameObject pedesGameObj = UnityEngine.Object.Instantiate(Manager().GetNPCPrefab(npcPedes.PedType),
+                npcPedes.LastPosition,
+                npcPedes.LastRotation);
+            NPCPedestrian pedestrian = pedesGameObj.GetComponent<NPCPedestrian>();
+            GetPedestrians().Add(Tuple.Create(npcPedes,pedestrian));
+        }
+
         private static NPCPedestrian DoSpawnPedestrian(ref NPCPedes npcPedes)
         {
             if (npcPedes.Waypoints?.Count < 2)
@@ -998,6 +1007,34 @@ namespace AWSIM.AWAnalysis.CustomSim
             }
             internalState.FollowingLanes = new List<TrafficLane>{route};
             internalState.WaypointIndex = 0;
+        }
+
+        public static void ResetPedestrianProfile(ref NPCPedes pedestrian, List<Vector3> waypoints, float speed,
+            bool isSpeedDefined)
+        {
+            pedestrian.Waypoints = waypoints;
+            if (isSpeedDefined)
+                pedestrian.Config.Speed = speed;
+            pedestrian.Config.Loop = true; // TODO: enable config from client
+        }
+
+        public static void RemoveDelayFromPedestrian(NPCPedes pedestrian, float delay=0f)
+        {
+            pedestrian.Config.Delay = NPCDelayTime.DelayMove(delay);
+        }
+        
+        // despawn NPC pedestrian
+        public static bool DespawnPedestrian(NPCPedes pedestrian)
+        {
+            var internalState = Manager()._pedestrians.Find(entry => entry.Item1.Name == pedestrian.Name);
+            if (internalState != null)
+            {
+                UnityEngine.Object.Destroy(internalState.Item2.gameObject);
+                Manager()._pedestrians.Remove(internalState);
+                return true;
+                // Debug.LogError($"[AWAnalysis] Could not find internal state of {vehicle}.");
+            }
+            return false;
         }
     }
 }
