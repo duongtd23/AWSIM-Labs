@@ -36,6 +36,9 @@ namespace AWSIM.AWAnalysis.Monitor
         IPublisher<std_msgs.msg.String> _metadataPublisher;
         private std_msgs.msg.String _metadata = new (){Data = "{}"};
         
+        readonly IPublisher<aw_monitor.msg.ExecutionState> _executionStatePublisher;
+        private aw_monitor.msg.ExecutionState _executionStateMsg;
+        
         public GroundTruthInfoPublisher(Camera sensorCamera)
         {
             _egoVehicle = EgoSingletonInstance.AutowareEgoVehicle;
@@ -45,6 +48,7 @@ namespace AWSIM.AWAnalysis.Monitor
             gtKinematicPublisher = SimulatorROS2Node.CreatePublisher<GroundtruthKinematic>(gtKinematicTopic, qosSettings.GetQoSProfile());
             gtSizePublisher = SimulatorROS2Node.CreatePublisher<GroundtruthSize>(gtSizeTopic, qosSettings.GetQoSProfile());
             _metadataPublisher = SimulatorROS2Node.CreatePublisher<std_msgs.msg.String>(metadataTopic, qosSettings.GetQoSProfile());
+            _executionStatePublisher = SimulatorROS2Node.CreatePublisher<aw_monitor.msg.ExecutionState>("/simulation/gt/execution_state", qosSettings.GetQoSProfile());
 
             _egoSize = StatusExtraction.GetEgoSize(EgoSingletonInstance.AutowareEgoCarGameObject, true);
 
@@ -102,6 +106,7 @@ namespace AWSIM.AWAnalysis.Monitor
         {
             PublishKinematic();
             PublishGtSize();
+            PublishExecutionState();
         }
 
         public void PublishKinematic()
@@ -179,6 +184,19 @@ namespace AWSIM.AWAnalysis.Monitor
                 Other_note = "",
             };
             gtSizePublisher.Publish(_gtSizeMsg);
+        }
+        
+        private void PublishExecutionState()
+        {
+            _executionStateMsg = new aw_monitor.msg.ExecutionState()
+            {
+                Stamp = SimulatorROS2Node.GetCurrentRosTime(),
+                Motion_state = ExecutionStateTracker.MotionState,
+                Routing_state = ExecutionStateTracker.RoutingState,
+                Operation_state = ExecutionStateTracker.OperationState,
+                Is_autonomous_mode_available = ExecutionStateTracker.IsAutonomousModeAvailable,
+            };
+            _executionStatePublisher.Publish(_executionStateMsg);
         }
         
         // public functions
